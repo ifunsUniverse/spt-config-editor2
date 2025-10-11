@@ -1,19 +1,62 @@
 import { useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface PathSelectorProps {
   onPathSelected: (path: string) => void;
+  onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
 }
 
-export const PathSelector = ({ onPathSelected }: PathSelectorProps) => {
+export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorProps) => {
   const [path, setPath] = useState("");
+  const [isScanning, setIsScanning] = useState(false);
 
   const handleSelectPath = () => {
     if (path.trim()) {
       onPathSelected(path);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    try {
+      // Check if File System Access API is supported
+      if (!("showDirectoryPicker" in window)) {
+        toast.error("Browser not supported", {
+          description: "Your browser doesn't support folder selection. Try Chrome, Edge, or Opera."
+        });
+        return;
+      }
+
+      setIsScanning(true);
+      
+      // Open folder picker
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: "readwrite",
+      });
+
+      setPath(dirHandle.name);
+      
+      toast.success("Folder selected", {
+        description: "Scanning for mods..."
+      });
+
+      onFolderSelected(dirHandle);
+      
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        // User cancelled, do nothing
+        return;
+      }
+      
+      console.error("Error selecting folder:", error);
+      toast.error("Failed to select folder", {
+        description: error.message || "Could not access the selected folder"
+      });
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -40,23 +83,28 @@ export const PathSelector = ({ onPathSelected }: PathSelectorProps) => {
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">
-              Installation Path
+              Select Your SPT Folder
             </label>
-            <div className="flex gap-2">
-              <Input
-                value={path}
-                onChange={(e) => setPath(e.target.value)}
-                placeholder="e.g., C:/SPT/"
-                className="flex-1 bg-input border-border text-foreground"
-              />
-              <Button
-                onClick={handleSelectPath}
-                disabled={!path.trim()}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
-              >
-                Browse
-              </Button>
-            </div>
+            <Button
+              onClick={handleSelectFolder}
+              disabled={isScanning}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-24 text-lg gap-3"
+            >
+              {isScanning ? (
+                <>
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  Scanning folder...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-6 h-6" />
+                  Select SPT Installation Folder
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Click to browse and select your SPT installation directory
+            </p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -70,7 +118,7 @@ export const PathSelector = ({ onPathSelected }: PathSelectorProps) => {
             variant="outline"
             className="w-full border-border hover:bg-secondary"
           >
-            Use Demo Path (for testing)
+            Use Demo Data (for testing)
           </Button>
         </div>
 
