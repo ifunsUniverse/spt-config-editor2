@@ -52,9 +52,18 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
       }
       
       console.error("Error selecting folder:", error);
-      toast.error("Failed to select folder", {
-        description: error.message || "Could not access the selected folder"
-      });
+      
+      // Check if it's the iframe security error
+      if (error.message?.includes("cross origin") || error.message?.includes("iframe")) {
+        toast.error("Can't use folder picker in preview", {
+          description: "The folder picker doesn't work in Lovable's preview. Deploy your app to use this feature, or use Demo Data for now.",
+          duration: 6000
+        });
+      } else {
+        toast.error("Failed to select folder", {
+          description: error.message || "Could not access the selected folder"
+        });
+      }
     } finally {
       setIsScanning(false);
     }
@@ -78,6 +87,14 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
           <p className="text-muted-foreground">
             Select your SPT installation directory to begin
           </p>
+          
+          {/* Preview warning */}
+          <div className="mt-4 p-3 rounded-lg bg-warning/10 border border-warning/20">
+            <p className="text-xs text-warning-foreground">
+              <strong>Note:</strong> Folder selection doesn't work in Lovable's preview due to browser security.
+              Use Demo Data for now, or deploy your app to use real folders.
+            </p>
+          </div>
         </div>
 
         <div className="space-y-4">
