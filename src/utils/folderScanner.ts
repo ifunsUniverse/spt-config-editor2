@@ -108,7 +108,7 @@ async function scanModFolder(
 }
 
 /**
- * Scans a directory for JSON config files
+ * Scans a directory for JSON and JSON5 config files
  */
 async function scanConfigFiles(
   dirHandle: FileSystemDirectoryHandle
@@ -117,11 +117,18 @@ async function scanConfigFiles(
 
   // @ts-ignore - values() exists but TypeScript doesn't recognize it
   for await (const entry of dirHandle.values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".json")) {
+    // Accept both .json and .JSON5 files (case insensitive)
+    const isConfigFile = entry.kind === "file" && 
+      (entry.name.toLowerCase().endsWith(".json") || 
+       entry.name.toLowerCase().endsWith(".json5"));
+    
+    if (isConfigFile) {
       try {
         const fileHandle = entry as FileSystemFileHandle;
         const file = await fileHandle.getFile();
         const text = await file.text();
+        
+        // Parse JSON (JSON5 is mostly compatible with JSON parser)
         const json = JSON.parse(text);
 
         // Only include if it looks like a config (has usable properties)
@@ -149,13 +156,13 @@ function isValidConfig(json: any): boolean {
   if (!json || typeof json !== "object") return false;
   
   // Exclude package.json and other metadata files
-  const excludedFields = ["name", "version", "author", "license", "main", "dependencies"];
+  const excludedFields = ["name", "version", "author", "license", "main", "dependencies", "scripts", "devDependencies"];
   const keys = Object.keys(json);
   
   // If it only has metadata fields, it's not a config
   if (keys.every(key => excludedFields.includes(key))) return false;
   
-  // Must have at least one configurable field
+  // Exclude files named package.json
   return keys.length > 0;
 }
 

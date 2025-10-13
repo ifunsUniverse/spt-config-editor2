@@ -1,10 +1,20 @@
 import { useState } from "react";
 import { PathSelector } from "@/components/PathSelector";
-import { ModList, Mod } from "@/components/ModList";
+import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // Mock data for demonstration
 const MOCK_MODS: Mod[] = [
@@ -57,6 +67,8 @@ const Index = () => {
   const [scannedMods, setScannedMods] = useState<ScannedMod[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingModSwitch, setPendingModSwitch] = useState<{ modId: string; configIndex: number } | null>(null);
 
   const handlePathSelected = (path: string) => {
     setSptPath(path);
@@ -102,10 +114,47 @@ const Index = () => {
     }
   };
 
+  const handleSelectMod = (modId: string, configIndex: number) => {
+    if (hasUnsavedChanges) {
+      setPendingModSwitch({ modId, configIndex });
+    } else {
+      setSelectedModId(modId);
+      setSelectedConfigIndex(configIndex);
+      setHasUnsavedChanges(false);
+    }
+  };
+
+  const handleSaveAndSwitch = async () => {
+    if (pendingModSwitch) {
+      // Save current changes
+      const selectedMod = scannedMods.find(m => m.mod.id === selectedModId);
+      if (selectedMod) {
+        const config = selectedMod.configs[selectedConfigIndex];
+        // Note: This would need the current values from ConfigEditor
+        // For now, we'll just switch
+      }
+      
+      setSelectedModId(pendingModSwitch.modId);
+      setSelectedConfigIndex(pendingModSwitch.configIndex);
+      setHasUnsavedChanges(false);
+      setPendingModSwitch(null);
+    }
+  };
+
+  const handleDiscardAndSwitch = () => {
+    if (pendingModSwitch) {
+      setSelectedModId(pendingModSwitch.modId);
+      setSelectedConfigIndex(pendingModSwitch.configIndex);
+      setHasUnsavedChanges(false);
+      setPendingModSwitch(null);
+    }
+  };
+
   const handleSaveConfig = async (values: ConfigValue[]) => {
     if (scannedMods.length === 0) {
       // Demo mode - just log
       console.log("Saving config:", values);
+      setHasUnsavedChanges(false);
       return;
     }
 
@@ -122,6 +171,7 @@ const Index = () => {
         values,
         config.rawJson
       );
+      setHasUnsavedChanges(false);
     } catch (error: any) {
       toast.error("Save failed", {
         description: error.message || "Could not save the config file"
@@ -156,46 +206,91 @@ const Index = () => {
     ? scannedMods.map(sm => sm.mod)
     : MOCK_MODS;
 
+  // Build config files map
+  const configFilesMap: Record<string, ConfigFile[]> = {};
+  if (scannedMods.length > 0) {
+    scannedMods.forEach(sm => {
+      configFilesMap[sm.mod.id] = sm.configs.map((cfg, idx) => ({
+        fileName: cfg.fileName,
+        index: idx
+      }));
+    });
+  } else {
+    // Mock data - create placeholder config files
+    MOCK_MODS.forEach(mod => {
+      configFilesMap[mod.id] = [{ fileName: "config.json", index: 0 }];
+    });
+  }
+
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
   const selectedMod = selectedScannedMod?.mod || MOCK_MODS.find(m => m.id === selectedModId);
 
   // Get config data
   let configFile = "config.json";
   let configValues: ConfigValue[] = [];
+  let rawJson = {};
 
   if (selectedScannedMod) {
     const config = selectedScannedMod.configs[selectedConfigIndex];
     if (config) {
       configFile = config.fileName;
       configValues = config.values;
+      rawJson = config.rawJson;
     }
   } else if (selectedModId) {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
 
   return (
-    <div className="flex w-full h-screen overflow-hidden">
-      <ModList
-        mods={mods}
-        selectedModId={selectedModId}
-        onSelectMod={(id) => {
-          setSelectedModId(id);
-          setSelectedConfigIndex(0);
-        }}
-      />
-      {selectedMod && selectedModId ? (
-        <ConfigEditor
-          modName={selectedMod.name}
-          configFile={configFile}
-          values={configValues}
-          onSave={handleSaveConfig}
+    <>
+      <div className="flex w-full h-screen overflow-hidden">
+        <ModList
+          mods={mods}
+          configFiles={configFilesMap}
+          selectedModId={selectedModId}
+          selectedConfigIndex={selectedConfigIndex}
+          onSelectMod={handleSelectMod}
         />
-      ) : (
-        <div className="flex-1 flex items-center justify-center bg-background">
-          <p className="text-muted-foreground">Select a mod to view configs</p>
-        </div>
-      )}
-    </div>
+        {selectedMod && selectedModId ? (
+          <ConfigEditor
+            modName={selectedMod.name}
+            configFile={configFile}
+            values={configValues}
+            rawJson={rawJson}
+            onSave={handleSaveConfig}
+            hasUnsavedChanges={hasUnsavedChanges}
+            onChangesDetected={setHasUnsavedChanges}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center bg-background">
+            <p className="text-muted-foreground">Select a config file to edit</p>
+          </div>
+        )}
+      </div>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Do you want to save them before switching to another config?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingModSwitch(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDiscardAndSwitch} className="bg-destructive hover:bg-destructive/90">
+              Discard Changes
+            </AlertDialogAction>
+            <AlertDialogAction onClick={handleSaveAndSwitch}>
+              Save and Switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
