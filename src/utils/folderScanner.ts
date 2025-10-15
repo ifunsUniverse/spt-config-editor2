@@ -69,21 +69,8 @@ async function scanModFolder(
       // No package.json, use folder name
     }
 
-    // Scan for config files
-    const configs: ScannedConfig[] = [];
-    
-    // Look for config folder
-    try {
-      const configHandle = await modHandle.getDirectoryHandle("config", { create: false });
-      const configFiles = await scanConfigFiles(configHandle);
-      configs.push(...configFiles);
-    } catch {
-      // No config folder, check root
-    }
-
-    // Also check root level for config files
-    const rootConfigs = await scanConfigFiles(modHandle);
-    configs.push(...rootConfigs);
+    // Recursively scan entire mod folder for all config files
+    const configs = await scanConfigFilesRecursive(modHandle);
 
     if (configs.length === 0) {
       return null; // Skip mods with no configs
@@ -108,41 +95,53 @@ async function scanModFolder(
 }
 
 /**
- * Scans a directory for JSON and JSON5 config files
+ * Recursively scans a directory and all subdirectories for JSON and JSON5 config files
  */
-async function scanConfigFiles(
-  dirHandle: FileSystemDirectoryHandle
+async function scanConfigFilesRecursive(
+  dirHandle: FileSystemDirectoryHandle,
+  relativePath: string = ""
 ): Promise<ScannedConfig[]> {
   const configs: ScannedConfig[] = [];
 
   // @ts-ignore - values() exists but TypeScript doesn't recognize it
   for await (const entry of dirHandle.values()) {
-    // Accept both .json and .JSON5 files (case insensitive)
-    const isConfigFile = entry.kind === "file" && 
-      (entry.name.toLowerCase().endsWith(".json") || 
-       entry.name.toLowerCase().endsWith(".json5"));
-    
-    if (isConfigFile) {
-      try {
-        const fileHandle = entry as FileSystemFileHandle;
-        const file = await fileHandle.getFile();
-        const text = await file.text();
-        
-        // Parse JSON (JSON5 is mostly compatible with JSON parser)
-        const json = JSON.parse(text);
+    if (entry.kind === "file") {
+      // Accept both .json and .JSON5 files (case insensitive)
+      const isConfigFile = 
+        entry.name.toLowerCase().endsWith(".json") || 
+        entry.name.toLowerCase().endsWith(".json5");
+      
+      if (isConfigFile) {
+        try {
+          const fileHandle = entry as FileSystemFileHandle;
+          const file = await fileHandle.getFile();
+          const text = await file.text();
+          
+          // Parse JSON (JSON5 is mostly compatible with JSON parser)
+          const json = JSON.parse(text);
 
-        // Only include if it looks like a config (has usable properties)
-        if (isValidConfig(json)) {
-          const values = jsonToConfigValues(json);
-          configs.push({
-            fileName: entry.name,
-            values,
-            rawJson: json,
-          });
+          // Only include if it looks like a config (has usable properties)
+          if (isValidConfig(json)) {
+            const values = jsonToConfigValues(json);
+            const displayName = relativePath 
+              ? `${relativePath}/${entry.name}` 
+              : entry.name;
+            configs.push({
+              fileName: displayName,
+              values,
+              rawJson: json,
+            });
+          }
+        } catch (error) {
+          console.warn(`Could not parse ${entry.name}:`, error);
         }
-      } catch (error) {
-        console.warn(`Could not parse ${entry.name}:`, error);
       }
+    } else if (entry.kind === "directory") {
+      // Recursively scan subdirectories
+      const subDirHandle = entry as FileSystemDirectoryHandle;
+      const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const subConfigs = await scanConfigFilesRecursive(subDirHandle, subPath);
+      configs.push(...subConfigs);
     }
   }
 
@@ -240,17 +239,17 @@ export async function saveConfigToFile(
     // Reconstruct JSON from values
     const updatedJson = configValuesToJson(values, originalJson);
 
-    // Get file handle
-    let fileHandle: FileSystemFileHandle;
+    // Navigate to the correct file handle using the path
+    const pathParts = fileName.split("/");
+    let currentHandle: FileSystemDirectoryHandle = modHandle;
     
-    try {
-      // Try config folder first
-      const configHandle = await modHandle.getDirectoryHandle("config", { create: false });
-      fileHandle = await configHandle.getFileHandle(fileName, { create: false });
-    } catch {
-      // Fall back to root
-      fileHandle = await modHandle.getFileHandle(fileName, { create: false });
+    // Navigate through directories
+    for (let i = 0; i < pathParts.length - 1; i++) {
+      currentHandle = await currentHandle.getDirectoryHandle(pathParts[i], { create: false });
     }
+    
+    // Get the file handle
+    const fileHandle = await currentHandle.getFileHandle(pathParts[pathParts.length - 1], { create: false });
 
     // Write file
     const writable = await fileHandle.createWritable();
