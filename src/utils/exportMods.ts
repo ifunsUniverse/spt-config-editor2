@@ -38,8 +38,14 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> 
     await addDirectoryToZip(zip, scannedMod.folderHandle, modPath);
   }
 
-  // Generate and download the ZIP
-  const blob = await zip.generateAsync({ type: "blob" });
+  // Generate and download the ZIP with streaming and compression
+  const blob = await zip.generateAsync({ 
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+    streamFiles: true
+  });
+  
   const url = URL.createObjectURL(blob);
   
   const link = document.createElement("a");
@@ -49,5 +55,6 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> 
   link.click();
   document.body.removeChild(link);
   
-  URL.revokeObjectURL(url);
+  // Clean up the URL object
+  setTimeout(() => URL.revokeObjectURL(url), 100);
 }
