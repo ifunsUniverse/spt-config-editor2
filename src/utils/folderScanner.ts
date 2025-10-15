@@ -1,5 +1,6 @@
 import { Mod } from "@/components/ModList";
 import { ConfigValue } from "@/components/ConfigEditor";
+import JSON5 from "json5";
 
 export interface ScannedConfig {
   fileName: string;
@@ -117,8 +118,10 @@ async function scanConfigFilesRecursive(
           const file = await fileHandle.getFile();
           const text = await file.text();
           
-          // Parse JSON (JSON5 is mostly compatible with JSON parser)
-          const json = JSON.parse(text);
+          // Parse JSON/JSON5 - JSON5 supports comments, trailing commas, etc.
+          const json = entry.name.toLowerCase().endsWith(".json5") 
+            ? JSON5.parse(text) 
+            : JSON.parse(text);
 
           // Only include if it looks like a config (has usable properties)
           if (isValidConfig(json)) {
@@ -251,9 +254,12 @@ export async function saveConfigToFile(
     // Get the file handle
     const fileHandle = await currentHandle.getFileHandle(pathParts[pathParts.length - 1], { create: false });
 
-    // Write file
+    // Write file - use JSON5 for .json5 files to preserve syntax
     const writable = await fileHandle.createWritable();
-    await writable.write(JSON.stringify(updatedJson, null, 2));
+    const content = fileName.toLowerCase().endsWith(".json5")
+      ? JSON5.stringify(updatedJson, null, 2)
+      : JSON.stringify(updatedJson, null, 2);
+    await writable.write(content);
     await writable.close();
   } catch (error) {
     console.error("Error saving config:", error);
