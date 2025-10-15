@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Search, Code, Columns } from "lucide-react";
+import { Save, RotateCcw, Search, Code, Columns, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -25,6 +25,7 @@ interface ConfigEditorProps {
   onSave: (values: ConfigValue[]) => void;
   hasUnsavedChanges?: boolean;
   onChangesDetected?: (hasChanges: boolean) => void;
+  onExportMods?: () => void;
 }
 
 type ViewMode = "structured" | "raw";
@@ -36,7 +37,8 @@ export const ConfigEditor = ({
   rawJson,
   onSave,
   hasUnsavedChanges,
-  onChangesDetected
+  onChangesDetected,
+  onExportMods
 }: ConfigEditorProps) => {
   const [values, setValues] = useState<ConfigValue[]>(initialValues);
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
@@ -191,6 +193,17 @@ export const ConfigEditor = ({
               <Save className="w-4 h-4" />
               Save Changes
             </Button>
+            {onExportMods && (
+              <Button
+                onClick={onExportMods}
+                size="sm"
+                variant="secondary"
+                className="gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Pack & Export
+              </Button>
+            )}
           </div>
         </div>
 

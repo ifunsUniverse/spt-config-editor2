@@ -281,6 +281,7 @@ const Index = () => {
             onSave={handleSaveConfig}
             hasUnsavedChanges={hasUnsavedChanges}
             onChangesDetected={setHasUnsavedChanges}
+            onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">
@@ -288,18 +289,6 @@ const Index = () => {
           </div>
         )}
       </div>
-
-      {/* Export Button - appears when mods are loaded */}
-      {scannedMods.length > 0 && (
-        <Button
-          onClick={handleExportMods}
-          className="fixed bottom-6 right-6 shadow-lg"
-          size="lg"
-        >
-          <Package className="mr-2 h-5 w-5" />
-          Pack & Export
-        </Button>
-      )}
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>
