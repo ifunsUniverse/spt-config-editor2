@@ -3,8 +3,10 @@ import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
+import { exportModsAsZip } from "@/utils/exportMods";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -180,6 +182,25 @@ const Index = () => {
     }
   };
 
+  const handleExportMods = async () => {
+    if (scannedMods.length === 0) {
+      toast.error("No mods to export");
+      return;
+    }
+
+    try {
+      toast.loading("Creating ZIP file...");
+      await exportModsAsZip(scannedMods);
+      toast.success("Export complete!", {
+        description: "SPT Mods.zip has been downloaded"
+      });
+    } catch (error: any) {
+      toast.error("Export failed", {
+        description: error.message || "Could not create ZIP file"
+      });
+    }
+  };
+
   if (!sptPath) {
     return (
       <PathSelector 
@@ -267,6 +288,18 @@ const Index = () => {
           </div>
         )}
       </div>
+
+      {/* Export Button - appears when mods are loaded */}
+      {scannedMods.length > 0 && (
+        <Button
+          onClick={handleExportMods}
+          className="fixed bottom-6 right-6 shadow-lg"
+          size="lg"
+        >
+          <Package className="mr-2 h-5 w-5" />
+          Pack & Export
+        </Button>
+      )}
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>
