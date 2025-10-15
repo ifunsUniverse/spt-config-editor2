@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Package, ChevronDown, ChevronRight, FileJson } from "lucide-react";
+import { Package, ChevronDown, ChevronRight, FileJson, Search } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -34,6 +35,7 @@ export const ModList = ({
   const [expandedMods, setExpandedMods] = useState<Set<string>>(
     new Set(selectedModId ? [selectedModId] : [])
   );
+  const [searchQuery, setSearchQuery] = useState("");
 
   const toggleMod = (modId: string) => {
     setExpandedMods(prev => {
@@ -47,16 +49,32 @@ export const ModList = ({
     });
   };
 
+  const filteredMods = mods.filter(mod => 
+    mod.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="w-80 border-r border-border bg-sidebar flex flex-col h-screen">
-      <div className="p-4 border-b border-sidebar-border">
-        <h2 className="text-lg font-semibold text-sidebar-foreground">MODS</h2>
-        <p className="text-sm text-muted-foreground">{mods.length} mods found</p>
+      <div className="p-4 border-b border-sidebar-border space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold text-sidebar-foreground">MODS</h2>
+          <p className="text-sm text-muted-foreground">{mods.length} mods found</p>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search mods..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
       </div>
       
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {mods.map((mod) => {
+          {filteredMods.map((mod) => {
             const isExpanded = expandedMods.has(mod.id);
             const modConfigs = configFiles[mod.id] || [];
             
