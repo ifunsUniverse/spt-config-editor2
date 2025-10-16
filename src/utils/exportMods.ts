@@ -28,7 +28,10 @@ async function addDirectoryToZip(
  * Exports all scanned mods as a ZIP file with user/mods structure
  * Returns the blob URL for downloading
  */
-export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<string> {
+export async function exportModsAsZip(
+  scannedMods: ScannedMod[],
+  onProgress?: (percent: number, currentFile?: string) => void
+): Promise<string> {
   const zip = new JSZip();
 
   // Add each mod folder to user/mods/[modFolder]
@@ -40,12 +43,21 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<string
   }
 
   // Generate the ZIP with streaming and compression
-  const blob = await zip.generateAsync({ 
-    type: "blob",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-    streamFiles: true
-  });
+  const blob = await zip.generateAsync(
+    {
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 5 },
+      streamFiles: true
+    },
+    (metadata: any) => {
+      try {
+        const percent = typeof metadata?.percent === "number" ? metadata.percent : 0;
+        const currentFile = (metadata as any)?.currentFile as string | undefined;
+        onProgress?.(percent, currentFile);
+      } catch {}
+    }
+  );
   
   const url = URL.createObjectURL(blob);
   return url;

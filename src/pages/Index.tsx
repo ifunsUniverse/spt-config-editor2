@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Progress } from "@/components/ui/progress";
 
 // Mock data for demonstration
 const MOCK_MODS: Mod[] = [
@@ -72,6 +73,11 @@ const Index = () => {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingModSwitch, setPendingModSwitch] = useState<{ modId: string; configIndex: number } | null>(null);
   const [zipBlobUrl, setZipBlobUrl] = useState<string | null>(null);
+  const [zipProgress, setZipProgress] = useState(0);
+  const [zipCurrentFile, setZipCurrentFile] = useState<string | undefined>(undefined);
+  const [zipStartTime, setZipStartTime] = useState<number | null>(null);
+  const [showZipProgress, setShowZipProgress] = useState(false);
+  const [editedModIds, setEditedModIds] = useState<Set<string>>(new Set());
 
   const handlePathSelected = (path: string) => {
     setSptPath(path);
@@ -175,6 +181,13 @@ const Index = () => {
         config.rawJson
       );
       setHasUnsavedChanges(false);
+      if (selectedModId) {
+        setEditedModIds((prev) => {
+          const next = new Set(prev);
+          next.add(selectedModId);
+          return next;
+        });
+      }
     } catch (error: any) {
       toast.error("Save failed", {
         description: error.message || "Could not save the config file"
@@ -183,25 +196,41 @@ const Index = () => {
     }
   };
 
-  const handleExportMods = async () => {
-    if (scannedMods.length === 0) {
-      toast.error("No mods to export");
-      return;
-    }
+const handleExportMods = async () => {
+  if (scannedMods.length === 0) {
+    toast.error("No mods to export");
+    return;
+  }
 
-    try {
-      const loadingToast = toast.loading("Creating ZIP file...");
-      const blobUrl = await exportModsAsZip(scannedMods);
-      toast.dismiss(loadingToast);
-      
-      setZipBlobUrl(blobUrl);
-      toast.success("Export successful – ZIP is ready to download.");
-    } catch (error: any) {
-      toast.error("Export failed", {
-        description: error.message || "Could not create ZIP file"
-      });
-    }
-  };
+  const modsToExport = scannedMods.filter((m) => editedModIds.has(m.mod.id));
+  if (modsToExport.length === 0) {
+    toast.info("No edited mods to export", {
+      description: "Make some changes and save before exporting.",
+    });
+    return;
+  }
+
+  try {
+    setZipProgress(0);
+    setZipCurrentFile(undefined);
+    setZipStartTime(Date.now());
+    setShowZipProgress(true);
+
+    const blobUrl = await exportModsAsZip(modsToExport, (percent, currentFile) => {
+      setZipProgress(percent);
+      setZipCurrentFile(currentFile);
+    });
+
+    setShowZipProgress(false);
+    setZipBlobUrl(blobUrl);
+    toast.success("Export successful – ZIP is ready to download.");
+  } catch (error: any) {
+    setShowZipProgress(false);
+    toast.error("Export failed", {
+      description: error.message || "Could not create ZIP file",
+    });
+  }
+};
 
   const handleDownloadZip = () => {
     if (zipBlobUrl) {
@@ -296,7 +325,16 @@ const Index = () => {
             rawJson={rawJson}
             onSave={handleSaveConfig}
             hasUnsavedChanges={hasUnsavedChanges}
-            onChangesDetected={setHasUnsavedChanges}
+            onChangesDetected={(has) => {
+              setHasUnsavedChanges(has);
+              if (has && selectedModId) {
+                setEditedModIds((prev) => {
+                  const next = new Set(prev);
+                  next.add(selectedModId);
+                  return next;
+                });
+              }
+            }}
             onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
           />
         ) : (
@@ -319,13 +357,37 @@ const Index = () => {
             <AlertDialogCancel onClick={() => setPendingModSwitch(null)}>
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDiscardAndSwitch} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction onClick={handleDiscardAndSwitch} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Discard Changes
             </AlertDialogAction>
             <AlertDialogAction onClick={handleSaveAndSwitch}>
               Save and Switch
             </AlertDialogAction>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ZIP Progress Dialog */}
+      <AlertDialog open={showZipProgress} onOpenChange={(open) => !open && setShowZipProgress(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Creating ZIP...</AlertDialogTitle>
+            <AlertDialogDescription>
+              {zipCurrentFile ? `Compressing: ${zipCurrentFile}` : "Preparing files..."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Progress value={zipProgress} />
+            <p className="text-xs text-muted-foreground">
+              {`${zipProgress.toFixed(0)}%`}
+              {zipStartTime && zipProgress > 0
+                ? ` • ~${Math.max(
+                    1,
+                    Math.round(((Date.now() - zipStartTime) / 1000) * (100 - zipProgress) / zipProgress),
+                  )}s remaining`
+                : ""}
+            </p>
+          </div>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -341,13 +403,14 @@ const Index = () => {
           <AlertDialogFooter>
             <AlertDialogCancel 
               onClick={handleCancelDownload}
-              className="bg-gray-700 text-white hover:bg-red-600 hover:text-white"
+              className="bg-secondary text-secondary-foreground hover:bg-destructive hover:text-destructive-foreground"
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDownloadZip}
-              className="bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/50"
+              autoFocus
+              className="bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success"
             >
               Download
             </AlertDialogAction>
