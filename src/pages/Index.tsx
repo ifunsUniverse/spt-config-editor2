@@ -78,6 +78,8 @@ const Index = () => {
   const [zipStartTime, setZipStartTime] = useState<number | null>(null);
   const [showZipProgress, setShowZipProgress] = useState(false);
   const [editedModIds, setEditedModIds] = useState<Set<string>>(new Set());
+  const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState<"mods" | "favorites">("mods");
 
   const handlePathSelected = (path: string) => {
     setSptPath(path);
@@ -246,6 +248,18 @@ const handleExportMods = async () => {
     }
   };
 
+  const handleToggleFavorite = (modId: string) => {
+    setFavoritedModIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(modId)) {
+        newSet.delete(modId);
+      } else {
+        newSet.add(modId);
+      }
+      return newSet;
+    });
+  };
+
   if (!sptPath) {
     return (
       <PathSelector 
@@ -310,13 +324,35 @@ const handleExportMods = async () => {
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden">
-        <ModList
-          mods={mods}
-          configFiles={configFilesMap}
-          selectedModId={selectedModId}
-          selectedConfigIndex={selectedConfigIndex}
-          onSelectMod={handleSelectMod}
-        />
+        <div className="w-80 border-r border-border bg-card">
+          <div className="border-b border-border px-4 pt-4 pb-2">
+            <div className="flex gap-1 mb-2">
+              <Button
+                variant={activeTab === "mods" ? "default" : "ghost"}
+                onClick={() => setActiveTab("mods")}
+                className="flex-1"
+              >
+                Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
+              </Button>
+              <Button
+                variant={activeTab === "favorites" ? "default" : "ghost"}
+                onClick={() => setActiveTab("favorites")}
+                className="flex-1"
+              >
+                Favorites ({favoritedModIds.size})
+              </Button>
+            </div>
+          </div>
+          <ModList
+            mods={activeTab === "mods" ? mods.filter(m => !favoritedModIds.has(m.id)) : mods.filter(m => favoritedModIds.has(m.id))}
+            configFiles={configFilesMap}
+            selectedModId={selectedModId}
+            selectedConfigIndex={selectedConfigIndex}
+            onSelectMod={handleSelectMod}
+            favoritedModIds={favoritedModIds}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        </div>
         {selectedMod && selectedModId ? (
           <ConfigEditor
             modName={selectedMod.name}

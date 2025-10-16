@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Package, ChevronDown, ChevronRight, FileJson, Search } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ChevronRight, Star } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 export interface Mod {
   id: string;
@@ -21,114 +22,110 @@ interface ModListProps {
   mods: Mod[];
   configFiles: Record<string, ConfigFile[]>;
   selectedModId: string | null;
-  selectedConfigIndex: number;
-  onSelectMod: (modId: string, configIndex: number) => void;
+  selectedConfigIndex: number | null;
+  onSelectMod: (modId: string, configIndex?: number) => void;
+  favoritedModIds: Set<string>;
+  onToggleFavorite: (modId: string) => void;
 }
 
 export const ModList = ({ 
   mods, 
-  configFiles,
+  configFiles, 
   selectedModId, 
-  selectedConfigIndex,
-  onSelectMod 
+  selectedConfigIndex, 
+  onSelectMod,
+  favoritedModIds,
+  onToggleFavorite
 }: ModListProps) => {
-  const [expandedMods, setExpandedMods] = useState<Set<string>>(
-    new Set(selectedModId ? [selectedModId] : [])
-  );
+  const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
 
   const toggleMod = (modId: string) => {
-    setExpandedMods(prev => {
-      const next = new Set(prev);
-      if (next.has(modId)) {
-        next.delete(modId);
-      } else {
-        next.add(modId);
-      }
-      return next;
-    });
+    setExpandedMods(prev => ({
+      ...prev,
+      [modId]: !prev[modId]
+    }));
   };
 
-  const filteredMods = mods.filter(mod => 
+  const filteredMods = mods.filter(mod =>
     mod.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="w-80 border-r border-border bg-sidebar flex flex-col h-screen">
-      <div className="p-4 border-b border-sidebar-border space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold text-sidebar-foreground">MODS</h2>
-          <p className="text-sm text-muted-foreground">{mods.length} mods found</p>
-        </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search mods..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+    <div className="flex flex-col h-full bg-card">
+      <div className="p-4 border-b border-border">
+        <Input
+          placeholder="Search mods..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="bg-input border-border"
+        />
       </div>
-      
-      <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+      <ScrollArea className="flex-1 px-4 py-2">
+        <div className="space-y-2">
           {filteredMods.map((mod) => {
-            const isExpanded = expandedMods.has(mod.id);
             const modConfigs = configFiles[mod.id] || [];
-            
             return (
-              <Collapsible
-                key={mod.id}
-                open={isExpanded}
-                onOpenChange={() => toggleMod(mod.id)}
-              >
-                <CollapsibleTrigger
-                  className={cn(
-                    "w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left hover:bg-sidebar-accent",
-                    selectedModId === mod.id && "bg-sidebar-accent"
-                  )}
+              <Card key={mod.id} className="overflow-hidden border-border">
+                <Collapsible
+                  open={expandedMods[mod.id]}
+                  onOpenChange={() => toggleMod(mod.id)}
                 >
-                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Package className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sidebar-foreground truncate">
-                      {mod.name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      v{mod.version} • {mod.configCount} configs
-                    </div>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                  )}
-                </CollapsibleTrigger>
-                
-                <CollapsibleContent className="mt-1">
-                  <div className="ml-4 pl-4 border-l-2 border-border space-y-1">
-                    {modConfigs.map((config) => (
-                      <button
-                        key={config.index}
-                        onClick={() => onSelectMod(mod.id, config.index)}
-                        className={cn(
-                          "w-full flex items-center gap-2 p-2 rounded-md transition-colors text-left text-sm",
-                          "hover:bg-sidebar-accent/50",
-                          selectedModId === mod.id && selectedConfigIndex === config.index
-                            ? "bg-primary/20 text-primary font-medium"
-                            : "text-sidebar-foreground"
-                        )}
+                  <CollapsibleTrigger
+                    className="flex items-center justify-between w-full p-4 hover:bg-accent rounded-lg transition-colors"
+                    onClick={() => toggleMod(mod.id)}
+                  >
+                    <div className="flex items-center gap-3 flex-1">
+                      <ChevronRight 
+                        className={`h-4 w-4 transition-transform ${
+                          expandedMods[mod.id] ? "rotate-90" : ""
+                        }`}
+                      />
+                      <div className="text-left flex-1">
+                        <h3 className="font-semibold">{mod.name}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleFavorite(mod.id);
+                        }}
+                        className="h-8 w-8 shrink-0"
                       >
-                        <FileJson className="w-4 h-4 flex-shrink-0" />
-                        <span className="truncate">{config.fileName}</span>
-                      </button>
-                    ))}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
+                        <Star
+                          className={`h-4 w-4 ${
+                            favoritedModIds.has(mod.id) 
+                              ? "fill-yellow-400 text-yellow-400" 
+                              : "text-muted-foreground"
+                          }`}
+                        />
+                      </Button>
+                    </div>
+                  </CollapsibleTrigger>
+
+                  <CollapsibleContent>
+                    <div className="px-4 pb-2">
+                      {modConfigs.map((cfg) => (
+                        <button
+                          key={cfg.index}
+                          onClick={() => onSelectMod(mod.id, cfg.index)}
+                          className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${
+                            selectedModId === mod.id && selectedConfigIndex === cfg.index
+                              ? "bg-primary/20 text-primary font-medium"
+                              : "hover:bg-accent text-muted-foreground"
+                          }`}
+                        >
+                          {cfg.fileName}
+                        </button>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
             );
           })}
         </div>
