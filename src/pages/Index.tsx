@@ -3,7 +3,7 @@ import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
-import { exportModsAsZip } from "@/utils/exportMods";
+import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { toast } from "sonner";
 import { Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,7 @@ const Index = () => {
   const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingModSwitch, setPendingModSwitch] = useState<{ modId: string; configIndex: number } | null>(null);
+  const [zipBlobUrl, setZipBlobUrl] = useState<string | null>(null);
 
   const handlePathSelected = (path: string) => {
     setSptPath(path);
@@ -189,15 +190,30 @@ const Index = () => {
     }
 
     try {
-      toast.loading("Creating ZIP file...");
-      await exportModsAsZip(scannedMods);
-      toast.success("Export complete!", {
-        description: "SPT Mods.zip has been downloaded"
-      });
+      const loadingToast = toast.loading("Creating ZIP file...");
+      const blobUrl = await exportModsAsZip(scannedMods);
+      toast.dismiss(loadingToast);
+      
+      setZipBlobUrl(blobUrl);
+      toast.success("Export successful – ZIP is ready to download.");
     } catch (error: any) {
       toast.error("Export failed", {
         description: error.message || "Could not create ZIP file"
       });
+    }
+  };
+
+  const handleDownloadZip = () => {
+    if (zipBlobUrl) {
+      downloadZipFromUrl(zipBlobUrl);
+      setZipBlobUrl(null);
+    }
+  };
+
+  const handleCancelDownload = () => {
+    if (zipBlobUrl) {
+      URL.revokeObjectURL(zipBlobUrl);
+      setZipBlobUrl(null);
     }
   };
 
@@ -308,6 +324,32 @@ const Index = () => {
             </AlertDialogAction>
             <AlertDialogAction onClick={handleSaveAndSwitch}>
               Save and Switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Download Confirmation Dialog */}
+      <AlertDialog open={zipBlobUrl !== null} onOpenChange={(open) => !open && handleCancelDownload()}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Zip Created. Would you like to download it?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your mods have been packaged and are ready to download as SPT Mods.zip
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              onClick={handleCancelDownload}
+              className="bg-gray-700 text-white hover:bg-red-600 hover:text-white"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDownloadZip}
+              className="bg-green-600 text-white hover:bg-green-500 hover:shadow-lg hover:shadow-green-500/50"
+            >
+              Download
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -26,8 +26,9 @@ async function addDirectoryToZip(
 
 /**
  * Exports all scanned mods as a ZIP file with user/mods structure
+ * Returns the blob URL for downloading
  */
-export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> {
+export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<string> {
   const zip = new JSZip();
 
   // Add each mod folder to user/mods/[modFolder]
@@ -38,7 +39,7 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> 
     await addDirectoryToZip(zip, scannedMod.folderHandle, modPath);
   }
 
-  // Generate and download the ZIP with streaming and compression
+  // Generate the ZIP with streaming and compression
   const blob = await zip.generateAsync({ 
     type: "blob",
     compression: "DEFLATE",
@@ -47,7 +48,13 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> 
   });
   
   const url = URL.createObjectURL(blob);
-  
+  return url;
+}
+
+/**
+ * Triggers download of the ZIP file from a blob URL
+ */
+export function downloadZipFromUrl(url: string): void {
   const link = document.createElement("a");
   link.href = url;
   link.download = "SPT Mods.zip";
@@ -55,6 +62,6 @@ export async function exportModsAsZip(scannedMods: ScannedMod[]): Promise<void> 
   link.click();
   document.body.removeChild(link);
   
-  // Clean up the URL object
+  // Clean up the URL object after download
   setTimeout(() => URL.revokeObjectURL(url), 100);
 }
