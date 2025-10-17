@@ -178,22 +178,20 @@ export const ConfigEditor = ({
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-6">
-          <div className="space-y-2">
-            <Textarea
-              value={rawText}
-              onChange={(e) => handleRawTextChange(e.target.value)}
-              className="font-mono text-sm min-h-[600px] leading-relaxed bg-card border-border"
-              placeholder="Edit JSON/JSON5 configuration..."
-              spellCheck={false}
-            />
-            <p className="text-xs text-muted-foreground">
-              Supports JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
-            </p>
-          </div>
+      <div className="flex-1 flex flex-col overflow-hidden p-6">
+        <div className="flex-1 flex flex-col space-y-2">
+          <Textarea
+            value={rawText}
+            onChange={(e) => handleRawTextChange(e.target.value)}
+            className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
+            placeholder="Edit JSON/JSON5 configuration..."
+            spellCheck={false}
+          />
+          <p className="text-xs text-muted-foreground shrink-0">
+            Supports JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
+          </p>
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
