@@ -125,7 +125,7 @@ export const ConfigEditor = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-screen bg-background">
+    <div className="flex-1 flex flex-col h-full bg-background">
       {/* Header */}
       <div className="border-b border-border p-4">
         <div className="flex items-center justify-between mb-4">

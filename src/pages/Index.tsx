@@ -324,8 +324,8 @@ const handleExportMods = async () => {
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden">
-        <div className="w-80 border-r border-border bg-card">
-          <div className="border-b border-border px-4 pt-4 pb-2">
+        <div className="w-80 border-r border-border bg-card flex flex-col h-full">
+          <div className="border-b border-border px-4 pt-4 pb-2 shrink-0">
             <div className="flex gap-1 mb-2">
               <Button
                 variant={activeTab === "mods" ? "default" : "ghost"}
@@ -343,7 +343,8 @@ const handleExportMods = async () => {
               </Button>
             </div>
           </div>
-          <ModList
+          <div className="flex-1 overflow-hidden">
+            <ModList
             mods={activeTab === "mods" ? mods.filter(m => !favoritedModIds.has(m.id)) : mods.filter(m => favoritedModIds.has(m.id))}
             configFiles={configFilesMap}
             selectedModId={selectedModId}
@@ -351,7 +352,8 @@ const handleExportMods = async () => {
             onSelectMod={handleSelectMod}
             favoritedModIds={favoritedModIds}
             onToggleFavorite={handleToggleFavorite}
-          />
+            />
+          </div>
         </div>
         {selectedMod && selectedModId ? (
           <ConfigEditor
