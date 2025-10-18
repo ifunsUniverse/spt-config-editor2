@@ -23,11 +23,51 @@ import { Progress } from "@/components/ui/progress";
 
 // Mock data for demonstration
 const MOCK_MODS: Mod[] = [
-  { id: "1", name: "Ammo Stats Tweaker", version: "1.2.0", configCount: 3 },
-  { id: "2", name: "Realism Mod", version: "2.5.1", configCount: 8 },
-  { id: "3", name: "Trader Plus", version: "1.0.5", configCount: 2 },
-  { id: "4", name: "Quest Editor", version: "3.1.0", configCount: 5 },
-  { id: "5", name: "Loot Enhancer", version: "1.8.2", configCount: 4 },
+  { id: "1", name: "Ammo Stats Tweaker", version: "1.2.0", configCount: 1 },
+  { id: "2", name: "Realism Mod", version: "2.5.1", configCount: 1 },
+  { id: "3", name: "Trader Plus", version: "1.0.5", configCount: 1 },
+  { id: "4", name: "Quest Editor", version: "3.1.0", configCount: 1 },
+  { id: "5", name: "Loot Enhancer", version: "1.8.2", configCount: 1 },
+  { id: "6", name: "SAIN AI", version: "3.4.2", configCount: 1 },
+  { id: "7", name: "Fika Multiplayer", version: "2.1.8", configCount: 1 },
+  { id: "8", name: "Path to Tarkov", version: "4.2.1", configCount: 1 },
+  { id: "9", name: "Munitions Expert", version: "1.5.3", configCount: 1 },
+  { id: "10", name: "Better Spawns", version: "2.8.0", configCount: 1 },
+  { id: "11", name: "Advanced Ballistics", version: "1.9.4", configCount: 1 },
+  { id: "12", name: "Scav Raiders", version: "1.3.7", configCount: 1 },
+  { id: "13", name: "Rogue Rogues", version: "2.0.1", configCount: 1 },
+  { id: "14", name: "Boss Spawner", version: "3.2.5", configCount: 1 },
+  { id: "15", name: "Item Spawn Multiplier", version: "1.4.0", configCount: 1 },
+  { id: "16", name: "Hideout Plus", version: "2.7.3", configCount: 1 },
+  { id: "17", name: "Flea Market Tweaks", version: "1.6.8", configCount: 1 },
+  { id: "18", name: "Insurance Timer", version: "1.1.2", configCount: 1 },
+  { id: "19", name: "Skill Progression", version: "2.3.4", configCount: 1 },
+  { id: "20", name: "Map Tweaker", version: "1.8.9", configCount: 1 },
+  { id: "21", name: "PMC Extended", version: "3.5.1", configCount: 1 },
+  { id: "22", name: "Weapon Durability", version: "1.2.6", configCount: 1 },
+  { id: "23", name: "Medical Overhaul", version: "2.4.2", configCount: 1 },
+  { id: "24", name: "Stamina Rework", version: "1.7.5", configCount: 1 },
+  { id: "25", name: "Armor Penetration Fix", version: "2.1.3", configCount: 1 },
+  { id: "26", name: "Container Looting", version: "1.5.8", configCount: 1 },
+  { id: "27", name: "Custom Traders", version: "3.3.0", configCount: 1 },
+  { id: "28", name: "Raid Timer Control", version: "1.9.1", configCount: 1 },
+  { id: "29", name: "Secured Container Edit", version: "2.2.4", configCount: 1 },
+  { id: "30", name: "Labs Key Manager", version: "1.4.7", configCount: 1 },
+  { id: "31", name: "Extract Camping", version: "2.6.2", configCount: 1 },
+  { id: "32", name: "Weather Manager", version: "1.8.3", configCount: 1 },
+  { id: "33", name: "Night Vision Plus", version: "2.0.9", configCount: 1 },
+  { id: "34", name: "Scav Loadout", version: "1.3.5", configCount: 1 },
+  { id: "35", name: "Starting Gear", version: "2.5.6", configCount: 1 },
+  { id: "36", name: "Economy Balancer", version: "3.1.8", configCount: 1 },
+  { id: "37", name: "Repair Costs", version: "1.6.4", configCount: 1 },
+  { id: "38", name: "Food & Water Tweaks", version: "2.3.7", configCount: 1 },
+  { id: "39", name: "Fence Reputation", version: "1.7.2", configCount: 1 },
+  { id: "40", name: "Scav Karma Plus", version: "2.4.9", configCount: 1 },
+  { id: "41", name: "Doors Unlocked", version: "1.2.1", configCount: 1 },
+  { id: "42", name: "Grenade Tweaks", version: "1.5.3", configCount: 1 },
+  { id: "43", name: "Pain System", version: "2.1.6", configCount: 1 },
+  { id: "44", name: "Bleed Damage", version: "1.4.8", configCount: 1 },
+  { id: "45", name: "Task Rewards", version: "3.2.2", configCount: 1 },
 ];
 
 const MOCK_CONFIGS: Record<string, ConfigValue[]> = {
@@ -35,17 +75,11 @@ const MOCK_CONFIGS: Record<string, ConfigValue[]> = {
     { key: "enableDamageModifier", value: true, type: "boolean", description: "Enable custom damage modifications" },
     { key: "damageMultiplier", value: 1.5, type: "number", description: "Global damage multiplier" },
     { key: "penetrationMode", value: "realistic", type: "select", options: ["arcade", "realistic", "hardcore"], description: "Armor penetration calculation mode" },
-    { key: "enableTracer", value: false, type: "boolean", description: "Show tracer rounds" },
   ],
   "2": [
     { key: "realismLevel", value: 75, type: "number", description: "Overall realism intensity (0-100)" },
     { key: "enableStamina", value: true, type: "boolean", description: "Enable realistic stamina system" },
-    { key: "weatherEffects", value: true, type: "boolean", description: "Weather affects gameplay" },
     { key: "difficultyMode", value: "hard", type: "select", options: ["easy", "normal", "hard", "extreme"], description: "AI difficulty preset" },
-    { key: "gunJamming", value: true, type: "boolean", description: "Weapons can jam when dirty" },
-    { key: "jamFrequency", value: 15, type: "number", description: "Jam chance percentage" },
-    { key: "enableHunger", value: true, type: "boolean", description: "Hunger system active" },
-    { key: "quickHealKey", value: "H", type: "keybind", description: "Keybind for quick heal" },
   ],
   "3": [
     { key: "unlockAllTraders", value: false, type: "boolean", description: "Unlock all traders at level 1" },
@@ -54,15 +88,170 @@ const MOCK_CONFIGS: Record<string, ConfigValue[]> = {
   "4": [
     { key: "skipIntroQuests", value: false, type: "boolean", description: "Automatically complete intro quests" },
     { key: "questRewardMultiplier", value: 1.0, type: "number", description: "Multiply quest rewards" },
-    { key: "enableCustomQuests", value: true, type: "boolean", description: "Load custom quest files" },
-    { key: "questDifficulty", value: "normal", type: "select", options: ["easy", "normal", "hard"], description: "Quest objective difficulty" },
-    { key: "showQuestMarkers", value: true, type: "boolean", description: "Show quest objectives on map" },
   ],
   "5": [
     { key: "lootMultiplier", value: 1.2, type: "number", description: "Loot spawn rate multiplier" },
     { key: "rareItemChance", value: 25, type: "number", description: "Rare item spawn chance %" },
-    { key: "enableKeySpawns", value: true, type: "boolean", description: "Allow keys to spawn in world" },
-    { key: "lootQuality", value: "high", type: "select", options: ["low", "normal", "high", "extreme"], description: "Overall loot quality" },
+  ],
+  "6": [
+    { key: "aiDifficulty", value: 50, type: "number", description: "AI difficulty level (0-100)" },
+    { key: "hearingDistance", value: 75, type: "number", description: "AI hearing range in meters" },
+  ],
+  "7": [
+    { key: "maxPlayers", value: 4, type: "number", description: "Maximum players per raid" },
+    { key: "enableFriendlyFire", value: true, type: "boolean", description: "Allow damage to teammates" },
+  ],
+  "8": [
+    { key: "progressionSpeed", value: 1.5, type: "number", description: "Quest progression multiplier" },
+    { key: "openWorldMode", value: false, type: "boolean", description: "Enable open world features" },
+  ],
+  "9": [
+    { key: "showAmmoStats", value: true, type: "boolean", description: "Display detailed ammo statistics" },
+    { key: "penetrationChanceBonus", value: 10, type: "number", description: "Bonus penetration %" },
+  ],
+  "10": [
+    { key: "bossSpawnChance", value: 35, type: "number", description: "Boss spawn chance %" },
+    { key: "dynamicSpawns", value: true, type: "boolean", description: "Enable dynamic spawn system" },
+  ],
+  "11": [
+    { key: "bulletDrop", value: true, type: "boolean", description: "Enable realistic bullet drop" },
+    { key: "windEffect", value: false, type: "boolean", description: "Wind affects bullets" },
+  ],
+  "12": [
+    { key: "raiderSpawnChance", value: 40, type: "number", description: "Raider spawn chance %" },
+    { key: "raiderDifficulty", value: 80, type: "number", description: "Raider AI difficulty" },
+  ],
+  "13": [
+    { key: "rogueAggression", value: 65, type: "number", description: "Rogue aggression level" },
+    { key: "roguePatrolRadius", value: 150, type: "number", description: "Patrol radius in meters" },
+  ],
+  "14": [
+    { key: "reshalaChance", value: 30, type: "number", description: "Reshala spawn chance %" },
+    { key: "glukharChance", value: 25, type: "number", description: "Gluhar spawn chance %" },
+  ],
+  "15": [
+    { key: "globalLootMultiplier", value: 1.5, type: "number", description: "Global loot multiplier" },
+    { key: "containerMultiplier", value: 2.0, type: "number", description: "Container loot multiplier" },
+  ],
+  "16": [
+    { key: "craftingSpeedBonus", value: 50, type: "number", description: "Crafting speed bonus %" },
+    { key: "fuelConsumption", value: 0.5, type: "number", description: "Fuel consumption rate" },
+  ],
+  "17": [
+    { key: "fleaLevelRequirement", value: 15, type: "number", description: "Level required for flea market" },
+    { key: "fleaTaxMultiplier", value: 1.0, type: "number", description: "Flea market tax multiplier" },
+  ],
+  "18": [
+    { key: "insuranceReturnTime", value: 24, type: "number", description: "Insurance return hours" },
+    { key: "insuranceSuccessRate", value: 80, type: "number", description: "Insurance success rate %" },
+  ],
+  "19": [
+    { key: "skillGainMultiplier", value: 2.0, type: "number", description: "Skill gain multiplier" },
+    { key: "maxSkillLevel", value: 51, type: "number", description: "Maximum skill level" },
+  ],
+  "20": [
+    { key: "extractTime", value: 45, type: "number", description: "Raid time in minutes" },
+    { key: "scavExtractTime", value: 25, type: "number", description: "Scav raid time in minutes" },
+  ],
+  "21": [
+    { key: "pmcInventorySize", value: 10, type: "number", description: "PMC inventory rows" },
+    { key: "startingLevel", value: 1, type: "number", description: "Starting PMC level" },
+  ],
+  "22": [
+    { key: "durabilityLossRate", value: 0.8, type: "number", description: "Durability loss multiplier" },
+    { key: "jamChanceMultiplier", value: 1.2, type: "number", description: "Weapon jam chance multiplier" },
+  ],
+  "23": [
+    { key: "healingSpeed", value: 1.5, type: "number", description: "Healing speed multiplier" },
+    { key: "surgerySuccessRate", value: 90, type: "number", description: "Surgery success rate %" },
+  ],
+  "24": [
+    { key: "staminaDrainRate", value: 1.0, type: "number", description: "Stamina drain multiplier" },
+    { key: "sprintSpeedBonus", value: 5, type: "number", description: "Sprint speed bonus %" },
+  ],
+  "25": [
+    { key: "armorEffectiveness", value: 1.2, type: "number", description: "Armor effectiveness multiplier" },
+    { key: "penetrationDamage", value: 1.1, type: "number", description: "Penetration damage multiplier" },
+  ],
+  "26": [
+    { key: "instantLooting", value: false, type: "boolean", description: "Enable instant looting" },
+    { key: "lootingSpeed", value: 1.5, type: "number", description: "Looting speed multiplier" },
+  ],
+  "27": [
+    { key: "customTraderStock", value: true, type: "boolean", description: "Enable custom trader inventory" },
+    { key: "traderLoyaltyBonus", value: 10, type: "number", description: "Loyalty gain bonus %" },
+  ],
+  "28": [
+    { key: "raidDuration", value: 60, type: "number", description: "Raid duration in minutes" },
+    { key: "noTimeLimit", value: false, type: "boolean", description: "Remove time limit" },
+  ],
+  "29": [
+    { key: "containerSize", value: 9, type: "number", description: "Secured container slots" },
+    { key: "allowWeapons", value: false, type: "boolean", description: "Allow weapons in container" },
+  ],
+  "30": [
+    { key: "labsKeycardRequired", value: false, type: "boolean", description: "Labs requires keycard" },
+    { key: "labsKeycardConsume", value: true, type: "boolean", description: "Consume keycard on use" },
+  ],
+  "31": [
+    { key: "extractCampersEnabled", value: true, type: "boolean", description: "Spawn extract campers" },
+    { key: "camperSpawnChance", value: 20, type: "number", description: "Camper spawn chance %" },
+  ],
+  "32": [
+    { key: "weatherVariety", value: true, type: "boolean", description: "Enable varied weather" },
+    { key: "rainChance", value: 30, type: "number", description: "Rain chance %" },
+  ],
+  "33": [
+    { key: "nvgBrightness", value: 1.3, type: "number", description: "Night vision brightness" },
+    { key: "thermalRange", value: 150, type: "number", description: "Thermal range in meters" },
+  ],
+  "34": [
+    { key: "scavStartingGear", value: "random", type: "select", options: ["poor", "random", "good"], description: "Scav starting gear quality" },
+    { key: "weaponChance", value: 80, type: "number", description: "Weapon spawn chance %" },
+  ],
+  "35": [
+    { key: "startingRubles", value: 500000, type: "number", description: "Starting rubles" },
+    { key: "startingDollars", value: 5000, type: "number", description: "Starting dollars" },
+  ],
+  "36": [
+    { key: "priceMultiplier", value: 1.0, type: "number", description: "Global price multiplier" },
+    { key: "fleaPriceAdjust", value: 0, type: "number", description: "Flea price adjustment %" },
+  ],
+  "37": [
+    { key: "armorRepairCost", value: 0.5, type: "number", description: "Armor repair cost multiplier" },
+    { key: "weaponRepairCost", value: 0.7, type: "number", description: "Weapon repair cost multiplier" },
+  ],
+  "38": [
+    { key: "hungerRate", value: 1.0, type: "number", description: "Hunger rate multiplier" },
+    { key: "hydrationRate", value: 1.0, type: "number", description: "Hydration rate multiplier" },
+  ],
+  "39": [
+    { key: "fenceRepGainBonus", value: 20, type: "number", description: "Fence rep gain bonus %" },
+    { key: "scavCooldownReduction", value: 10, type: "number", description: "Scav cooldown reduction %" },
+  ],
+  "40": [
+    { key: "karmaGainMultiplier", value: 1.5, type: "number", description: "Karma gain multiplier" },
+    { key: "karmaLossMultiplier", value: 0.8, type: "number", description: "Karma loss multiplier" },
+  ],
+  "41": [
+    { key: "unlockAllDoors", value: false, type: "boolean", description: "Unlock all locked doors" },
+    { key: "requireKeys", value: true, type: "boolean", description: "Still require keys" },
+  ],
+  "42": [
+    { key: "grenadeRadius", value: 1.2, type: "number", description: "Grenade blast radius multiplier" },
+    { key: "fuzeTime", value: 3.5, type: "number", description: "Grenade fuse time in seconds" },
+  ],
+  "43": [
+    { key: "painDuration", value: 1.0, type: "number", description: "Pain effect duration multiplier" },
+    { key: "painkillersEffectiveness", value: 1.2, type: "number", description: "Painkillers effectiveness" },
+  ],
+  "44": [
+    { key: "bleedDamageRate", value: 1.0, type: "number", description: "Bleed damage multiplier" },
+    { key: "heavyBleedMultiplier", value: 1.5, type: "number", description: "Heavy bleed damage multiplier" },
+  ],
+  "45": [
+    { key: "experienceReward", value: 1.5, type: "number", description: "Task XP multiplier" },
+    { key: "moneyReward", value: 1.3, type: "number", description: "Task money multiplier" },
   ],
 };
 
