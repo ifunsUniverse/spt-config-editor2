@@ -108,7 +108,7 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
           {!isElectron() && (
             <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20">
               <p className="text-xs text-foreground">
-                <strong>Tip:</strong> For the best experience, download the desktop app for full file system access.
+                <strong>Tip:</strong> Without the desktop app, you're basically editing with a broken arm.
               </p>
             </div>
           )}
@@ -141,19 +141,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">OR</span>
-            <div className="flex-1 h-px bg-border" />
-          </div>
-
-          <Button
-            onClick={handleSimulatePath}
-            variant="outline"
-            className="w-full border-border hover:bg-secondary"
-          >
-            Use Demo Data (for testing)
-          </Button>
         </div>
 
         <div className="text-xs text-muted-foreground space-y-1">
