@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
+import { ResizableBox } from "@/components/ResizableBox";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
@@ -613,7 +614,7 @@ const handleExportMods = async () => {
 
   return (
     <>
-      <div className="flex w-full h-screen overflow-hidden">
+      <div className="flex w-full h-screen overflow-hidden relative">
         <div className="w-72 border-r border-border bg-card flex flex-col h-full">
           <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
             <div className="flex gap-1 mb-1.5">
@@ -704,6 +705,14 @@ const handleExportMods = async () => {
             <p className="text-muted-foreground">Select a config file to edit</p>
           </div>
         )}
+
+        {/* Resizable Box Overlay */}
+        <ResizableBox
+          initialX={150}
+          initialY={120}
+          initialWidth={250}
+          initialHeight={180}
+        />
       </div>
 
       {/* Unsaved Changes Dialog */}
