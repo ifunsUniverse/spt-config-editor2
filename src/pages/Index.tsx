@@ -281,15 +281,6 @@ const Index = () => {
     localStorage.setItem("spt-favorites", JSON.stringify(Array.from(favoritedModIds)));
   }, [favoritedModIds]);
 
-  const handlePathSelected = (path: string) => {
-    setSptPath(path);
-    // Use mock data for demo
-    setScannedMods([]);
-    if (MOCK_MODS.length > 0) {
-      setSelectedModId(MOCK_MODS[0].id);
-    }
-  };
-
   const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
     setIsScanning(true);
     
@@ -553,7 +544,6 @@ const handleExportMods = async () => {
   if (!sptPath) {
     return (
       <PathSelector 
-        onPathSelected={handlePathSelected}
         onFolderSelected={handleFolderSelected}
       />
     );

@@ -7,11 +7,10 @@ import { toast } from "sonner";
 import { isElectron, electronAPI } from "@/utils/electronBridge";
 
 interface PathSelectorProps {
-  onPathSelected: (path: string) => void;
   onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
 }
 
-export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorProps) => {
+export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [lastFolderPath, setLastFolderPath] = useState<string | null>(null);
@@ -24,11 +23,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
     }
   }, []);
 
-  const handleSelectPath = () => {
-    if (path.trim()) {
-      onPathSelected(path);
-    }
-  };
 
   const handleSelectFolder = async () => {
     try {
@@ -140,12 +134,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
     }
   };
 
-  const handleSimulatePath = () => {
-    // Simulate a valid SPT installation path for demo
-    const demoPath = "C:/SPT/";
-    setPath(demoPath);
-    onPathSelected(demoPath);
-  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
@@ -216,23 +204,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
               )}
             </Button>
           </div>
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">Or</span>
-            </div>
-          </div>
-
-          <Button
-            onClick={() => onPathSelected("DEMO_MODE")}
-            variant="secondary"
-            className="w-full"
-          >
-            Try Demo Mode (45 Mods)
-          </Button>
 
         </div>
 
