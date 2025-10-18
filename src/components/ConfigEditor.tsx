@@ -1,13 +1,11 @@
-import { useState, useEffect, useRef } from "react";
-import { Save, RotateCcw, Package, AlertCircle, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Save, RotateCcw, Package, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import JSON5 from "json5";
-import CodeMirror, { EditorView, ReactCodeMirrorRef } from "@uiw/react-codemirror";
-import { json } from "@codemirror/lang-json";
-import { linter, Diagnostic } from "@codemirror/lint";
 
 export interface ConfigValue {
   key: string;
@@ -40,54 +38,13 @@ export const ConfigEditor = ({
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
-  const [errors, setErrors] = useState<Diagnostic[]>([]);
-  const [currentErrorIndex, setCurrentErrorIndex] = useState(0);
-  const editorRef = useRef<ReactCodeMirrorRef>(null);
-
-  // JSON5 linter for CodeMirror
-  const json5Linter = linter((view) => {
-    const diagnostics: Diagnostic[] = [];
-    const text = view.state.doc.toString();
-    
-    try {
-      JSON5.parse(text);
-    } catch (error: any) {
-      // Try to extract line and column from error message
-      const match = error.message.match(/at (\d+):(\d+)/);
-      if (match) {
-        const line = parseInt(match[1]) - 1;
-        const col = parseInt(match[2]) - 1;
-        const lineObj = view.state.doc.line(Math.min(line + 1, view.state.doc.lines));
-        const from = lineObj.from + Math.min(col, lineObj.length);
-        const to = Math.min(from + 1, lineObj.to);
-        
-        diagnostics.push({
-          from,
-          to,
-          severity: "error",
-          message: error.message.replace(/JSON5: /, ""),
-        });
-      } else {
-        // Generic error at start of document
-        diagnostics.push({
-          from: 0,
-          to: 1,
-          severity: "error",
-          message: error.message.replace(/JSON5: /, ""),
-        });
-      }
-    }
-    
-    setErrors(diagnostics);
-    return diagnostics;
-  });
+  const [jsonError, setJsonError] = useState<string | null>(null);
 
   // Reset when config changes
   useEffect(() => {
     setRawText(JSON.stringify(rawJson, null, 2));
     setHasChanges(false);
-    setErrors([]);
-    setCurrentErrorIndex(0);
+    setJsonError(null);
     if (onChangesDetected) {
       onChangesDetected(false);
     }
@@ -97,26 +54,16 @@ export const ConfigEditor = ({
     setRawText(text);
     const newHasChanges = true;
     setHasChanges(newHasChanges);
-    setCurrentErrorIndex(0);
     if (onChangesDetected) {
       onChangesDetected(newHasChanges);
     }
-  };
-
-  const jumpToNextError = () => {
-    if (errors.length === 0) return;
     
-    const nextIndex = (currentErrorIndex + 1) % errors.length;
-    setCurrentErrorIndex(nextIndex);
-    
-    const error = errors[nextIndex];
-    const view = editorRef.current?.view;
-    if (view) {
-      view.dispatch({
-        selection: { anchor: error.from, head: error.to },
-        scrollIntoView: true,
-      });
-      view.focus();
+    // Validate JSON/JSON5
+    try {
+      JSON5.parse(text);
+      setJsonError(null);
+    } catch (error: any) {
+      setJsonError(error.message);
     }
   };
 
@@ -150,8 +97,7 @@ export const ConfigEditor = ({
   const handleReset = () => {
     setRawText(JSON.stringify(rawJson, null, 2));
     setHasChanges(false);
-    setErrors([]);
-    setCurrentErrorIndex(0);
+    setJsonError(null);
     if (onChangesDetected) {
       onChangesDetected(false);
     }
@@ -200,7 +146,7 @@ export const ConfigEditor = ({
             </Button>
             <Button
               onClick={handleSave}
-              disabled={!hasChanges || errors.length > 0}
+              disabled={!hasChanges || jsonError !== null}
               size="sm"
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
             >
@@ -221,14 +167,11 @@ export const ConfigEditor = ({
           </div>
         </div>
 
-        {errors.length > 0 && (
+        {jsonError && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <span className="font-medium">
-                {errors.length} syntax {errors.length === 1 ? "error" : "errors"} found
-              </span>
-              {errors.length > 0 && ": " + errors[currentErrorIndex].message}
+              <span className="font-medium">JSON/JSON5 Error:</span> {jsonError}
             </AlertDescription>
           </Alert>
         )}
@@ -236,70 +179,16 @@ export const ConfigEditor = ({
 
       {/* Content */}
       <div className="flex-1 flex flex-col overflow-hidden p-6">
-        <div className="flex-1 flex flex-col space-y-2 relative">
-          <div className="flex-1 border border-border rounded-md overflow-hidden relative">
-            <div className="h-full overflow-auto">
-              <CodeMirror
-                ref={editorRef}
-                value={rawText}
-                onChange={handleRawTextChange}
-                extensions={[json(), json5Linter]}
-                theme="dark"
-                basicSetup={{
-                  lineNumbers: true,
-                  highlightActiveLineGutter: true,
-                  highlightSpecialChars: true,
-                  foldGutter: true,
-                  drawSelection: true,
-                  dropCursor: true,
-                  allowMultipleSelections: true,
-                  indentOnInput: true,
-                  bracketMatching: true,
-                  closeBrackets: true,
-                  autocompletion: true,
-                  rectangularSelection: true,
-                  crosshairCursor: true,
-                  highlightActiveLine: true,
-                  highlightSelectionMatches: true,
-                  closeBracketsKeymap: true,
-                  searchKeymap: true,
-                  foldKeymap: true,
-                  completionKeymap: true,
-                  lintKeymap: true,
-                }}
-                height="100%"
-                style={{ fontSize: "14px" }}
-              />
-            </div>
-            
-            {/* Error Counter and Navigation */}
-            <div className="absolute bottom-2 right-2 flex items-center gap-2 bg-background/95 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 shadow-lg z-10">
-              {errors.length > 0 ? (
-                <>
-                  <Badge variant="destructive" className="gap-1.5">
-                    <AlertCircle className="h-3 w-3" />
-                    {errors.length} {errors.length === 1 ? "error" : "errors"}
-                  </Badge>
-                  <Button
-                    onClick={jumpToNextError}
-                    size="sm"
-                    variant="outline"
-                    className="h-6 px-2 text-xs gap-1"
-                  >
-                    Next Error
-                    <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </>
-              ) : (
-                <Badge variant="secondary" className="gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  No errors
-                </Badge>
-              )}
-            </div>
-          </div>
+        <div className="flex-1 flex flex-col space-y-2">
+          <Textarea
+            value={rawText}
+            onChange={(e) => handleRawTextChange(e.target.value)}
+            className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
+            placeholder="Edit JSON/JSON5 configuration..."
+            spellCheck={false}
+          />
           <p className="text-xs text-muted-foreground shrink-0">
-            Supports JSON, JSON5, and JSONC syntax. Errors are highlighted in real-time. Auto-formats on save.
+            Supports JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
           </p>
         </div>
       </div>
