@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { isElectron, electronAPI } from "@/utils/electronBridge";
 
 interface PathSelectorProps {
   onPathSelected: (path: string) => void;
@@ -22,41 +23,56 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
 
   const handleSelectFolder = async () => {
     try {
-      // Check if File System Access API is supported
-      if (!("showDirectoryPicker" in window)) {
-        toast.error("Browser not supported", {
-          description: "Your browser doesn't support folder selection. Try Chrome, Edge, or Opera."
-        });
-        return;
-      }
-
       setIsScanning(true);
-      
-      // Open folder picker
-      const dirHandle = await (window as any).showDirectoryPicker({
-        mode: "readwrite",
-      });
 
-      setPath(dirHandle.name);
-      
-      toast.success("Folder selected", {
-        description: "Scanning for mods..."
-      });
+      if (isElectron()) {
+        // Use Electron dialog
+        const api = electronAPI();
+        const result = await api.selectFolder();
 
-      onFolderSelected(dirHandle);
-      
+        if (result.canceled || !result.path) {
+          setIsScanning(false);
+          return;
+        }
+
+        setPath(result.path);
+        toast.success("Folder selected", {
+          description: "Scanning for mods..."
+        });
+
+        onFolderSelected(result.path as any);
+      } else {
+        // Use File System Access API for browser
+        if (!("showDirectoryPicker" in window)) {
+          toast.error("Browser not supported", {
+            description: "Your browser doesn't support folder selection. Try Chrome, Edge, or Opera."
+          });
+          setIsScanning(false);
+          return;
+        }
+
+        const dirHandle = await (window as any).showDirectoryPicker({
+          mode: "readwrite",
+        });
+
+        setPath(dirHandle.name);
+        toast.success("Folder selected", {
+          description: "Scanning for mods..."
+        });
+
+        onFolderSelected(dirHandle);
+      }
     } catch (error: any) {
       if (error.name === "AbortError") {
         // User cancelled, do nothing
         return;
       }
-      
+
       console.error("Error selecting folder:", error);
-      
-      // Check if it's the iframe security error
+
       if (error.message?.includes("cross origin") || error.message?.includes("iframe")) {
         toast.error("Can't use folder picker in preview", {
-          description: "The folder picker doesn't work in Lovable's preview. Deploy your app to use this feature, or use Demo Data for now.",
+          description: "The folder picker doesn't work in Lovable's preview. Deploy your app or download the desktop app.",
           duration: 6000
         });
       } else {
@@ -88,13 +104,14 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
             Select your SPT installation directory to begin
           </p>
           
-          {/* Preview warning */}
-          <div className="mt-4 p-3 rounded-lg bg-warning/10 border border-warning/20">
-            <p className="text-xs text-warning-foreground">
-              <strong>Note:</strong> Folder selection doesn't work in Lovable's preview due to browser security.
-              Use Demo Data for now, or deploy your app to use real folders.
-            </p>
-          </div>
+          {/* Info */}
+          {!isElectron() && (
+            <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20">
+              <p className="text-xs text-foreground">
+                <strong>Tip:</strong> For the best experience, download the desktop app for full file system access.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-4">

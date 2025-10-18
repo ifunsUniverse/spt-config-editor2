@@ -3,10 +3,12 @@ import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
+import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { toast } from "sonner";
 import { Loader2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isElectron } from "@/utils/electronBridge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,11 +92,22 @@ const Index = () => {
     }
   };
 
-  const handleFolderSelected = async (handle: FileSystemDirectoryHandle) => {
+  const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
     setIsScanning(true);
     
     try {
-      const mods = await scanSPTFolder(handle);
+      let mods: ScannedMod[] | ElectronScannedMod[];
+      let pathName: string;
+
+      if (typeof handle === 'string') {
+        // Electron path
+        mods = await scanSPTFolderElectron(handle);
+        pathName = handle.split(/[/\\]/).pop() || handle;
+      } else {
+        // Browser FileSystemDirectoryHandle
+        mods = await scanSPTFolder(handle);
+        pathName = handle.name;
+      }
       
       if (mods.length === 0) {
         toast.warning("No mods found", {
@@ -103,8 +116,8 @@ const Index = () => {
         return;
       }
 
-      setScannedMods(mods);
-      setSptPath(handle.name);
+      setScannedMods(mods as ScannedMod[]);
+      setSptPath(pathName);
       
       // Auto-select first mod
       if (mods.length > 0) {
@@ -176,12 +189,23 @@ const Index = () => {
     if (!config) return;
 
     try {
-      await saveConfigToFile(
-        selectedMod.folderHandle,
-        config.fileName,
-        values,
-        config.rawJson
-      );
+      if (isElectron() && 'filePath' in config) {
+        // Electron save
+        await saveConfigToFileElectron(
+          (config as any).filePath,
+          values,
+          config.rawJson
+        );
+      } else {
+        // Browser save
+        await saveConfigToFile(
+          (selectedMod as any).folderHandle,
+          config.fileName,
+          values,
+          config.rawJson
+        );
+      }
+
       setHasUnsavedChanges(false);
       if (selectedModId) {
         setEditedModIds((prev) => {
@@ -190,6 +214,10 @@ const Index = () => {
           return next;
         });
       }
+
+      toast.success("Config saved", {
+        description: "Changes have been saved successfully"
+      });
     } catch (error: any) {
       toast.error("Save failed", {
         description: error.message || "Could not save the config file"

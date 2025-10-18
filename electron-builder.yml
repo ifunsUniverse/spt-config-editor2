@@ -1,0 +1,36 @@
+appId: com.sptmodeditor.app
+productName: SPT Mod Config Editor
+copyright: Copyright © 2025
+
+directories:
+  buildResources: public
+  output: release
+
+files:
+  - dist
+  - dist-electron
+
+win:
+  target:
+    - nsis
+  icon: public/favicon.ico
+  artifactName: ${productName}-${version}-Setup.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: SPT Mod Config Editor
+
+mac:
+  target:
+    - dmg
+  icon: public/favicon.ico
+  category: public.app-category.utilities
+
+linux:
+  target:
+    - AppImage
+  icon: public/favicon.ico
+  category: Utility
