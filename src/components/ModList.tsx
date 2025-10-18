@@ -62,8 +62,9 @@ export const ModList = ({
         />
       </div>
       <ScrollArea className="flex-1 overflow-auto">
-        <div className="p-4 space-y-2">
-          {filteredMods.map((mod) => {
+        <div className="p-4">
+          <div className="space-y-2">
+            {filteredMods.map((mod) => {
               const modConfigs = configFiles[mod.id] || [];
               return (
                 <Card key={mod.id} className="overflow-hidden border-border">
@@ -127,6 +128,7 @@ export const ModList = ({
                 </Card>
               );
             })}
+          </div>
         </div>
       </ScrollArea>
     </div>
