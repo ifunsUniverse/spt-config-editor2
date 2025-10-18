@@ -190,22 +190,26 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
             </p>
           </div>
 
-          {lastFolderPath && (
-            <div className="space-y-2">
-              <Button
-                onClick={handleLoadLastFolder}
-                disabled={isScanning}
-                variant="outline"
-                className="w-full h-16 text-base gap-3"
-              >
-                <History className="w-5 h-5" />
-                Load Last Folder
-                <span className="text-xs text-muted-foreground ml-2">
-                  ({lastFolderPath.length > 30 ? '...' + lastFolderPath.slice(-30) : lastFolderPath})
-                </span>
-              </Button>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Button
+              onClick={handleLoadLastFolder}
+              disabled={isScanning || !lastFolderPath}
+              variant="outline"
+              className="w-full h-16 text-base gap-3"
+            >
+              <History className="w-5 h-5" />
+              {lastFolderPath ? (
+                <>
+                  Load Last Folder
+                  <span className="text-xs text-muted-foreground ml-2">
+                    ({lastFolderPath.length > 30 ? '...' + lastFolderPath.slice(-30) : lastFolderPath})
+                  </span>
+                </>
+              ) : (
+                "No Previous Folder Found"
+              )}
+            </Button>
+          </div>
 
         </div>
 
