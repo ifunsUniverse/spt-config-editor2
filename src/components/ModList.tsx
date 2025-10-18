@@ -62,7 +62,7 @@ export const ModList = ({
         />
       </div>
       <ScrollArea className="flex-1">
-        <div className="pl-2 pr-1 py-2 space-y-1.5">
+        <div className="pl-2 py-2 space-y-1.5">
           {filteredMods.map((mod) => {
             const modConfigs = configFiles[mod.id] || [];
             return (
