@@ -238,40 +238,42 @@ export const ConfigEditor = ({
       <div className="flex-1 flex flex-col overflow-hidden p-6">
         <div className="flex-1 flex flex-col space-y-2 relative">
           <div className="flex-1 border border-border rounded-md overflow-hidden relative">
-            <CodeMirror
-              ref={editorRef}
-              value={rawText}
-              onChange={handleRawTextChange}
-              extensions={[json(), json5Linter]}
-              theme="dark"
-              basicSetup={{
-                lineNumbers: true,
-                highlightActiveLineGutter: true,
-                highlightSpecialChars: true,
-                foldGutter: true,
-                drawSelection: true,
-                dropCursor: true,
-                allowMultipleSelections: true,
-                indentOnInput: true,
-                bracketMatching: true,
-                closeBrackets: true,
-                autocompletion: true,
-                rectangularSelection: true,
-                crosshairCursor: true,
-                highlightActiveLine: true,
-                highlightSelectionMatches: true,
-                closeBracketsKeymap: true,
-                searchKeymap: true,
-                foldKeymap: true,
-                completionKeymap: true,
-                lintKeymap: true,
-              }}
-              className="h-full"
-              style={{ height: "100%", fontSize: "14px" }}
-            />
+            <div className="h-full overflow-auto">
+              <CodeMirror
+                ref={editorRef}
+                value={rawText}
+                onChange={handleRawTextChange}
+                extensions={[json(), json5Linter]}
+                theme="dark"
+                basicSetup={{
+                  lineNumbers: true,
+                  highlightActiveLineGutter: true,
+                  highlightSpecialChars: true,
+                  foldGutter: true,
+                  drawSelection: true,
+                  dropCursor: true,
+                  allowMultipleSelections: true,
+                  indentOnInput: true,
+                  bracketMatching: true,
+                  closeBrackets: true,
+                  autocompletion: true,
+                  rectangularSelection: true,
+                  crosshairCursor: true,
+                  highlightActiveLine: true,
+                  highlightSelectionMatches: true,
+                  closeBracketsKeymap: true,
+                  searchKeymap: true,
+                  foldKeymap: true,
+                  completionKeymap: true,
+                  lintKeymap: true,
+                }}
+                height="100%"
+                style={{ fontSize: "14px" }}
+              />
+            </div>
             
             {/* Error Counter and Navigation */}
-            <div className="absolute bottom-2 right-2 flex items-center gap-2 bg-background/95 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 shadow-lg">
+            <div className="absolute bottom-2 right-2 flex items-center gap-2 bg-background/95 backdrop-blur-sm border border-border rounded-md px-3 py-1.5 shadow-lg z-10">
               {errors.length > 0 ? (
                 <>
                   <Badge variant="destructive" className="gap-1.5">
