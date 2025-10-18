@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronRight, Star } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { TranslateButton } from "@/components/TranslateButton";
 
 export interface Mod {
   id: string;
@@ -82,7 +83,12 @@ export const ModList = ({
                           }`}
                         />
                         <div className="text-left flex-1">
-                          <h3 className="font-semibold">{mod.name}</h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold">{mod.name}</h3>
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <TranslateButton text={mod.name} label="" />
+                            </div>
+                          </div>
                           <p className="text-sm text-muted-foreground">
                             v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                           </p>

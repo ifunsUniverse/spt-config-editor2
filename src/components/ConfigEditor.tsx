@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import JSON5 from "json5";
+import { TranslateButton } from "@/components/TranslateButton";
 
 export interface ConfigValue {
   key: string;
@@ -130,8 +131,14 @@ export const ConfigEditor = ({
       <div className="border-b border-border p-4">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-xl font-bold text-foreground">{modName}</h2>
-            <p className="text-sm text-muted-foreground">{configFile}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-xl font-bold text-foreground">{modName}</h2>
+              <TranslateButton text={modName} label="" />
+            </div>
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-muted-foreground">{configFile}</p>
+              <TranslateButton text={configFile} label="" />
+            </div>
           </div>
           <div className="flex gap-2 items-center">
             <Button
