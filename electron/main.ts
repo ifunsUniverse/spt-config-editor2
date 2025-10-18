@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
@@ -24,6 +24,9 @@ const createWindow = () => {
     backgroundColor: '#1a1a1a',
     show: false,
   });
+
+  // Hide the menu bar
+  Menu.setApplicationMenu(null);
 
   // Show window when ready to prevent flashing
   mainWindow.once('ready-to-show', () => {
