@@ -104,6 +104,8 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
     try {
       setIsScanning(true);
 
+      console.log('[PathSelector] handleLoadLastFolder', { isElectron: isElectron(), lastFolderPath });
+
       if (isElectron()) {
         // In Electron, we can directly load the saved path
         const api = electronAPI();

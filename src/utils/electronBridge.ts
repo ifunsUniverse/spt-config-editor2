@@ -7,7 +7,11 @@ declare global {
 }
 
 export const isElectron = (): boolean => {
-  return typeof window !== 'undefined' && !!window.electronAPI;
+  if (typeof window === 'undefined') return false;
+  const hasBridge = !!(window as any).electronAPI;
+  const ua = navigator?.userAgent?.toLowerCase?.() || '';
+  const isUA = ua.includes('electron');
+  return hasBridge || isUA;
 };
 
 export const electronAPI = () => {
