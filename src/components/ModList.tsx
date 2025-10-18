@@ -52,7 +52,7 @@ export const ModList = ({
   );
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       <div className="p-4 border-b border-border shrink-0">
         <Input
           placeholder="Search mods..."
@@ -61,10 +61,9 @@ export const ModList = ({
           className="bg-input border-border"
         />
       </div>
-      <ScrollArea className="flex-1">
-        <div className="px-4 py-2">
-          <div className="space-y-2">
-            {filteredMods.map((mod) => {
+      <ScrollArea className="flex-1 overflow-auto">
+        <div className="p-4 space-y-2">
+          {filteredMods.map((mod) => {
               const modConfigs = configFiles[mod.id] || [];
               return (
                 <Card key={mod.id} className="overflow-hidden border-border">
@@ -128,7 +127,6 @@ export const ModList = ({
                 </Card>
               );
             })}
-          </div>
         </div>
       </ScrollArea>
     </div>
