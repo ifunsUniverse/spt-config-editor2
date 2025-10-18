@@ -128,9 +128,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
         }
       } else {
         // In browser, we need to prompt again due to security
-        toast.info("Please reselect your folder", {
-          description: "Browser security requires folder reselection"
-        });
         await handleSelectFolder();
       }
     } catch (error: any) {
