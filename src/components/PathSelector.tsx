@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { LanguageSelector } from "@/components/LanguageSelector";
 
 interface PathSelectorProps {
   onPathSelected: (path: string) => void;
@@ -79,9 +78,6 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
-      <div className="absolute top-4 right-4">
-        <LanguageSelector />
-      </div>
       <Card className="w-full max-w-2xl p-8 space-y-6 border-border">
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
