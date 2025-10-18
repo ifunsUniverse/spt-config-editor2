@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
@@ -6,7 +6,7 @@ import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScann
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { toast } from "sonner";
-import { Loader2, Package } from "lucide-react";
+import { Loader2, Package, Download, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isElectron } from "@/utils/electronBridge";
 import {
@@ -80,8 +80,17 @@ const Index = () => {
   const [zipStartTime, setZipStartTime] = useState<number | null>(null);
   const [showZipProgress, setShowZipProgress] = useState(false);
   const [editedModIds, setEditedModIds] = useState<Set<string>>(new Set());
-  const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(new Set());
+  const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(() => {
+    // Load favorites from localStorage on mount
+    const saved = localStorage.getItem("spt-favorites");
+    return saved ? new Set(JSON.parse(saved)) : new Set();
+  });
   const [activeTab, setActiveTab] = useState<"mods" | "favorites">("mods");
+
+  // Save favorites to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem("spt-favorites", JSON.stringify(Array.from(favoritedModIds)));
+  }, [favoritedModIds]);
 
   const handlePathSelected = (path: string) => {
     setSptPath(path);
@@ -279,13 +288,77 @@ const handleExportMods = async () => {
   const handleToggleFavorite = (modId: string) => {
     setFavoritedModIds(prev => {
       const newSet = new Set(prev);
+      const modName = scannedMods.find(m => m.mod.id === modId)?.mod.name || modId;
+      
       if (newSet.has(modId)) {
         newSet.delete(modId);
+        toast.info("Removed from Favorites", {
+          description: `${modName} removed from favorites`
+        });
       } else {
         newSet.add(modId);
+        toast.success("Added to Favorites", {
+          description: `${modName} added to favorites`
+        });
       }
       return newSet;
     });
+  };
+
+  const handleClearFavorites = () => {
+    setFavoritedModIds(new Set());
+    toast.success("All favorites cleared");
+  };
+
+  const handleExportFavorites = () => {
+    const favoritesData = {
+      version: "1.0",
+      favorites: Array.from(favoritedModIds),
+      exportedAt: new Date().toISOString()
+    };
+    
+    const blob = new Blob([JSON.stringify(favoritesData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `spt-favorites-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success("Favorites exported", {
+      description: "Favorites list downloaded as JSON"
+    });
+  };
+
+  const handleImportFavorites = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".json";
+    input.onchange = async (e: any) => {
+      try {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        
+        const text = await file.text();
+        const data = JSON.parse(text);
+        
+        if (data.favorites && Array.isArray(data.favorites)) {
+          setFavoritedModIds(new Set(data.favorites));
+          toast.success("Favorites imported", {
+            description: `${data.favorites.length} favorites loaded`
+          });
+        } else {
+          throw new Error("Invalid favorites file format");
+        }
+      } catch (error: any) {
+        toast.error("Import failed", {
+          description: error.message || "Could not read favorites file"
+        });
+      }
+    };
+    input.click();
   };
 
   if (!sptPath) {
@@ -370,6 +443,40 @@ const handleExportMods = async () => {
                 Favorites ({favoritedModIds.size})
               </Button>
             </div>
+            {activeTab === "favorites" && favoritedModIds.size > 0 && (
+              <div className="flex gap-1 mb-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleExportFavorites}
+                  className="flex-1"
+                  title="Export favorites list"
+                >
+                  <Download className="w-3 h-3 mr-1" />
+                  Export
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleImportFavorites}
+                  className="flex-1"
+                  title="Import favorites list"
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  Import
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearFavorites}
+                  className="flex-1"
+                  title="Clear all favorites"
+                >
+                  <Trash2 className="w-3 h-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
           </div>
           <div className="flex-1 overflow-hidden">
             <ModList

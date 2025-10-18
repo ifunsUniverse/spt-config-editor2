@@ -131,17 +131,23 @@ async function scanConfigFilesRecursiveElectron(
       const fullPath = path.join(dirPath, entry.name);
 
       if (entry.isFile) {
-        // Accept both .json and .JSON5 files (case insensitive)
+        // Accept all JSON variants: .json, .json5, .jsonc, and any other .json* files
+        const lowerName = entry.name.toLowerCase();
         const isConfigFile =
-          entry.name.toLowerCase().endsWith(".json") ||
-          entry.name.toLowerCase().endsWith(".json5");
+          lowerName.endsWith(".json") ||
+          lowerName.endsWith(".json5") ||
+          lowerName.endsWith(".jsonc") ||
+          /\.json[a-z0-9]*$/i.test(entry.name); // Matches any .json* extension
 
         if (isConfigFile) {
           try {
             const fileText = await api.readFile(fullPath);
 
-            // Parse JSON/JSON5
-            const json = entry.name.toLowerCase().endsWith(".json5")
+            // Parse JSON/JSON5/JSONC - JSON5 parser supports all variants including comments
+            const lowerName = entry.name.toLowerCase();
+            const json = (lowerName.endsWith(".json5") || 
+                         lowerName.endsWith(".jsonc") ||
+                         /\.json[a-z0-9]+$/i.test(entry.name))
               ? JSON5.parse(fileText)
               : JSON.parse(fileText);
 
@@ -255,8 +261,12 @@ export async function saveConfigToFileElectron(
     // Reconstruct JSON from values
     const updatedJson = configValuesToJson(values, originalJson);
 
-    // Write file - use JSON5 for .json5 files to preserve syntax
-    const content = filePath.toLowerCase().endsWith(".json5")
+    // Write file - use JSON5 for non-standard JSON files to preserve syntax
+    const lowerFilePath = filePath.toLowerCase();
+    const useJSON5 = lowerFilePath.endsWith(".json5") || 
+                     lowerFilePath.endsWith(".jsonc") ||
+                     /\.json[a-z0-9]+$/i.test(filePath); // Any .json* variant
+    const content = useJSON5
       ? JSON5.stringify(updatedJson, null, 2)
       : JSON.stringify(updatedJson, null, 2);
 

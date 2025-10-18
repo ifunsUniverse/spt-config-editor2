@@ -107,10 +107,13 @@ async function scanConfigFilesRecursive(
   // @ts-ignore - values() exists but TypeScript doesn't recognize it
   for await (const entry of dirHandle.values()) {
     if (entry.kind === "file") {
-      // Accept both .json and .JSON5 files (case insensitive)
+      // Accept all JSON variants: .json, .json5, .jsonc, and any other .json* files
+      const lowerName = entry.name.toLowerCase();
       const isConfigFile = 
-        entry.name.toLowerCase().endsWith(".json") || 
-        entry.name.toLowerCase().endsWith(".json5");
+        lowerName.endsWith(".json") || 
+        lowerName.endsWith(".json5") ||
+        lowerName.endsWith(".jsonc") ||
+        /\.json[a-z0-9]*$/i.test(entry.name); // Matches any .json* extension
       
       if (isConfigFile) {
         try {
@@ -118,8 +121,9 @@ async function scanConfigFilesRecursive(
           const file = await fileHandle.getFile();
           const text = await file.text();
           
-          // Parse JSON/JSON5 - JSON5 supports comments, trailing commas, etc.
-          const json = entry.name.toLowerCase().endsWith(".json5") 
+          // Parse JSON/JSON5/JSONC - JSON5 parser supports all variants including comments
+          const json = (entry.name.toLowerCase().endsWith(".json5") || 
+                       entry.name.toLowerCase().endsWith(".jsonc"))
             ? JSON5.parse(text) 
             : JSON.parse(text);
 
@@ -254,9 +258,13 @@ export async function saveConfigToFile(
     // Get the file handle
     const fileHandle = await currentHandle.getFileHandle(pathParts[pathParts.length - 1], { create: false });
 
-    // Write file - use JSON5 for .json5 files to preserve syntax
+    // Write file - use JSON5 for non-standard JSON files to preserve syntax
     const writable = await fileHandle.createWritable();
-    const content = fileName.toLowerCase().endsWith(".json5")
+    const lowerFileName = fileName.toLowerCase();
+    const useJSON5 = lowerFileName.endsWith(".json5") || 
+                     lowerFileName.endsWith(".jsonc") ||
+                     /\.json[a-z0-9]+$/i.test(fileName); // Any .json* variant
+    const content = useJSON5
       ? JSON5.stringify(updatedJson, null, 2)
       : JSON.stringify(updatedJson, null, 2);
     await writable.write(content);
