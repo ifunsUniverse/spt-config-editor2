@@ -5,6 +5,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronRight, Star } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { splitCamelCase } from "@/lib/utils";
 
 export interface Mod {
   id: string;
@@ -96,7 +97,9 @@ export const ModList = ({
                         }`}
                       />
                       <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
+                        <h3 className="font-semibold text-sm break-words hyphens-auto whitespace-normal">
+                          {splitCamelCase(mod.name)}
+                        </h3>
                         <p className="text-xs text-muted-foreground truncate">
                           v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                         </p>
