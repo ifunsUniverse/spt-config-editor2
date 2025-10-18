@@ -53,17 +53,17 @@ export const ModList = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-4 border-b border-border shrink-0">
+      <div className="p-3 border-b border-border shrink-0">
         <Input
           placeholder="Search mods..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-input border-border"
+          className="bg-input border-border h-8"
         />
       </div>
       <ScrollArea className="flex-1 overflow-auto">
-        <div className="p-4">
-          <div className="space-y-2">
+        <div className="p-2">
+          <div className="space-y-1.5">
             {filteredMods.map((mod) => {
               const modConfigs = configFiles[mod.id] || [];
               return (
@@ -73,17 +73,17 @@ export const ModList = ({
                     onOpenChange={() => toggleMod(mod.id)}
                   >
                     <CollapsibleTrigger
-                      className="flex items-center justify-between w-full p-4 hover:bg-accent rounded-lg transition-colors"
+                      className="flex items-center justify-between w-full p-2 hover:bg-accent rounded-lg transition-colors"
                     >
-                      <div className="flex items-center gap-3 flex-1">
+                      <div className="flex items-center gap-2 flex-1">
                         <ChevronRight 
-                          className={`h-4 w-4 transition-transform ${
+                          className={`h-3.5 w-3.5 transition-transform ${
                             expandedMods[mod.id] ? "rotate-90" : ""
                           }`}
                         />
-                        <div className="text-left flex-1">
-                          <h3 className="font-semibold">{mod.name}</h3>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="text-left flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
+                          <p className="text-xs text-muted-foreground">
                             v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                           </p>
                         </div>
@@ -94,10 +94,10 @@ export const ModList = ({
                             e.stopPropagation();
                             onToggleFavorite(mod.id);
                           }}
-                          className="h-8 w-8 shrink-0"
+                          className="h-6 w-6 shrink-0"
                         >
                           <Star
-                            className={`h-4 w-4 ${
+                            className={`h-3.5 w-3.5 ${
                               favoritedModIds.has(mod.id) 
                                 ? "fill-yellow-400 text-yellow-400" 
                                 : "text-muted-foreground"
@@ -108,12 +108,12 @@ export const ModList = ({
                     </CollapsibleTrigger>
 
                     <CollapsibleContent>
-                      <div className="px-4 pb-2">
+                      <div className="px-2 pb-1">
                         {modConfigs.map((cfg) => (
                           <button
                             key={cfg.index}
                             onClick={() => onSelectMod(mod.id, cfg.index)}
-                            className={`w-full text-left px-4 py-2 rounded-md text-sm transition-colors ${
+                            className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors ${
                               selectedModId === mod.id && selectedConfigIndex === cfg.index
                                 ? "bg-primary/20 text-primary font-medium"
                                 : "hover:bg-accent text-muted-foreground"

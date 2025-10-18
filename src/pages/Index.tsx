@@ -426,30 +426,30 @@ const handleExportMods = async () => {
     <>
       <div className="flex w-full h-screen overflow-hidden">
         <div className="w-80 border-r border-border bg-card flex flex-col h-full">
-          <div className="border-b border-border px-4 pt-4 pb-2 shrink-0">
-            <div className="flex gap-1 mb-2">
+          <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
+            <div className="flex gap-1 mb-1.5">
               <Button
                 variant={activeTab === "mods" ? "default" : "ghost"}
                 onClick={() => setActiveTab("mods")}
-                className="flex-1"
+                className="flex-1 h-8 text-xs"
               >
                 Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
               </Button>
               <Button
                 variant={activeTab === "favorites" ? "default" : "ghost"}
                 onClick={() => setActiveTab("favorites")}
-                className="flex-1"
+                className="flex-1 h-8 text-xs"
               >
                 Favorites ({favoritedModIds.size})
               </Button>
             </div>
             {activeTab === "favorites" && favoritedModIds.size > 0 && (
-              <div className="flex gap-1 mb-2">
+              <div className="flex gap-1 mb-1">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleExportFavorites}
-                  className="flex-1"
+                  className="flex-1 h-7 text-xs px-2"
                   title="Export favorites list"
                 >
                   <Download className="w-3 h-3 mr-1" />
@@ -459,7 +459,7 @@ const handleExportMods = async () => {
                   variant="ghost"
                   size="sm"
                   onClick={handleImportFavorites}
-                  className="flex-1"
+                  className="flex-1 h-7 text-xs px-2"
                   title="Import favorites list"
                 >
                   <Upload className="w-3 h-3 mr-1" />
@@ -469,7 +469,7 @@ const handleExportMods = async () => {
                   variant="ghost"
                   size="sm"
                   onClick={handleClearFavorites}
-                  className="flex-1"
+                  className="flex-1 h-7 text-xs px-2"
                   title="Clear all favorites"
                 >
                   <Trash2 className="w-3 h-3 mr-1" />
