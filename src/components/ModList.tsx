@@ -72,19 +72,6 @@ export const ModList = ({
                   onOpenChange={() => toggleMod(mod.id)}
                 >
                   <div className="flex items-center w-full p-2.5 gap-2">
-                    <CollapsibleTrigger className="flex items-center flex-1 min-w-0 gap-2 hover:opacity-80 transition-opacity">
-                      <ChevronRight 
-                        className={`h-3.5 w-3.5 shrink-0 transition-transform ${
-                          expandedMods[mod.id] ? "rotate-90" : ""
-                        }`}
-                      />
-                      <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
-                        <p className="text-xs text-muted-foreground truncate">
-                          v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </CollapsibleTrigger>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -102,6 +89,19 @@ export const ModList = ({
                         }`}
                       />
                     </Button>
+                    <CollapsibleTrigger className="flex items-center flex-1 min-w-0 gap-2 hover:opacity-80 transition-opacity">
+                      <ChevronRight 
+                        className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                          expandedMods[mod.id] ? "rotate-90" : ""
+                        }`}
+                      />
+                      <div className="text-left flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
+                        <p className="text-xs text-muted-foreground truncate">
+                          v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </CollapsibleTrigger>
                   </div>
 
                   <CollapsibleContent>
