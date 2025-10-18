@@ -61,30 +61,30 @@ export const ModList = ({
           className="bg-input border-border h-8"
         />
       </div>
-      <ScrollArea className="flex-1 overflow-auto">
+      <ScrollArea className="flex-1">
         <div className="p-2 space-y-1.5">
           {filteredMods.map((mod) => {
             const modConfigs = configFiles[mod.id] || [];
             return (
-              <Card key={mod.id} className="overflow-hidden border-border">
+              <Card key={mod.id} className="overflow-hidden border-border bg-card/50">
                 <Collapsible
                   open={expandedMods[mod.id]}
                   onOpenChange={() => toggleMod(mod.id)}
                 >
-                  <CollapsibleTrigger
-                    className="flex items-center w-full p-2 hover:bg-accent rounded-lg transition-colors gap-2"
-                  >
-                    <ChevronRight 
-                      className={`h-3.5 w-3.5 shrink-0 transition-transform ${
-                        expandedMods[mod.id] ? "rotate-90" : ""
-                      }`}
-                    />
-                    <div className="text-left flex-1 min-w-0 overflow-hidden pr-2">
-                      <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
-                      <p className="text-xs text-muted-foreground truncate">
-                        v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
-                      </p>
-                    </div>
+                  <div className="flex items-center w-full p-2.5 gap-2">
+                    <CollapsibleTrigger className="flex items-center flex-1 min-w-0 gap-2 hover:opacity-80 transition-opacity">
+                      <ChevronRight 
+                        className={`h-3.5 w-3.5 shrink-0 transition-transform ${
+                          expandedMods[mod.id] ? "rotate-90" : ""
+                        }`}
+                      />
+                      <div className="text-left flex-1 min-w-0">
+                        <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
+                        <p className="text-xs text-muted-foreground truncate">
+                          v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                    </CollapsibleTrigger>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -92,20 +92,20 @@ export const ModList = ({
                         e.stopPropagation();
                         onToggleFavorite(mod.id);
                       }}
-                      className="h-6 w-6 shrink-0"
+                      className="h-7 w-7 shrink-0"
                     >
                       <Star
-                        className={`h-3.5 w-3.5 ${
+                        className={`h-4 w-4 ${
                           favoritedModIds.has(mod.id) 
                             ? "fill-yellow-400 text-yellow-400" 
                             : "text-muted-foreground"
                         }`}
                       />
                     </Button>
-                  </CollapsibleTrigger>
+                  </div>
 
                   <CollapsibleContent>
-                    <div className="px-2 pb-1 space-y-0.5">
+                    <div className="px-2 pb-2 pt-0 space-y-0.5">
                       {modConfigs.map((cfg) => (
                         <button
                           key={cfg.index}
@@ -113,7 +113,7 @@ export const ModList = ({
                           className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors truncate ${
                             selectedModId === mod.id && selectedConfigIndex === cfg.index
                               ? "bg-primary/20 text-primary font-medium"
-                              : "hover:bg-accent text-muted-foreground"
+                              : "hover:bg-accent/50 text-muted-foreground"
                           }`}
                         >
                           {cfg.fileName}
