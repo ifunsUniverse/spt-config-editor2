@@ -18,23 +18,23 @@ This app now supports running as a native desktop application using Electron!
 
 ### Running in Development Mode
 
-1. Install dependencies:
-```bash
-npm install
-# or
-bun install
-```
-
-2. Start the Electron app in dev mode:
+#### Web Preview (Browser):
 ```bash
 npm run dev
 ```
 
+#### Electron Desktop App:
+```bash
+ELECTRON=true npm run electron:dev
+# or on Windows:
+set ELECTRON=true && npm run electron:dev
+```
+
 The app will:
 - Start Vite dev server
-- Launch Electron window
+- Launch Electron window (Electron mode only)
 - Enable hot-reload for instant updates
-- Open DevTools for debugging
+- Open DevTools for debugging (Electron mode)
 
 ### Building for Production
 
@@ -72,13 +72,19 @@ You need to add these scripts to your `package.json`:
 {
   "scripts": {
     "dev": "vite",
-    "electron:dev": "vite",
+    "electron:dev": "cross-env ELECTRON=true vite",
     "electron:build": "electron-builder",
     "build": "tsc && vite build",
+    "build:electron": "cross-env ELECTRON=true vite build",
     "preview": "vite preview"
   },
   "main": "dist-electron/main.js"
 }
+```
+
+Also install `cross-env` for cross-platform environment variables:
+```bash
+npm install -D cross-env
 ```
 
 ## How It Works

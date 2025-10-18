@@ -6,48 +6,61 @@ import electron from "vite-plugin-electron";
 import renderer from "vite-plugin-electron-renderer";
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
-  plugins: [
+export default defineConfig(({ mode }) => {
+  // Only load Electron plugins when explicitly building for Electron
+  const isElectronBuild = process.env.ELECTRON === "true";
+
+  const plugins: any[] = [
     react(),
     mode === "development" && componentTagger(),
-    electron([
-      {
-        entry: "electron/main.ts",
-        vite: {
-          build: {
-            outDir: "dist-electron",
-            rollupOptions: {
-              external: ["electron"],
+  ];
+
+  // Add Electron plugins only when building for Electron
+  if (isElectronBuild) {
+    plugins.push(
+      electron([
+        {
+          entry: "electron/main.ts",
+          vite: {
+            build: {
+              outDir: "dist-electron",
+              rollupOptions: {
+                external: ["electron"],
+              },
             },
           },
         },
-      },
-      {
-        entry: "electron/preload.ts",
-        onstart(options) {
-          options.reload();
-        },
-        vite: {
-          build: {
-            outDir: "dist-electron",
+        {
+          entry: "electron/preload.ts",
+          onstart(options) {
+            options.reload();
+          },
+          vite: {
+            build: {
+              outDir: "dist-electron",
+            },
           },
         },
-      },
-    ]),
-    renderer(),
-  ].filter(Boolean),
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "path": "path-browserify",
+      ]),
+      renderer()
+    );
+  }
+
+  return {
+    server: {
+      host: "::",
+      port: 8080,
     },
-  },
-  build: {
-    outDir: "dist",
-    emptyOutDir: true,
-  },
-}));
+    plugins: plugins.filter(Boolean),
+    resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "./src"),
+        "path": "path-browserify",
+      },
+    },
+    build: {
+      outDir: "dist",
+      emptyOutDir: true,
+    },
+  };
+});
