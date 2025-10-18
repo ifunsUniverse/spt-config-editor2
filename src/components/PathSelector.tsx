@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FolderOpen, Upload, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FolderOpen, Upload, Loader2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -11,9 +11,20 @@ interface PathSelectorProps {
   onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
 }
 
+const LAST_FOLDER_KEY = "spt-last-folder-path";
+
 export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorProps) => {
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [lastFolderPath, setLastFolderPath] = useState<string | null>(null);
+
+  // Load last folder path from localStorage on mount
+  useEffect(() => {
+    const savedPath = localStorage.getItem(LAST_FOLDER_KEY);
+    if (savedPath) {
+      setLastFolderPath(savedPath);
+    }
+  }, []);
 
   const handleSelectPath = () => {
     if (path.trim()) {
@@ -36,6 +47,10 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
         }
 
         setPath(result.path);
+        // Save to localStorage for Electron
+        localStorage.setItem(LAST_FOLDER_KEY, result.path);
+        setLastFolderPath(result.path);
+        
         toast.success("Folder selected", {
           description: "Scanning for mods..."
         });
@@ -56,6 +71,10 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
         });
 
         setPath(dirHandle.name);
+        // Save folder name for browser (note: can't persist FileSystemDirectoryHandle)
+        localStorage.setItem(LAST_FOLDER_KEY, dirHandle.name);
+        setLastFolderPath(dirHandle.name);
+        
         toast.success("Folder selected", {
           description: "Scanning for mods..."
         });
@@ -80,6 +99,76 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
           description: error.message || "Could not access the selected folder"
         });
       }
+    } finally {
+      setIsScanning(false);
+    }
+  };
+
+  const handleLoadLastFolder = async () => {
+    if (!lastFolderPath) return;
+
+    try {
+      setIsScanning(true);
+
+      if (isElectron()) {
+        // Directly load the saved path in Electron
+        const api = electronAPI();
+        const exists = await api.exists(lastFolderPath);
+        
+        if (!exists) {
+          toast.error("Folder not found", {
+            description: "The last folder path no longer exists."
+          });
+          localStorage.removeItem(LAST_FOLDER_KEY);
+          setLastFolderPath(null);
+          setIsScanning(false);
+          return;
+        }
+
+        setPath(lastFolderPath);
+        toast.success("Loading last folder", {
+          description: "Scanning for mods..."
+        });
+
+        onFolderSelected(lastFolderPath as any);
+      } else {
+        // Browser: Still need to request permission via folder picker
+        toast.info("Browser security", {
+          description: "Please select the folder again to grant permission."
+        });
+        
+        if (!("showDirectoryPicker" in window)) {
+          toast.error("Browser not supported", {
+            description: "Your browser doesn't support folder selection."
+          });
+          setIsScanning(false);
+          return;
+        }
+
+        const dirHandle = await (window as any).showDirectoryPicker({
+          mode: "readwrite",
+        });
+
+        setPath(dirHandle.name);
+        localStorage.setItem(LAST_FOLDER_KEY, dirHandle.name);
+        setLastFolderPath(dirHandle.name);
+        
+        toast.success("Folder selected", {
+          description: "Scanning for mods..."
+        });
+
+        onFolderSelected(dirHandle);
+      }
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        // User cancelled, do nothing
+        return;
+      }
+
+      console.error("Error loading last folder:", error);
+      toast.error("Failed to load folder", {
+        description: error.message || "Could not access the folder"
+      });
     } finally {
       setIsScanning(false);
     }
@@ -136,8 +225,27 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
                 </>
               )}
             </Button>
+            
+            {/* Load Last Folder Button */}
+            {lastFolderPath && (
+              <Button
+                onClick={handleLoadLastFolder}
+                disabled={isScanning}
+                variant="secondary"
+                className="w-full h-14 text-base gap-3"
+              >
+                <History className="w-5 h-5" />
+                Load Last Folder
+                <span className="text-xs text-muted-foreground ml-2">
+                  ({lastFolderPath.length > 30 ? '...' + lastFolderPath.slice(-30) : lastFolderPath})
+                </span>
+              </Button>
+            )}
+            
             <p className="text-xs text-muted-foreground text-center">
-              Click to browse and select your SPT installation directory
+              {lastFolderPath 
+                ? "Click above to browse, or load your last selected folder" 
+                : "Click to browse and select your SPT installation directory"}
             </p>
           </div>
 
