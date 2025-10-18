@@ -75,15 +75,15 @@ export const ModList = ({
                     <CollapsibleTrigger
                       className="flex items-center justify-between w-full p-2 hover:bg-accent rounded-lg transition-colors"
                     >
-                      <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center gap-2 flex-1 min-w-0 pr-2">
                         <ChevronRight 
-                          className={`h-3.5 w-3.5 transition-transform ${
+                          className={`h-3.5 w-3.5 shrink-0 transition-transform ${
                             expandedMods[mod.id] ? "rotate-90" : ""
                           }`}
                         />
-                        <div className="text-left flex-1 min-w-0">
+                        <div className="text-left flex-1 min-w-0 overflow-hidden">
                           <h3 className="font-semibold text-sm truncate">{mod.name}</h3>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground truncate">
                             v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                           </p>
                         </div>
@@ -94,7 +94,7 @@ export const ModList = ({
                             e.stopPropagation();
                             onToggleFavorite(mod.id);
                           }}
-                          className="h-6 w-6 shrink-0"
+                          className="h-6 w-6 shrink-0 ml-auto"
                         >
                           <Star
                             className={`h-3.5 w-3.5 ${
