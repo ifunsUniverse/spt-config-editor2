@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
-import { ResizableBox } from "@/components/ResizableBox";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
@@ -705,14 +704,6 @@ const handleExportMods = async () => {
             <p className="text-muted-foreground">Select a config file to edit</p>
           </div>
         )}
-
-        {/* Resizable Box Overlay */}
-        <ResizableBox
-          initialX={150}
-          initialY={120}
-          initialWidth={250}
-          initialHeight={180}
-        />
       </div>
 
       {/* Unsaved Changes Dialog */}
