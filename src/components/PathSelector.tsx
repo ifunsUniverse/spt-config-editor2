@@ -107,15 +107,22 @@ export const PathSelector = ({ onPathSelected, onFolderSelected }: PathSelectorP
       if (isElectron()) {
         // In Electron, we can directly load the saved path
         const api = electronAPI();
-        // Check if the path still exists
-        const result = await api.selectFolder();
         
-        if (!result.canceled && result.path) {
-          setPath(result.path);
+        // Check if the path still exists
+        const exists = await api.exists(lastFolderPath);
+        
+        if (exists) {
+          setPath(lastFolderPath);
           toast.success("Last folder loaded", {
             description: "Scanning for mods..."
           });
-          onFolderSelected(result.path as any);
+          onFolderSelected(lastFolderPath as any);
+        } else {
+          toast.error("Folder not found", {
+            description: "The last folder no longer exists. Please select it again."
+          });
+          localStorage.removeItem("spt-last-folder-path");
+          setLastFolderPath(null);
         }
       } else {
         // In browser, we need to prompt again due to security
