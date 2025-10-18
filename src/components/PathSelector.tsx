@@ -79,7 +79,7 @@ export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
 
       if (error.message?.includes("cross origin") || error.message?.includes("iframe")) {
         toast.error("Can't use folder picker in preview", {
-          description: "The folder picker doesn't work in Lovable's preview. Deploy your app or download the desktop app.",
+          description: "The folder picker doesn't work in web preview. Please download the desktop app.",
           duration: 6000
         });
       } else {
