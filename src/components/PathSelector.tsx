@@ -4,7 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { isElectron, electronAPI } from "@/utils/electronBridge";
+import { isElectron as isElectronAPI, electronAPI } from "@/utils/electronBridge";
+
+// More reliable Electron detection for drag-and-drop
+const isElectron = () => {
+  return typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
+};
 
 interface PathSelectorProps {
   onFolderSelected: (handle: FileSystemDirectoryHandle | string) => void;
@@ -36,7 +41,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     try {
       setIsScanning(true);
 
-      if (isElectron()) {
+      if (isElectronAPI()) {
         // Use Electron dialog
         const api = electronAPI();
         const result = await api.selectFolder();
@@ -100,6 +105,11 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     e.preventDefault();
     setIsDragOver(false);
 
+    console.log('🎯 Drop event triggered');
+    console.log('📦 Dropped files:', e.dataTransfer.files);
+    console.log('🖥️ Electron mode:', isElectron());
+    console.log('👤 User agent:', navigator.userAgent);
+
     if (!isElectron()) {
       toast.error("Drag and drop only works in desktop app", {
         description: "Please use the folder picker or download the desktop app."
@@ -109,11 +119,23 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
     try {
       const files = Array.from(e.dataTransfer.files);
-      if (files.length === 0) return;
+      if (files.length === 0) {
+        console.log('❌ No files in drop event');
+        return;
+      }
 
-      // Get the first item's path
+      // Get the first item's path (Electron adds path property to File objects)
       const firstItem = files[0] as any;
       let folderPath = firstItem.path;
+      
+      console.log('📂 Dropped file path:', folderPath);
+
+      if (!folderPath) {
+        toast.error("Could not read folder path", {
+          description: "The dropped item doesn't have a valid path."
+        });
+        return;
+      }
 
       // If it's a file, get its directory
       const api = electronAPI();
@@ -121,7 +143,9 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
       
       if (!stats.isDirectory) {
         // Extract directory from file path
-        folderPath = folderPath.substring(0, folderPath.lastIndexOf('/') || folderPath.lastIndexOf('\\'));
+        const lastSlash = Math.max(folderPath.lastIndexOf('/'), folderPath.lastIndexOf('\\'));
+        folderPath = folderPath.substring(0, lastSlash);
+        console.log('📁 Extracted directory from file:', folderPath);
       }
 
       setPath(folderPath);
@@ -129,9 +153,10 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
         description: "Scanning for mods..."
       });
 
+      console.log('✅ Passing folder path to handler:', folderPath);
       onFolderSelected(folderPath);
     } catch (error: any) {
-      console.error("Error handling dropped folder:", error);
+      console.error("❌ Error handling dropped folder:", error);
       toast.error("Failed to process dropped folder", {
         description: error.message || "Could not access the dropped folder"
       });
@@ -161,7 +186,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
           </p>
           
           {/* Info */}
-          {!isElectron() && (
+          {!isElectronAPI() && (
             <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20">
               <p className="text-xs text-foreground">
                 <strong>Tip:</strong> Without the desktop app, you're basically editing with a broken arm.
