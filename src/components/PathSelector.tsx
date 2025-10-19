@@ -112,8 +112,8 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     console.log('🎯 Drop event triggered');
     console.log('🖥️ Electron mode (UA):', uaElectron);
     console.log('👤 User agent:', navigator.userAgent);
-    console.log('📦 Dropped files:', dt.files);
-    console.log('📜 Dropped items:', dt.items);
+    console.log('📦 Dropped files:', dt?.files);
+    console.log('📜 Dropped items:', dt?.items);
 
     if (!uaElectron) {
       toast.error("Drag and drop only works in desktop app", {
@@ -123,7 +123,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     }
 
     try {
-      if (!dt || dt.types?.includes('Files') === false) {
+      if (!dt || (dt.types && !dt.types.includes('Files'))) {
         console.log('❌ DataTransfer has no Files type');
         toast.error('No files detected in drop');
         return;
@@ -131,14 +131,36 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
       const file = dt.files?.[0] as any;
       console.log('Dropped item:', file);
-      console.log('Path:', file?.path);
+      console.log('Path (from File):', file?.path);
 
-      if (!file) {
-        toast.error('No item dropped');
-        return;
-      }
+      // Helper to normalize file:// URIs into system paths (handles Windows and POSIX)
+      const normalizeFileUriToPath = (uri: string): string => {
+        try {
+          let decoded = decodeURI(uri);
+          if (decoded.startsWith('file://')) {
+            decoded = decoded.replace('file://', '');
+            // On Windows, remove leading slash in /C:/...
+            decoded = decoded.replace(/^\/(?:([A-Za-z]:))\//, '$1/');
+          }
+          return decoded;
+        } catch {
+          return uri;
+        }
+      };
 
+      // Fallbacks for when Electron doesn't populate file.path on some drags
       let folderPath: string | undefined = file?.path as string | undefined;
+      if (!folderPath) {
+        const uriList = dt.getData('text/uri-list') || dt.getData('text/plain');
+        console.log('text/uri-list:', uriList);
+        if (uriList) {
+          const firstLine = uriList.split('\n').find(l => l.trim().length && !l.startsWith('#'))?.trim();
+          if (firstLine) {
+            folderPath = normalizeFileUriToPath(firstLine);
+            console.log('Path (from URI list):', folderPath);
+          }
+        }
+      }
 
       if (!folderPath || typeof folderPath !== 'string') {
         toast.error("Could not read folder path", {
@@ -151,7 +173,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
       const stats = await api.stat(folderPath);
 
       if (!stats.isDirectory) {
-        console.log('❌ Dropped item is not a directory');
+        console.log('❌ Dropped item is not a directory:', folderPath);
         toast.error('Please drop a folder', {
           description: 'Files are not supported. Drop the SPT root folder.'
         });
