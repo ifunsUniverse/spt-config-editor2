@@ -20,6 +20,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "@/components/ui/resizable";
 
 // Mock data for demonstration
 const MOCK_MODS: Mod[] = [
@@ -603,98 +608,105 @@ const handleExportMods = async () => {
 
   return (
     <>
-      <div className="flex w-full h-screen overflow-hidden relative">
-        <div className="w-72 border-r border-border bg-card flex flex-col h-full">
-          <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
-            <div className="flex gap-1 mb-1.5">
-              <Button
-                variant={activeTab === "mods" ? "default" : "ghost"}
-                onClick={() => setActiveTab("mods")}
-                className="flex-1 h-8 text-xs"
-              >
-                Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
-              </Button>
-              <Button
-                variant={activeTab === "favorites" ? "default" : "ghost"}
-                onClick={() => setActiveTab("favorites")}
-                className="flex-1 h-8 text-xs"
-              >
-                Favorites ({favoritedModIds.size})
-              </Button>
-            </div>
-            {activeTab === "favorites" && favoritedModIds.size > 0 && (
-              <div className="flex gap-1 mb-1">
+      <ResizablePanelGroup direction="horizontal" className="w-full h-screen">
+        <ResizablePanel defaultSize={20} minSize={15} maxSize={40}>
+          <div className="border-r border-border bg-card flex flex-col h-full">
+            <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
+              <div className="flex gap-1 mb-1.5">
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleExportFavorites}
-                  className="flex-1 h-7 text-xs px-2"
-                  title="Export favorites list"
+                  variant={activeTab === "mods" ? "default" : "ghost"}
+                  onClick={() => setActiveTab("mods")}
+                  className="flex-1 h-8 text-xs"
                 >
-                  <Download className="w-3 h-3 mr-1" />
-                  Export
+                  Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleImportFavorites}
-                  className="flex-1 h-7 text-xs px-2"
-                  title="Import favorites list"
+                  variant={activeTab === "favorites" ? "default" : "ghost"}
+                  onClick={() => setActiveTab("favorites")}
+                  className="flex-1 h-8 text-xs"
                 >
-                  <Upload className="w-3 h-3 mr-1" />
-                  Import
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleClearFavorites}
-                  className="flex-1 h-7 text-xs px-2"
-                  title="Clear all favorites"
-                >
-                  <Trash2 className="w-3 h-3 mr-1" />
-                  Clear
+                  Favorites ({favoritedModIds.size})
                 </Button>
               </div>
-            )}
+              {activeTab === "favorites" && favoritedModIds.size > 0 && (
+                <div className="flex gap-1 mb-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleExportFavorites}
+                    className="flex-1 h-7 text-xs px-2"
+                    title="Export favorites list"
+                  >
+                    <Download className="w-3 h-3 mr-1" />
+                    Export
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleImportFavorites}
+                    className="flex-1 h-7 text-xs px-2"
+                    title="Import favorites list"
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Import
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearFavorites}
+                    className="flex-1 h-7 text-xs px-2"
+                    title="Clear all favorites"
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    Clear
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ModList
+              mods={activeTab === "mods" ? mods.filter(m => !favoritedModIds.has(m.id)) : mods.filter(m => favoritedModIds.has(m.id))}
+              configFiles={configFilesMap}
+              selectedModId={selectedModId}
+              selectedConfigIndex={selectedConfigIndex}
+              onSelectMod={handleSelectMod}
+              favoritedModIds={favoritedModIds}
+              onToggleFavorite={handleToggleFavorite}
+              />
+            </div>
           </div>
-          <div className="flex-1 overflow-hidden">
-            <ModList
-            mods={activeTab === "mods" ? mods.filter(m => !favoritedModIds.has(m.id)) : mods.filter(m => favoritedModIds.has(m.id))}
-            configFiles={configFilesMap}
-            selectedModId={selectedModId}
-            selectedConfigIndex={selectedConfigIndex}
-            onSelectMod={handleSelectMod}
-            favoritedModIds={favoritedModIds}
-            onToggleFavorite={handleToggleFavorite}
+        </ResizablePanel>
+        
+        <ResizableHandle withHandle className="bg-blue-500/20 hover:bg-blue-500/40 transition-colors" />
+        
+        <ResizablePanel defaultSize={80}>
+          {selectedMod && selectedModId ? (
+            <ConfigEditor
+              modName={selectedMod.name}
+              configFile={configFile}
+              values={configValues}
+              rawJson={rawJson}
+              onSave={handleSaveConfig}
+              hasUnsavedChanges={hasUnsavedChanges}
+              onChangesDetected={(has) => {
+                setHasUnsavedChanges(has);
+                if (has && selectedModId) {
+                  setEditedModIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(selectedModId);
+                    return next;
+                  });
+                }
+              }}
+              onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
             />
-          </div>
-        </div>
-        {selectedMod && selectedModId ? (
-          <ConfigEditor
-            modName={selectedMod.name}
-            configFile={configFile}
-            values={configValues}
-            rawJson={rawJson}
-            onSave={handleSaveConfig}
-            hasUnsavedChanges={hasUnsavedChanges}
-            onChangesDetected={(has) => {
-              setHasUnsavedChanges(has);
-              if (has && selectedModId) {
-                setEditedModIds((prev) => {
-                  const next = new Set(prev);
-                  next.add(selectedModId);
-                  return next;
-                });
-              }
-            }}
-            onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
-          />
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-background">
-            <p className="text-muted-foreground">Select a config file to edit</p>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center bg-background h-full">
+              <p className="text-muted-foreground">Select a config file to edit</p>
+            </div>
+          )}
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>
