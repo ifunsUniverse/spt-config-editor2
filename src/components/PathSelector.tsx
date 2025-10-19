@@ -15,6 +15,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [hasLastFolder, setHasLastFolder] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // Check if there's a last folder on mount
   useEffect(() => {
@@ -89,7 +90,57 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     }
   };
 
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
 
+    if (!isElectron()) {
+      toast.error("Drag and drop only works in desktop app", {
+        description: "Please use the folder picker or download the desktop app."
+      });
+      return;
+    }
+
+    try {
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length === 0) return;
+
+      // Get the first item's path
+      const firstItem = files[0] as any;
+      let folderPath = firstItem.path;
+
+      // If it's a file, get its directory
+      const api = electronAPI();
+      const stats = await api.stat(folderPath);
+      
+      if (!stats.isDirectory) {
+        // Extract directory from file path
+        folderPath = folderPath.substring(0, folderPath.lastIndexOf('/') || folderPath.lastIndexOf('\\'));
+      }
+
+      setPath(folderPath);
+      toast.success("Folder dropped", {
+        description: "Scanning for mods..."
+      });
+
+      onFolderSelected(folderPath);
+    } catch (error: any) {
+      console.error("Error handling dropped folder:", error);
+      toast.error("Failed to process dropped folder", {
+        description: error.message || "Could not access the dropped folder"
+      });
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
@@ -158,6 +209,29 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
               )}
             </div>
           )}
+
+          {/* Drag and Drop Zone */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            className={`
+              border-2 border-dashed rounded-lg p-8 text-center transition-all
+              ${isDragOver 
+                ? 'border-primary bg-primary/10 scale-[1.02]' 
+                : 'border-border bg-primary/5 hover:bg-primary/10'
+              }
+              ${isElectron() ? 'cursor-pointer' : 'opacity-60'}
+            `}
+          >
+            <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
+            <p className={`text-sm font-medium ${isDragOver ? 'text-primary' : 'text-foreground'}`}>
+              📂 Drag your SPT folder here
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {isElectron() ? 'Drop a folder to scan it instantly' : 'Only available in desktop app'}
+            </p>
+          </div>
         </div>
 
         <div className="text-xs text-muted-foreground space-y-1">
