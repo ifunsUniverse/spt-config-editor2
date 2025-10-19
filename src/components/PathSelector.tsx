@@ -19,6 +19,12 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
   // Check if there's a last folder on mount
   useEffect(() => {
+    console.log('🔍 Electron detection:', {
+      isElectron: isElectron(),
+      hasElectronAPI: typeof window !== 'undefined' && !!window.electronAPI,
+      electronAPI: window.electronAPI
+    });
+    
     const lastFolder = localStorage.getItem('lastSPTFolder');
     console.log('🔎 PathSelector checking for last folder:', lastFolder);
     const hasFolder = !!lastFolder && lastFolder !== 'browser-handle';
