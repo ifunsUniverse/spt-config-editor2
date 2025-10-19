@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { isElectron, electronAPI } from "@/utils/electronBridge";
 
 interface PathSelectorProps {
-  onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
+  onFolderSelected: (handle: FileSystemDirectoryHandle | string) => void;
   onLoadLastFolder?: () => void;
 }
 
@@ -44,7 +44,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
           description: "Scanning for mods..."
         });
 
-        onFolderSelected(result.path as any);
+        onFolderSelected(result.path);
       } else {
         // Use File System Access API for browser
         if (!("showDirectoryPicker" in window)) {

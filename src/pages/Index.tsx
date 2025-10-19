@@ -290,7 +290,7 @@ const Index = () => {
       let mods: ScannedMod[] | ElectronScannedMod[];
       let pathName: string;
 
-      if (typeof handle === 'string') {
+      if (isElectron() && typeof handle === 'string') {
         // Electron path - Save to localStorage FIRST before any async operations
         localStorage.setItem('lastSPTFolder', handle);
         console.log('✅ Saved Electron folder path to localStorage:', handle);
@@ -303,8 +303,8 @@ const Index = () => {
         localStorage.setItem('lastSPTFolder', 'browser-handle');
         console.log('✅ Saved browser handle marker to localStorage');
         
-        mods = await scanSPTFolder(handle);
-        pathName = handle.name;
+        mods = await scanSPTFolder(handle as FileSystemDirectoryHandle);
+        pathName = (handle as FileSystemDirectoryHandle).name;
       }
       
       if (mods.length === 0) {
