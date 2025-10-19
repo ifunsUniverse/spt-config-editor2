@@ -501,12 +501,15 @@ const handleExportMods = async () => {
   };
 
   const handleGoHome = () => {
+    setSptPath(null);
+    setScannedMods([]);
     setSelectedModId(null);
     setSelectedConfigIndex(0);
     setHasUnsavedChanges(false);
     setShowHomeConfirm(false);
+    setEditedModIds(new Set());
     toast.info("Returned to home", {
-      description: "Config selection cleared"
+      description: "Returning to folder selection"
     });
   };
 
