@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Progress } from "@/components/ui/progress";
+import { BlueBox } from "@/components/BlueBox";
 
 // Mock data for demonstration
 const MOCK_MODS: Mod[] = [
@@ -604,6 +605,7 @@ const handleExportMods = async () => {
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden relative">
+        <BlueBox />
         <div className="w-72 border-r border-border bg-card flex flex-col h-full">
           <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
             <div className="flex gap-1 mb-1.5">
