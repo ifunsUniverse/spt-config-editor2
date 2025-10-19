@@ -296,12 +296,14 @@ const Index = () => {
         pathName = handle.split(/[/\\]/).pop() || handle;
         // Save full path to localStorage for Electron
         localStorage.setItem('lastSPTFolder', handle);
+        console.log('✅ Saved Electron folder path to localStorage:', handle);
       } else {
         // Browser FileSystemDirectoryHandle
         mods = await scanSPTFolder(handle);
         pathName = handle.name;
         // For browser, we can't persist the handle directly
         localStorage.setItem('lastSPTFolder', 'browser-handle');
+        console.log('✅ Saved browser handle marker to localStorage');
       }
       
       if (mods.length === 0) {
@@ -570,8 +572,10 @@ const handleExportMods = async () => {
 
   const handleLoadLastFolder = async () => {
     const lastFolder = localStorage.getItem('lastSPTFolder');
+    console.log('🔍 Loading last folder from localStorage:', lastFolder);
     
     if (!lastFolder) {
+      console.log('❌ No last folder found in localStorage');
       toast.error("No previous folder found");
       return;
     }
@@ -579,11 +583,14 @@ const handleExportMods = async () => {
     if (isElectron()) {
       // For Electron, we saved the full path
       if (lastFolder !== 'browser-handle') {
+        console.log('📂 Loading Electron folder:', lastFolder);
         await handleFolderSelected(lastFolder);
       } else {
+        console.log('⚠️ Last folder was from browser mode');
         toast.error("Previous folder was selected in browser mode");
       }
     } else {
+      console.log('🌐 Browser mode - cannot auto-load folders');
       toast.info("Browser mode", {
         description: "Please select your folder again. Browser security prevents automatic folder access."
       });

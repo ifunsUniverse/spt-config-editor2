@@ -19,7 +19,10 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
   // Check if there's a last folder on mount
   useEffect(() => {
     const lastFolder = localStorage.getItem('lastSPTFolder');
-    setHasLastFolder(!!lastFolder && lastFolder !== 'browser-handle');
+    console.log('🔎 PathSelector checking for last folder:', lastFolder);
+    const hasFolder = !!lastFolder && lastFolder !== 'browser-handle';
+    console.log('🔘 Load Last Folder button will be:', hasFolder ? 'enabled' : 'disabled');
+    setHasLastFolder(hasFolder);
   }, []);
 
   const handleSelectFolder = async () => {
