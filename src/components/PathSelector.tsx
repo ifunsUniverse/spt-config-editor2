@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FolderOpen, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +8,19 @@ import { isElectron, electronAPI } from "@/utils/electronBridge";
 
 interface PathSelectorProps {
   onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
+  onLoadLastFolder?: () => void;
 }
 
-export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
+export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelectorProps) => {
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [hasLastFolder, setHasLastFolder] = useState(false);
 
+  // Check if there's a last folder on mount
+  useEffect(() => {
+    const lastFolder = localStorage.getItem('lastSPTFolder');
+    setHasLastFolder(!!lastFolder && lastFolder !== 'browser-handle');
+  }, []);
 
   const handleSelectFolder = async () => {
     try {
@@ -129,6 +136,25 @@ export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
               Click to browse and select your SPT installation directory
             </p>
           </div>
+
+          {onLoadLastFolder && (
+            <div className="space-y-2">
+              <Button
+                onClick={onLoadLastFolder}
+                disabled={isScanning || !hasLastFolder}
+                variant="secondary"
+                className="w-full h-14 text-base gap-2"
+              >
+                <FolderOpen className="w-5 h-5" />
+                Load Previous Folder
+              </Button>
+              {!hasLastFolder && (
+                <p className="text-xs text-muted-foreground text-center">
+                  No previous folder found
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="text-xs text-muted-foreground space-y-1">

@@ -294,10 +294,14 @@ const Index = () => {
         // Electron path
         mods = await scanSPTFolderElectron(handle);
         pathName = handle.split(/[/\\]/).pop() || handle;
+        // Save full path to localStorage for Electron
+        localStorage.setItem('lastSPTFolder', handle);
       } else {
         // Browser FileSystemDirectoryHandle
         mods = await scanSPTFolder(handle);
         pathName = handle.name;
+        // For browser, we can't persist the handle directly
+        localStorage.setItem('lastSPTFolder', 'browser-handle');
       }
       
       if (mods.length === 0) {
@@ -564,10 +568,33 @@ const handleExportMods = async () => {
     input.click();
   };
 
+  const handleLoadLastFolder = async () => {
+    const lastFolder = localStorage.getItem('lastSPTFolder');
+    
+    if (!lastFolder) {
+      toast.error("No previous folder found");
+      return;
+    }
+
+    if (isElectron()) {
+      // For Electron, we saved the full path
+      if (lastFolder !== 'browser-handle') {
+        await handleFolderSelected(lastFolder);
+      } else {
+        toast.error("Previous folder was selected in browser mode");
+      }
+    } else {
+      toast.info("Browser mode", {
+        description: "Please select your folder again. Browser security prevents automatic folder access."
+      });
+    }
+  };
+
   if (!sptPath) {
     return (
       <PathSelector 
         onFolderSelected={handleFolderSelected}
+        onLoadLastFolder={handleLoadLastFolder}
       />
     );
   }
