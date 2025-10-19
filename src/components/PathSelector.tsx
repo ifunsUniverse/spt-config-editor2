@@ -103,14 +103,19 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
 
-    console.log('🎯 Drop event triggered');
-    console.log('📦 Dropped files:', e.dataTransfer.files);
-    console.log('🖥️ Electron mode:', isElectron());
-    console.log('👤 User agent:', navigator.userAgent);
+    const uaElectron = isElectron();
+    const dt = e.dataTransfer;
 
-    if (!isElectron()) {
+    console.log('🎯 Drop event triggered');
+    console.log('🖥️ Electron mode (UA):', uaElectron);
+    console.log('👤 User agent:', navigator.userAgent);
+    console.log('📦 Dropped files:', dt.files);
+    console.log('📜 Dropped items:', dt.items);
+
+    if (!uaElectron) {
       toast.error("Drag and drop only works in desktop app", {
         description: "Please use the folder picker or download the desktop app."
       });
@@ -118,41 +123,43 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     }
 
     try {
-      const files = Array.from(e.dataTransfer.files);
-      if (files.length === 0) {
-        console.log('❌ No files in drop event');
+      if (!dt || dt.types?.includes('Files') === false) {
+        console.log('❌ DataTransfer has no Files type');
+        toast.error('No files detected in drop');
         return;
       }
 
-      // Get the first item's path (Electron adds path property to File objects)
-      const firstItem = files[0] as any;
-      let folderPath = firstItem.path;
-      
-      console.log('📂 Dropped file path:', folderPath);
+      const file = dt.files?.[0] as any;
+      console.log('Dropped item:', file);
+      console.log('Path:', file?.path);
 
-      if (!folderPath) {
+      if (!file) {
+        toast.error('No item dropped');
+        return;
+      }
+
+      let folderPath: string | undefined = file?.path as string | undefined;
+
+      if (!folderPath || typeof folderPath !== 'string') {
         toast.error("Could not read folder path", {
           description: "The dropped item doesn't have a valid path."
         });
         return;
       }
 
-      // If it's a file, get its directory
       const api = electronAPI();
       const stats = await api.stat(folderPath);
-      
+
       if (!stats.isDirectory) {
-        // Extract directory from file path
-        const lastSlash = Math.max(folderPath.lastIndexOf('/'), folderPath.lastIndexOf('\\'));
-        folderPath = folderPath.substring(0, lastSlash);
-        console.log('📁 Extracted directory from file:', folderPath);
+        console.log('❌ Dropped item is not a directory');
+        toast.error('Please drop a folder', {
+          description: 'Files are not supported. Drop the SPT root folder.'
+        });
+        return;
       }
 
       setPath(folderPath);
-      toast.success("Folder dropped", {
-        description: "Scanning for mods..."
-      });
-
+      toast.success("Folder dropped", { description: "Scanning for mods..." });
       console.log('✅ Passing folder path to handler:', folderPath);
       onFolderSelected(folderPath);
     } catch (error: any) {
@@ -165,11 +172,16 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
     setIsDragOver(true);
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragOver(false);
   };
 
@@ -244,7 +256,9 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
           {/* Drag and Drop Zone */}
           <div
             onDrop={handleDrop}
+            onDropCapture={handleDrop}
             onDragOver={handleDragOver}
+            onDragOverCapture={handleDragOver}
             onDragLeave={handleDragLeave}
             className={`
               border-2 border-dashed rounded-lg p-8 text-center transition-all
@@ -252,7 +266,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
                 ? 'border-primary bg-primary/10 scale-[1.02]' 
                 : 'border-border bg-primary/5 hover:bg-primary/10'
               }
-              ${isElectron() ? 'cursor-pointer' : 'opacity-60'}
+              ${isElectron() ? 'cursor-pointer' : 'opacity-60 pointer-events-none'}
             `}
           >
             <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
