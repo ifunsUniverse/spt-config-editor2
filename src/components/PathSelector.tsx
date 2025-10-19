@@ -1,41 +1,20 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { FolderOpen, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { isElectron as isElectronAPI, electronAPI } from "@/utils/electronBridge";
 
-// More reliable Electron detection for drag-and-drop
-const isElectron = () => {
-  return typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron');
-};
 
 interface PathSelectorProps {
   onFolderSelected: (handle: FileSystemDirectoryHandle | string) => void;
   onLoadLastFolder?: () => void;
 }
 
-export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelectorProps) => {
+export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
-  const [hasLastFolder, setHasLastFolder] = useState(false);
-  const [isDragOver, setIsDragOver] = useState(false);
 
-  // Check if there's a last folder on mount
-  useEffect(() => {
-    console.log('🔍 Electron detection:', {
-      isElectron: isElectron(),
-      hasElectronAPI: typeof window !== 'undefined' && !!window.electronAPI,
-      electronAPI: window.electronAPI
-    });
-    
-    const lastFolder = localStorage.getItem('lastSPTFolder');
-    console.log('🔎 PathSelector checking for last folder:', lastFolder);
-    const hasFolder = !!lastFolder && lastFolder !== 'browser-handle';
-    console.log('🔘 Load Last Folder button will be:', hasFolder ? 'enabled' : 'disabled');
-    setHasLastFolder(hasFolder);
-  }, []);
 
   const handleSelectFolder = async () => {
     try {
@@ -101,111 +80,8 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     }
   };
 
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
 
-    const uaElectron = isElectron();
-    const dt = e.dataTransfer;
 
-    console.log('🎯 Drop event triggered');
-    console.log('🖥️ Electron mode (UA):', uaElectron);
-    console.log('👤 User agent:', navigator.userAgent);
-    console.log('📦 Dropped files:', dt?.files);
-    console.log('📜 Dropped items:', dt?.items);
-
-    if (!uaElectron) {
-      toast.error("Drag and drop only works in desktop app", {
-        description: "Please use the folder picker or download the desktop app."
-      });
-      return;
-    }
-
-    try {
-      if (!dt || (dt.types && !dt.types.includes('Files'))) {
-        console.log('❌ DataTransfer has no Files type');
-        toast.error('No files detected in drop');
-        return;
-      }
-
-      const file = dt.files?.[0] as any;
-      console.log('Dropped item:', file);
-      console.log('Path (from File):', file?.path);
-
-      // Helper to normalize file:// URIs into system paths (handles Windows and POSIX)
-      const normalizeFileUriToPath = (uri: string): string => {
-        try {
-          let decoded = decodeURI(uri);
-          if (decoded.startsWith('file://')) {
-            decoded = decoded.replace('file://', '');
-            // On Windows, remove leading slash in /C:/...
-            decoded = decoded.replace(/^\/(?:([A-Za-z]:))\//, '$1/');
-          }
-          return decoded;
-        } catch {
-          return uri;
-        }
-      };
-
-      // Fallbacks for when Electron doesn't populate file.path on some drags
-      let folderPath: string | undefined = file?.path as string | undefined;
-      if (!folderPath) {
-        const uriList = dt.getData('text/uri-list') || dt.getData('text/plain');
-        console.log('text/uri-list:', uriList);
-        if (uriList) {
-          const firstLine = uriList.split('\n').find(l => l.trim().length && !l.startsWith('#'))?.trim();
-          if (firstLine) {
-            folderPath = normalizeFileUriToPath(firstLine);
-            console.log('Path (from URI list):', folderPath);
-          }
-        }
-      }
-
-      if (!folderPath || typeof folderPath !== 'string') {
-        toast.error("Could not read folder path", {
-          description: "The dropped item doesn't have a valid path."
-        });
-        return;
-      }
-
-      const api = electronAPI();
-      const stats = await api.stat(folderPath);
-
-      if (!stats.isDirectory) {
-        console.log('❌ Dropped item is not a directory:', folderPath);
-        toast.error('Please drop a folder', {
-          description: 'Files are not supported. Drop the SPT root folder.'
-        });
-        return;
-      }
-
-      setPath(folderPath);
-      toast.success("Folder dropped", { description: "Scanning for mods..." });
-      console.log('✅ Passing folder path to handler:', folderPath);
-      onFolderSelected(folderPath);
-    } catch (error: any) {
-      console.error("❌ Error handling dropped folder:", error);
-      toast.error("Failed to process dropped folder", {
-        description: error.message || "Could not access the dropped folder"
-      });
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.dataTransfer) {
-      e.dataTransfer.dropEffect = 'copy';
-    }
-    setIsDragOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragOver(false);
-  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-6">
@@ -256,49 +132,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
             </p>
           </div>
 
-          {onLoadLastFolder && (
-            <div className="space-y-2">
-              <Button
-                onClick={onLoadLastFolder}
-                disabled={isScanning || !hasLastFolder}
-                variant="secondary"
-                className="w-full h-14 text-base gap-2"
-              >
-                <FolderOpen className="w-5 h-5" />
-                Load Previous Folder
-              </Button>
-              {!hasLastFolder && (
-                <p className="text-xs text-muted-foreground text-center">
-                  No previous folder found
-                </p>
-              )}
-            </div>
-          )}
 
-          {/* Drag and Drop Zone */}
-          <div
-            onDrop={handleDrop}
-            onDropCapture={handleDrop}
-            onDragOver={handleDragOver}
-            onDragOverCapture={handleDragOver}
-            onDragLeave={handleDragLeave}
-            className={`
-              border-2 border-dashed rounded-lg p-8 text-center transition-all
-              ${isDragOver 
-                ? 'border-primary bg-primary/10 scale-[1.02]' 
-                : 'border-border bg-primary/5 hover:bg-primary/10'
-              }
-              ${isElectron() ? 'cursor-pointer' : 'opacity-60 pointer-events-none'}
-            `}
-          >
-            <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragOver ? 'text-primary' : 'text-muted-foreground'}`} />
-            <p className={`text-sm font-medium ${isDragOver ? 'text-primary' : 'text-foreground'}`}>
-              📂 Drag your SPT folder here
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {isElectron() ? 'Drop a folder to scan it instantly' : 'Only available in desktop app'}
-            </p>
-          </div>
         </div>
 
         <div className="text-xs text-muted-foreground space-y-1">
