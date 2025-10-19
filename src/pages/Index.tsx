@@ -264,6 +264,7 @@ const Index = () => {
   const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [pendingModSwitch, setPendingModSwitch] = useState<{ modId: string; configIndex: number } | null>(null);
+  const [showHomeConfirm, setShowHomeConfirm] = useState(false);
   const [zipBlobUrl, setZipBlobUrl] = useState<string | null>(null);
   const [zipProgress, setZipProgress] = useState(0);
   const [zipCurrentFile, setZipCurrentFile] = useState<string | undefined>(undefined);
@@ -491,6 +492,24 @@ const handleExportMods = async () => {
     toast.success("All favorites cleared");
   };
 
+  const handleHome = () => {
+    if (hasUnsavedChanges) {
+      setShowHomeConfirm(true);
+    } else {
+      handleGoHome();
+    }
+  };
+
+  const handleGoHome = () => {
+    setSelectedModId(null);
+    setSelectedConfigIndex(0);
+    setHasUnsavedChanges(false);
+    setShowHomeConfirm(false);
+    toast.info("Returned to home", {
+      description: "Config selection cleared"
+    });
+  };
+
   const handleExportFavorites = () => {
     const favoritesData = {
       version: "1.0",
@@ -690,6 +709,7 @@ const handleExportMods = async () => {
               }
             }}
             onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
+            onHome={handleHome}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">
@@ -716,6 +736,24 @@ const handleExportMods = async () => {
             </AlertDialogAction>
             <AlertDialogAction onClick={handleSaveAndSwitch}>
               Save and Switch
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Home Confirmation Dialog */}
+      <AlertDialog open={showHomeConfirm} onOpenChange={setShowHomeConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave Config Editor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You have unsaved changes. Are you sure you want to return to the home screen? Your changes will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleGoHome} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Discard & Go Home
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, RotateCcw, Package, AlertCircle } from "lucide-react";
+import { Save, RotateCcw, Package, AlertCircle, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +24,7 @@ interface ConfigEditorProps {
   hasUnsavedChanges?: boolean;
   onChangesDetected?: (hasChanges: boolean) => void;
   onExportMods?: () => void;
+  onHome?: () => void;
 }
 
 export const ConfigEditor = ({ 
@@ -34,7 +35,8 @@ export const ConfigEditor = ({
   onSave,
   hasUnsavedChanges,
   onChangesDetected,
-  onExportMods
+  onExportMods,
+  onHome
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
@@ -134,6 +136,17 @@ export const ConfigEditor = ({
             <p className="text-sm text-muted-foreground">{configFile}</p>
           </div>
           <div className="flex gap-2 items-center">
+            {onHome && (
+              <Button
+                onClick={onHome}
+                variant="outline"
+                size="sm"
+                className="gap-2 border-border"
+              >
+                <Home className="w-4 h-4" />
+                Home
+              </Button>
+            )}
             <Button
               onClick={handleReset}
               disabled={!hasChanges}
