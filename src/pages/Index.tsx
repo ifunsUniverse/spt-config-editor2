@@ -291,19 +291,20 @@ const Index = () => {
       let pathName: string;
 
       if (typeof handle === 'string') {
-        // Electron path
-        mods = await scanSPTFolderElectron(handle);
-        pathName = handle.split(/[/\\]/).pop() || handle;
-        // Save full path to localStorage for Electron
+        // Electron path - Save to localStorage FIRST before any async operations
         localStorage.setItem('lastSPTFolder', handle);
         console.log('✅ Saved Electron folder path to localStorage:', handle);
+        
+        mods = await scanSPTFolderElectron(handle);
+        pathName = handle.split(/[/\\]/).pop() || handle;
       } else {
         // Browser FileSystemDirectoryHandle
-        mods = await scanSPTFolder(handle);
-        pathName = handle.name;
-        // For browser, we can't persist the handle directly
+        // For browser, we can't persist the handle directly, save marker first
         localStorage.setItem('lastSPTFolder', 'browser-handle');
         console.log('✅ Saved browser handle marker to localStorage');
+        
+        mods = await scanSPTFolder(handle);
+        pathName = handle.name;
       }
       
       if (mods.length === 0) {
