@@ -26,18 +26,18 @@ import { formatDistanceToNow } from "date-fns";
 
 interface ConfigHistoryProps {
   modId: string;
+  modName: string;
   configFile: string;
   onRestore: (rawJson: any) => void;
 }
 
-export const ConfigHistory = ({ modId, configFile, onRestore }: ConfigHistoryProps) => {
-  const [history, setHistory] = useState<ConfigHistoryType[]>(() => 
-    getConfigHistory(modId, configFile)
-  );
+export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigHistoryProps) => {
+  const [history, setHistory] = useState<ConfigHistoryType[]>([]);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<ConfigHistoryType | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleRestore = (entry: ConfigHistoryType) => {
     setSelectedEntry(entry);
@@ -56,14 +56,19 @@ export const ConfigHistory = ({ modId, configFile, onRestore }: ConfigHistoryPro
     setShowClearConfirm(true);
   };
 
-  const confirmClearHistory = () => {
-    clearConfigHistory(modId, configFile);
-    setHistory([]);
+  const confirmClearHistory = async () => {
+    setIsLoading(true);
+    await clearConfigHistory(modId, modName, configFile);
+    await refreshHistory();
     setShowClearConfirm(false);
+    setIsLoading(false);
   };
 
-  const refreshHistory = () => {
-    setHistory(getConfigHistory(modId, configFile));
+  const refreshHistory = async () => {
+    setIsLoading(true);
+    const historyData = await getConfigHistory(modId, modName, configFile);
+    setHistory(historyData);
+    setIsLoading(false);
   };
 
   const groupHistoryByDate = (entries: ConfigHistoryType[]) => {

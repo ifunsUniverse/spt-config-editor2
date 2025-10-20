@@ -78,19 +78,15 @@ export const ConfigEditor = ({
     }
   };
 
-  const handleSave = () => {
-    // Validate and save raw JSON/JSON5
+  const handleSave = async () => {
     try {
       const parsedJson = JSON5.parse(rawText);
       
-      // Save to history before applying changes
-      saveConfigHistory(modId, configFile, rawJson, `Before save at ${new Date().toLocaleTimeString()}`);
+      await saveConfigHistory(modId, modName, configFile, rawJson, `Before save at ${new Date().toLocaleTimeString()}`);
       
-      // Auto-format the JSON
       const formattedJson = JSON.stringify(parsedJson, null, 2);
       setRawText(formattedJson);
       
-      // Convert to ConfigValues for compatibility
       const newValues = jsonToConfigValues(parsedJson);
       onSave(newValues);
       setHasChanges(false);
@@ -180,6 +176,7 @@ export const ConfigEditor = ({
             )}
             <ConfigHistory 
               modId={modId}
+              modName={modName}
               configFile={configFile}
               onRestore={handleRestoreHistory}
             />

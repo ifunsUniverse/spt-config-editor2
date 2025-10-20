@@ -139,3 +139,99 @@ ipcMain.handle('fs:stat', async (_event, targetPath: string) => {
     throw new Error(`Failed to get stats: ${error.message}`);
   }
 });
+
+// Get app documents path
+ipcMain.handle('app:getDocumentsPath', async () => {
+  return app.getPath('documents');
+});
+
+// Write history backup to disk
+ipcMain.handle('fs:writeHistoryBackup', async (_event, modName: string, configFile: string, timestamp: number, content: string) => {
+  try {
+    const docsPath = app.getPath('documents');
+    const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
+    
+    await fs.mkdir(backupDir, { recursive: true });
+    
+    const filename = `${configFile.replace(/\.[^/.]+$/, '')}_${timestamp}.json`;
+    const backupPath = path.join(backupDir, filename);
+    await fs.writeFile(backupPath, content, 'utf-8');
+    
+    return { success: true, path: backupPath };
+  } catch (error: any) {
+    throw new Error(`Failed to write history backup: ${error.message}`);
+  }
+});
+
+// Read all history backups for a specific mod config
+ipcMain.handle('fs:readHistoryBackups', async (_event, modName: string, configFile: string) => {
+  try {
+    const docsPath = app.getPath('documents');
+    const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
+    
+    try {
+      await fs.access(backupDir);
+    } catch {
+      return [];
+    }
+    
+    const configPrefix = configFile.replace(/\.[^/.]+$/, '');
+    const entries = await fs.readdir(backupDir, { withFileTypes: true });
+    
+    const backups = [];
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.startsWith(configPrefix) && entry.name.endsWith('.json')) {
+        const filePath = path.join(backupDir, entry.name);
+        const content = await fs.readFile(filePath, 'utf-8');
+        const stats = await fs.stat(filePath);
+        
+        const match = entry.name.match(/_(\d+)\.json$/);
+        const timestamp = match ? parseInt(match[1]) : stats.mtimeMs;
+        
+        backups.push({
+          filename: entry.name,
+          timestamp,
+          content: JSON.parse(content),
+          size: stats.size,
+        });
+      }
+    }
+    
+    return backups.sort((a, b) => b.timestamp - a.timestamp);
+  } catch (error: any) {
+    throw new Error(`Failed to read history backups: ${error.message}`);
+  }
+});
+
+// Delete a specific history backup file
+ipcMain.handle('fs:deleteHistoryBackup', async (_event, modName: string, filename: string) => {
+  try {
+    const docsPath = app.getPath('documents');
+    const backupPath = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName, filename);
+    await fs.unlink(backupPath);
+    return { success: true };
+  } catch (error: any) {
+    throw new Error(`Failed to delete history backup: ${error.message}`);
+  }
+});
+
+// Clear all history backups for a specific config
+ipcMain.handle('fs:clearHistoryBackups', async (_event, modName: string, configFile: string) => {
+  try {
+    const docsPath = app.getPath('documents');
+    const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
+    
+    const configPrefix = configFile.replace(/\.[^/.]+$/, '');
+    const entries = await fs.readdir(backupDir, { withFileTypes: true });
+    
+    for (const entry of entries) {
+      if (entry.isFile() && entry.name.startsWith(configPrefix)) {
+        await fs.unlink(path.join(backupDir, entry.name));
+      }
+    }
+    
+    return { success: true };
+  } catch (error: any) {
+    throw new Error(`Failed to clear history backups: ${error.message}`);
+  }
+});
