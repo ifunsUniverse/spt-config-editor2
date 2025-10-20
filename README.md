@@ -12,6 +12,11 @@ Key Features:
 - Bulk Export - Export all your configurations at once for easy backup or sharing
 - Modern UI - Clean, intuitive interface that's a pleasure to use
 - Lightning Fast - Built with modern web technologies for instant responsiveness
+- Dark/Light Theme Toggle - Added theme switcher with light mode, dark mode, and system preference options. Toggle located next to the Pack & Export button. (For those who love blinding their eyes XD)
+- Edit Tracking & Visual Indicators - Mods that have been edited now display an “Edited” badge and show when they were last modified (e.g., “5 minutes ago”).
+- Recently Edited Tab - New “Recent” tab in the mod list shows your most recently edited mods for quick access.
+- Keyboard Shortcuts - Added Ctrl+S (Cmd+S on Mac) to save configurations and Ctrl+F (Cmd+F on Mac) to focus the search bar. (Let me know if you enjoy this feature)
+- Configuration History & Rollback - Every save now creates a backup. Use the new “History” button in the config editor to view previous versions and restore them if needed. Keeps up to 10 versions per config file for the last 30 days. (I think don’t quote me on that)
 
 Perfect For YOU! and for:
 
