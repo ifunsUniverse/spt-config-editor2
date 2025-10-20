@@ -108,8 +108,9 @@ export const ModList = ({
                         }`}
                       />
                       <div className="text-left flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-sm break-words hyphens-auto whitespace-normal">
+                        {/* Row 1: Name + Badge */}
+                        <div className="flex items-start gap-2 mb-1">
+                          <h3 className="font-semibold text-sm break-words hyphens-auto flex-1 leading-tight">
                             {splitCamelCase(mod.name)}
                           </h3>
                           {hasBeenEdited && (
@@ -121,17 +122,25 @@ export const ModList = ({
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <span className="truncate">
-                            v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
+                        
+                        {/* Row 2: Version + Edit Time */}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                          <span className="shrink-0">
+                            v{mod.version}
+                          </span>
+                          <span className="shrink-0">•</span>
+                          <span className="shrink-0">
+                            {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                           </span>
                           {hasBeenEdited && lastEditTime && (
                             <>
-                              <span>•</span>
-                              <Clock className="h-3 w-3 shrink-0" />
-                              <span className="truncate">
-                                {formatDistanceToNow(lastEditTime, { addSuffix: true })}
-                              </span>
+                              <span className="shrink-0">•</span>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Clock className="h-3 w-3" />
+                                <span className="whitespace-nowrap">
+                                  {formatDistanceToNow(lastEditTime, { addSuffix: true })}
+                                </span>
+                              </div>
                             </>
                           )}
                         </div>
