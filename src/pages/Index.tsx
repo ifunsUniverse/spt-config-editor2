@@ -1,10 +1,13 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
+import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Loader2, Package, Download, Upload, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -276,12 +279,31 @@ const Index = () => {
     const saved = localStorage.getItem("spt-favorites");
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
-  const [activeTab, setActiveTab] = useState<"mods" | "favorites">("mods");
+  const [activeTab, setActiveTab] = useState<"mods" | "favorites" | "recent">("mods");
+  
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const saveConfigRef = useRef<(() => void) | null>(null);
 
   // Save favorites to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("spt-favorites", JSON.stringify(Array.from(favoritedModIds)));
   }, [favoritedModIds]);
+
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSave: () => {
+      if (hasUnsavedChanges && saveConfigRef.current) {
+        saveConfigRef.current();
+        toast.success("Saved via keyboard shortcut");
+      }
+    },
+    onSearch: () => {
+      if (searchInputRef.current) {
+        searchInputRef.current.focus();
+        searchInputRef.current.select();
+      }
+    }
+  });
 
   const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
     setIsScanning(true);
@@ -411,6 +433,9 @@ const Index = () => {
           next.add(selectedModId);
           return next;
         });
+        
+        // Track edit history
+        saveEditHistory(selectedModId, config.fileName);
       }
 
       toast.success("Config saved", {
@@ -659,9 +684,24 @@ const handleExportMods = async () => {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
 
+  // Get recently edited mods
+  const editHistory = getEditHistory();
+  const recentlyEditedModIds = [...new Set(editHistory.map(h => h.modId))];
+  const recentlyEditedMods = mods.filter(m => recentlyEditedModIds.includes(m.id))
+    .sort((a, b) => {
+      const aTime = getModEditTime(a.id) || 0;
+      const bTime = getModEditTime(b.id) || 0;
+      return bTime - aTime;
+    });
+
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden relative">
+        {/* Theme Toggle - Fixed position top-right */}
+        <div className="fixed top-4 right-4 z-50">
+          <ThemeToggle />
+        </div>
+
         <div className="w-72 border-r border-border bg-card flex flex-col h-full">
           <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
             <div className="flex gap-1 mb-1.5">
@@ -678,6 +718,14 @@ const handleExportMods = async () => {
                 className="flex-1 h-8 text-xs"
               >
                 Favorites ({favoritedModIds.size})
+              </Button>
+              <Button
+                variant={activeTab === "recent" ? "default" : "ghost"}
+                onClick={() => setActiveTab("recent")}
+                className="flex-1 h-8 text-xs"
+                title="Recently Edited"
+              >
+                Recent
               </Button>
             </div>
             {activeTab === "favorites" && favoritedModIds.size > 0 && (
@@ -717,13 +765,21 @@ const handleExportMods = async () => {
           </div>
           <div className="flex-1 overflow-hidden">
             <ModList
-            mods={activeTab === "mods" ? mods.filter(m => !favoritedModIds.has(m.id)) : mods.filter(m => favoritedModIds.has(m.id))}
+            mods={
+              activeTab === "mods" 
+                ? mods.filter(m => !favoritedModIds.has(m.id))
+                : activeTab === "favorites"
+                ? mods.filter(m => favoritedModIds.has(m.id))
+                : recentlyEditedMods
+            }
             configFiles={configFilesMap}
             selectedModId={selectedModId}
             selectedConfigIndex={selectedConfigIndex}
             onSelectMod={handleSelectMod}
             favoritedModIds={favoritedModIds}
             onToggleFavorite={handleToggleFavorite}
+            editHistory={editHistory}
+            searchInputRef={searchInputRef}
             />
           </div>
         </div>
@@ -733,6 +789,7 @@ const handleExportMods = async () => {
             configFile={configFile}
             values={configValues}
             rawJson={rawJson}
+            modId={selectedModId}
             onSave={handleSaveConfig}
             hasUnsavedChanges={hasUnsavedChanges}
             onChangesDetected={(has) => {
@@ -747,6 +804,7 @@ const handleExportMods = async () => {
             }}
             onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
             onHome={handleHome}
+            saveConfigRef={saveConfigRef}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">

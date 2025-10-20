@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronRight, Star } from "lucide-react";
+import { ChevronRight, Star, Clock } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { splitCamelCase } from "@/lib/utils";
+import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
+import { formatDistanceToNow } from "date-fns";
 
 export interface Mod {
   id: string;
@@ -27,6 +30,8 @@ interface ModListProps {
   onSelectMod: (modId: string, configIndex?: number) => void;
   favoritedModIds: Set<string>;
   onToggleFavorite: (modId: string) => void;
+  editHistory: ModEditHistory[];
+  searchInputRef?: React.RefObject<HTMLInputElement>;
 }
 
 export const ModList = ({ 
@@ -36,7 +41,9 @@ export const ModList = ({
   selectedConfigIndex, 
   onSelectMod,
   favoritedModIds,
-  onToggleFavorite
+  onToggleFavorite,
+  editHistory,
+  searchInputRef
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,7 +63,8 @@ export const ModList = ({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 border-b border-border shrink-0">
         <Input
-          placeholder="Search mods..."
+          ref={searchInputRef}
+          placeholder="Search mods... (Ctrl+F)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-input border-border h-8"
@@ -66,6 +74,9 @@ export const ModList = ({
         <div className="pl-2 pr-1 py-2 space-y-1.5 mr-1">
           {filteredMods.map((mod) => {
             const modConfigs = configFiles[mod.id] || [];
+            const lastEditTime = getModEditTime(mod.id);
+            const hasBeenEdited = lastEditTime !== null;
+            
             return (
               <Card key={mod.id} className="overflow-hidden border-border bg-card/50">
                 <Collapsible
@@ -97,12 +108,33 @@ export const ModList = ({
                         }`}
                       />
                       <div className="text-left flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm break-words hyphens-auto whitespace-normal">
-                          {splitCamelCase(mod.name)}
-                        </h3>
-                        <p className="text-xs text-muted-foreground truncate">
-                          v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-sm break-words hyphens-auto whitespace-normal">
+                            {splitCamelCase(mod.name)}
+                          </h3>
+                          {hasBeenEdited && (
+                            <Badge 
+                              variant="secondary" 
+                              className="text-[10px] px-1.5 py-0 h-4 bg-success/20 text-success border-success/30 shrink-0"
+                            >
+                              Edited
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <span className="truncate">
+                            v{mod.version} • {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
+                          </span>
+                          {hasBeenEdited && lastEditTime && (
+                            <>
+                              <span>•</span>
+                              <Clock className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                {formatDistanceToNow(lastEditTime, { addSuffix: true })}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </CollapsibleTrigger>
                   </div>

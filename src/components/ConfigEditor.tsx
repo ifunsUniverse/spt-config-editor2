@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ConfigHistory } from "@/components/ConfigHistory";
+import { saveConfigHistory } from "@/utils/configHistory";
 import { toast } from "sonner";
 import JSON5 from "json5";
 
@@ -20,11 +22,13 @@ interface ConfigEditorProps {
   configFile: string;
   values: ConfigValue[];
   rawJson: any;
+  modId: string;
   onSave: (values: ConfigValue[]) => void;
   hasUnsavedChanges?: boolean;
   onChangesDetected?: (hasChanges: boolean) => void;
   onExportMods?: () => void;
   onHome?: () => void;
+  saveConfigRef?: React.MutableRefObject<(() => void) | null>;
 }
 
 export const ConfigEditor = ({ 
@@ -32,11 +36,13 @@ export const ConfigEditor = ({
   configFile, 
   values: initialValues, 
   rawJson,
+  modId,
   onSave,
   hasUnsavedChanges,
   onChangesDetected,
   onExportMods,
-  onHome
+  onHome,
+  saveConfigRef
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
@@ -74,6 +80,9 @@ export const ConfigEditor = ({
     try {
       const parsedJson = JSON5.parse(rawText);
       
+      // Save to history before applying changes
+      saveConfigHistory(modId, configFile, rawJson, `Before save at ${new Date().toLocaleTimeString()}`);
+      
       // Auto-format the JSON
       const formattedJson = JSON.stringify(parsedJson, null, 2);
       setRawText(formattedJson);
@@ -95,6 +104,13 @@ export const ConfigEditor = ({
       return;
     }
   };
+
+  // Expose save function to parent via ref
+  useEffect(() => {
+    if (saveConfigRef) {
+      saveConfigRef.current = handleSave;
+    }
+  }, [rawText, hasChanges, jsonError]);
 
   const handleReset = () => {
     setRawText(JSON.stringify(rawJson, null, 2));
@@ -126,6 +142,18 @@ export const ConfigEditor = ({
     return vals;
   };
 
+  const handleRestoreHistory = (restoredJson: any) => {
+    setRawText(JSON.stringify(restoredJson, null, 2));
+    setHasChanges(true);
+    setJsonError(null);
+    if (onChangesDetected) {
+      onChangesDetected(true);
+    }
+    toast.success("Restored from history", {
+      description: "Click Save to apply changes"
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
       {/* Header */}
@@ -147,6 +175,11 @@ export const ConfigEditor = ({
                 Home
               </Button>
             )}
+            <ConfigHistory 
+              modId={modId}
+              configFile={configFile}
+              onRestore={handleRestoreHistory}
+            />
             <Button
               onClick={handleReset}
               disabled={!hasChanges}
@@ -162,9 +195,10 @@ export const ConfigEditor = ({
               disabled={!hasChanges || jsonError !== null}
               size="sm"
               className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+              title="Save changes (Ctrl+S)"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
             </Button>
             {onExportMods && (
               <Button
