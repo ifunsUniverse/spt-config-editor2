@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfigHistory } from "@/components/ConfigHistory";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { saveConfigHistory } from "@/utils/configHistory";
 import { toast } from "sonner";
 import JSON5 from "json5";
@@ -29,6 +30,7 @@ interface ConfigEditorProps {
   onExportMods?: () => void;
   onHome?: () => void;
   saveConfigRef?: React.MutableRefObject<(() => void) | null>;
+  showThemeToggle?: boolean;
 }
 
 export const ConfigEditor = ({ 
@@ -42,7 +44,8 @@ export const ConfigEditor = ({
   onChangesDetected,
   onExportMods,
   onHome,
-  saveConfigRef
+  saveConfigRef,
+  showThemeToggle = true
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
@@ -211,6 +214,7 @@ export const ConfigEditor = ({
                 Pack & Export
               </Button>
             )}
+            {showThemeToggle && <ThemeToggle />}
           </div>
         </div>
 

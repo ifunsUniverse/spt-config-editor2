@@ -697,11 +697,6 @@ const handleExportMods = async () => {
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden relative">
-        {/* Theme Toggle - Fixed position top-right */}
-        <div className="fixed top-4 right-4 z-50">
-          <ThemeToggle />
-        </div>
-
         <div className="w-72 border-r border-border bg-card flex flex-col h-full">
           <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
             <div className="flex gap-1 mb-1.5">
