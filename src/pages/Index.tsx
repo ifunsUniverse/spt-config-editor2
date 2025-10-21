@@ -700,16 +700,24 @@ const handleExportMods = async () => {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
 
-  // Filter mods based on selected category
+  // Filter mods based on active tab and category
   const filteredModsByCategory = useMemo(() => {
-    if (!selectedCategory) return mods;
-    return mods.filter(m => getModCategory(m.id, modCategories) === selectedCategory);
+    let result = mods;
+    
+    // Apply category filter if one is selected
+    if (selectedCategory) {
+      result = result.filter(m => getModCategory(m.id, modCategories) === selectedCategory);
+    }
+    
+    return result;
   }, [mods, selectedCategory, modCategories]);
 
   // Get recently edited mods
   const editHistory = getEditHistory();
   const recentlyEditedModIds = [...new Set(editHistory.map(h => h.modId))];
-  const recentlyEditedMods = filteredModsByCategory.filter(m => recentlyEditedModIds.includes(m.id))
+  const recentlyEditedMods = mods
+    .filter(m => recentlyEditedModIds.includes(m.id))
+    .filter(m => !selectedCategory || getModCategory(m.id, modCategories) === selectedCategory)
     .sort((a, b) => {
       const aTime = getModEditTime(a.id) || 0;
       const bTime = getModEditTime(b.id) || 0;
@@ -795,12 +803,14 @@ const handleExportMods = async () => {
            </div>
            
            {/* Category Sidebar */}
-           <CategorySidebar
-             categories={modCategories}
-             selectedCategory={selectedCategory}
-             onSelectCategory={setSelectedCategory}
-             mods={mods}
-           />
+           {mods.length > 0 && (
+             <CategorySidebar
+               categories={modCategories}
+               selectedCategory={selectedCategory}
+               onSelectCategory={setSelectedCategory}
+               mods={mods}
+             />
+           )}
            
            <div className="flex-1 overflow-hidden">
              <ModList
