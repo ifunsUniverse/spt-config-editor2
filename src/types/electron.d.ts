@@ -5,6 +5,9 @@ export interface ElectronAPI {
   writeFile: (path: string, content: string) => Promise<{ success: boolean }>;
   exists: (path: string) => Promise<boolean>;
   stat: (path: string) => Promise<{ isDirectory: boolean; isFile: boolean; size: number }>;
+  getDocumentsPath: () => Promise<string>;
+  readCategoryFile: () => Promise<string | null>;
+  writeCategoryFile: (content: string) => Promise<void>;
 }
 
 declare global {

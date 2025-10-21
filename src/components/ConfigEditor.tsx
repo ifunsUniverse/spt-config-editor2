@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { Save, RotateCcw, Package, AlertCircle, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfigHistory } from "@/components/ConfigHistory";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { CategoryDialog } from "@/components/CategoryDialog";
 import { saveConfigHistory } from "@/utils/configHistory";
+import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
 import JSON5 from "json5";
 
@@ -31,6 +34,8 @@ interface ConfigEditorProps {
   onHome?: () => void;
   saveConfigRef?: React.MutableRefObject<(() => void) | null>;
   showThemeToggle?: boolean;
+  currentCategory?: string | null;
+  onCategoryChange?: (category: string | null) => void;
 }
 
 export const ConfigEditor = ({ 
@@ -45,11 +50,14 @@ export const ConfigEditor = ({
   onExportMods,
   onHome,
   saveConfigRef,
-  showThemeToggle = true
+  showThemeToggle = true,
+  currentCategory,
+  onCategoryChange
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false);
 
   // Reset when config changes
   useEffect(() => {
@@ -161,6 +169,21 @@ export const ConfigEditor = ({
           <div>
             <h2 className="text-xl font-bold text-foreground">{modName}</h2>
             <p className="text-sm text-muted-foreground">{configFile}</p>
+            
+            {/* Add to Category Button */}
+            <Button
+              onClick={() => setShowCategoryDialog(true)}
+              variant="outline"
+              size="sm"
+              className="gap-2 mt-2"
+            >
+              ➕ Add to Category
+              {currentCategory && (
+                <Badge className={`${getCategoryBgColor(currentCategory)} text-white border-0`}>
+                  {currentCategory}
+                </Badge>
+              )}
+            </Button>
           </div>
           <div className="flex gap-2 items-center">
             {onHome && (
@@ -240,6 +263,20 @@ export const ConfigEditor = ({
           </p>
         </div>
       </div>
+
+      {/* Category Dialog */}
+      <CategoryDialog
+        modId={modId}
+        modName={modName}
+        currentCategory={currentCategory || null}
+        open={showCategoryDialog}
+        onOpenChange={setShowCategoryDialog}
+        onCategoryAssigned={(category) => {
+          if (onCategoryChange) {
+            onCategoryChange(category);
+          }
+        }}
+      />
     </div>
   );
 };

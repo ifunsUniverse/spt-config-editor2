@@ -17,6 +17,8 @@ export interface ElectronAPI {
   }>>;
   deleteHistoryBackup: (modName: string, filename: string) => Promise<{ success: boolean }>;
   clearHistoryBackups: (modName: string, configFile: string) => Promise<{ success: boolean }>;
+  readCategoryFile: () => Promise<string | null>;
+  writeCategoryFile: (content: string) => Promise<void>;
 }
 
 const electronAPI: ElectronAPI = {
@@ -35,6 +37,8 @@ const electronAPI: ElectronAPI = {
     ipcRenderer.invoke('fs:deleteHistoryBackup', modName, filename),
   clearHistoryBackups: (modName: string, configFile: string) => 
     ipcRenderer.invoke('fs:clearHistoryBackups', modName, configFile),
+  readCategoryFile: () => ipcRenderer.invoke('fs:readCategoryFile'),
+  writeCategoryFile: (content: string) => ipcRenderer.invoke('fs:writeCategoryFile', content),
 };
 
 contextBridge.exposeInMainWorld('electronAPI', electronAPI);

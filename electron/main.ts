@@ -49,6 +49,39 @@ const createWindow = () => {
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
+  
+  // Setup category handlers
+  ipcMain.handle('fs:readCategoryFile', async () => {
+    try {
+      const docsPath = app.getPath('documents');
+      const categoryPath = path.join(docsPath, 'SPTModConfigEditor', 'UserData', 'categories.json');
+      
+      try {
+        await fs.access(categoryPath);
+      } catch {
+        return null;
+      }
+      
+      const content = await fs.readFile(categoryPath, 'utf-8');
+      return content;
+    } catch (error: any) {
+      console.error('Failed to read category file:', error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('fs:writeCategoryFile', async (_event, content: string) => {
+    try {
+      const docsPath = app.getPath('documents');
+      const userDataDir = path.join(docsPath, 'SPTModConfigEditor', 'UserData');
+      const categoryPath = path.join(userDataDir, 'categories.json');
+      
+      await fs.mkdir(userDataDir, { recursive: true });
+      await fs.writeFile(categoryPath, content, 'utf-8');
+    } catch (error: any) {
+      throw new Error(`Failed to write category file: ${error.message}`);
+    }
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

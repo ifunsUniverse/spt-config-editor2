@@ -1,12 +1,19 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
+import { CategorySidebar } from "@/components/CategorySidebar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
+import { 
+  loadCategories, 
+  assignModToCategory, 
+  removeModFromCategory,
+  getModCategory
+} from "@/utils/categoryStorage";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Loader2, Package, Download, Upload, Trash2 } from "lucide-react";
@@ -280,9 +287,18 @@ const Index = () => {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
   const [activeTab, setActiveTab] = useState<"mods" | "favorites" | "recent">("mods");
+  const [modCategories, setModCategories] = useState<Record<string, string>>({});
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
+
+  // Load categories on mount
+  useEffect(() => {
+    loadCategories().then(categories => {
+      setModCategories(categories);
+    });
+  }, []);
 
   // Save favorites to localStorage whenever they change
   useEffect(() => {
@@ -684,15 +700,34 @@ const handleExportMods = async () => {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
 
+  // Filter mods based on selected category
+  const filteredModsByCategory = useMemo(() => {
+    if (!selectedCategory) return mods;
+    return mods.filter(m => getModCategory(m.id, modCategories) === selectedCategory);
+  }, [mods, selectedCategory, modCategories]);
+
   // Get recently edited mods
   const editHistory = getEditHistory();
   const recentlyEditedModIds = [...new Set(editHistory.map(h => h.modId))];
-  const recentlyEditedMods = mods.filter(m => recentlyEditedModIds.includes(m.id))
+  const recentlyEditedMods = filteredModsByCategory.filter(m => recentlyEditedModIds.includes(m.id))
     .sort((a, b) => {
       const aTime = getModEditTime(a.id) || 0;
       const bTime = getModEditTime(b.id) || 0;
       return bTime - aTime;
     });
+
+  // Handler for category changes
+  const handleCategoryChange = async (category: string | null) => {
+    if (!selectedModId) return;
+    
+    if (category) {
+      const updated = await assignModToCategory(selectedModId, category, modCategories);
+      setModCategories(updated);
+    } else {
+      const updated = await removeModFromCategory(selectedModId, modCategories);
+      setModCategories(updated);
+    }
+  };
 
   return (
     <>
@@ -757,26 +792,35 @@ const handleExportMods = async () => {
                 </Button>
               </div>
             )}
-          </div>
-          <div className="flex-1 overflow-hidden">
-            <ModList
-            mods={
-              activeTab === "mods" 
-                ? mods.filter(m => !favoritedModIds.has(m.id))
-                : activeTab === "favorites"
-                ? mods.filter(m => favoritedModIds.has(m.id))
-                : recentlyEditedMods
-            }
-            configFiles={configFilesMap}
-            selectedModId={selectedModId}
-            selectedConfigIndex={selectedConfigIndex}
-            onSelectMod={handleSelectMod}
-            favoritedModIds={favoritedModIds}
-            onToggleFavorite={handleToggleFavorite}
-            editHistory={editHistory}
-            searchInputRef={searchInputRef}
-            />
-          </div>
+           </div>
+           
+           {/* Category Sidebar */}
+           <CategorySidebar
+             categories={modCategories}
+             selectedCategory={selectedCategory}
+             onSelectCategory={setSelectedCategory}
+             mods={mods}
+           />
+           
+           <div className="flex-1 overflow-hidden">
+             <ModList
+             mods={
+               activeTab === "mods" 
+                 ? filteredModsByCategory.filter(m => !favoritedModIds.has(m.id))
+                 : activeTab === "favorites"
+                 ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
+                 : recentlyEditedMods
+             }
+             configFiles={configFilesMap}
+             selectedModId={selectedModId}
+             selectedConfigIndex={selectedConfigIndex}
+             onSelectMod={handleSelectMod}
+             favoritedModIds={favoritedModIds}
+             onToggleFavorite={handleToggleFavorite}
+             editHistory={editHistory}
+             searchInputRef={searchInputRef}
+             />
+           </div>
         </div>
         {selectedMod && selectedModId ? (
           <ConfigEditor
@@ -797,10 +841,12 @@ const handleExportMods = async () => {
                 });
               }
             }}
-            onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
-            onHome={handleHome}
-            saveConfigRef={saveConfigRef}
-          />
+             onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
+             onHome={handleHome}
+             saveConfigRef={saveConfigRef}
+             currentCategory={getModCategory(selectedModId, modCategories)}
+             onCategoryChange={handleCategoryChange}
+           />
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">
             <p className="text-muted-foreground">Select a config file to edit</p>
