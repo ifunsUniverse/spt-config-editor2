@@ -9,12 +9,17 @@ import { Badge } from "@/components/ui/badge";
 import { splitCamelCase } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
 import { formatDistanceToNow } from "date-fns";
+import { CATEGORIES, getCategoryColor } from "@/utils/modCategorization";
 
 export interface Mod {
   id: string;
   name: string;
   version: string;
   configCount: number;
+  category?: string;
+  categories?: string[];
+  author?: string;
+  description?: string;
 }
 
 export interface ConfigFile {
@@ -47,6 +52,7 @@ export const ModList = ({
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
   const toggleMod = (modId: string) => {
     setExpandedMods(prev => ({
@@ -55,13 +61,70 @@ export const ModList = ({
     }));
   };
 
-  const filteredMods = mods.filter(mod =>
-    mod.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredMods = mods.filter((mod) => {
+    // Category filter
+    if (selectedCategory === "Favorites") {
+      if (!favoritedModIds.has(mod.id)) return false;
+    } else if (selectedCategory !== "All") {
+      if (mod.category !== selectedCategory) return false;
+    }
+
+    // Search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      return (
+        mod.name.toLowerCase().includes(query) ||
+        mod.id.toLowerCase().includes(query) ||
+        mod.category?.toLowerCase().includes(query) ||
+        mod.description?.toLowerCase().includes(query)
+      );
+    }
+
+    return true;
+  });
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-3 border-b border-border shrink-0">
+      <div className="p-3 border-b border-border shrink-0 space-y-2">
+        {/* Category Filter Pills */}
+        <ScrollArea className="w-full whitespace-nowrap">
+          <div className="flex gap-1.5 pb-2">
+            <Button
+              variant={selectedCategory === "All" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("All")}
+              className="h-7 text-xs"
+            >
+              All ({mods.length})
+            </Button>
+            <Button
+              variant={selectedCategory === "Favorites" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setSelectedCategory("Favorites")}
+              className="h-7 text-xs"
+            >
+              <Star className="h-3 w-3 mr-1" />
+              Favorites ({favoritedModIds.size})
+            </Button>
+            {CATEGORIES.map(category => {
+              const count = mods.filter(m => m.category === category.name).length;
+              if (count === 0) return null;
+              return (
+                <Button
+                  key={category.name}
+                  variant={selectedCategory === category.name ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedCategory(category.name)}
+                  className="h-7 text-xs"
+                >
+                  {category.name} ({count})
+                </Button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+
+        {/* Search Input */}
         <Input
           ref={searchInputRef}
           placeholder="Search mods... (Ctrl+F)"
@@ -108,11 +171,19 @@ export const ModList = ({
                         }`}
                       />
                       <div className="text-left flex-1 min-w-0">
-                        {/* Row 1: Name + Badge */}
-                        <div className="flex items-start gap-2 mb-1">
-                          <h3 className="font-semibold text-sm break-words hyphens-auto flex-1 leading-tight">
+                        {/* Row 1: Name + Badges */}
+                        <div className="flex items-start gap-1.5 mb-1 flex-wrap">
+                          <h3 className="font-semibold text-sm break-words hyphens-auto leading-tight">
                             {splitCamelCase(mod.name)}
                           </h3>
+                          {mod.category && (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${getCategoryColor(mod.category)}`}
+                            >
+                              {mod.category}
+                            </Badge>
+                          )}
                           {hasBeenEdited && (
                             <Badge 
                               variant="secondary" 

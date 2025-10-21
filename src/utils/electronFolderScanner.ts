@@ -3,6 +3,7 @@ import { ConfigValue } from "@/components/ConfigEditor";
 import JSON5 from "json5";
 import { electronAPI } from "./electronBridge";
 import path from "path-browserify";
+import { categorizeMod } from "./modCategorization";
 
 export interface ElectronScannedConfig {
   fileName: string;
@@ -73,6 +74,8 @@ async function scanModFolderElectron(
     // Look for package.json to get mod info
     let modName = folderName;
     let modVersion = "1.0.0";
+    let modDescription: string | undefined;
+    let modAuthor: string | undefined;
 
     try {
       const packagePath = path.join(modPath, "package.json");
@@ -84,6 +87,12 @@ async function scanModFolderElectron(
 
         if (packageJson.name) modName = packageJson.name;
         if (packageJson.version) modVersion = packageJson.version;
+        if (packageJson.description) modDescription = packageJson.description;
+        if (packageJson.author) {
+          modAuthor = typeof packageJson.author === 'string' 
+            ? packageJson.author 
+            : packageJson.author?.name;
+        }
       }
     } catch {
       // No package.json, use folder name
@@ -96,11 +105,18 @@ async function scanModFolderElectron(
       return null; // Skip mods with no configs
     }
 
+    // Categorize the mod
+    const { primary, secondary } = categorizeMod(modName, modDescription, modAuthor);
+
     const mod: Mod = {
       id: folderName,
       name: modName,
       version: modVersion,
       configCount: configs.length,
+      category: primary,
+      categories: secondary,
+      author: modAuthor,
+      description: modDescription,
     };
 
     return {
