@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { splitCamelCase } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
 import { formatDistanceToNow } from "date-fns";
-import { CATEGORIES, getCategoryColor } from "@/utils/modCategorization";
 
 export interface Mod {
   id: string;
@@ -52,7 +51,7 @@ export const ModList = ({
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedView, setSelectedView] = useState<"mods" | "favorites" | "recent">("mods");
 
   const toggleMod = (modId: string) => {
     setExpandedMods(prev => ({
@@ -62,11 +61,12 @@ export const ModList = ({
   };
 
   const filteredMods = mods.filter((mod) => {
-    // Category filter
-    if (selectedCategory === "Favorites") {
+    // View filter
+    if (selectedView === "favorites") {
       if (!favoritedModIds.has(mod.id)) return false;
-    } else if (selectedCategory !== "All") {
-      if (mod.category !== selectedCategory) return false;
+    } else if (selectedView === "recent") {
+      const lastEditTime = getModEditTime(mod.id);
+      if (!lastEditTime) return false;
     }
 
     // Search filter
@@ -83,46 +83,46 @@ export const ModList = ({
     return true;
   });
 
+  // Sort recent by edit time
+  const sortedMods = selectedView === "recent"
+    ? [...filteredMods].sort((a, b) => {
+        const aTime = getModEditTime(a.id) || 0;
+        const bTime = getModEditTime(b.id) || 0;
+        return bTime - aTime;
+      })
+    : filteredMods;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="p-3 border-b border-border shrink-0 space-y-2">
-        {/* Category Filter Pills */}
-        <ScrollArea className="w-full whitespace-nowrap">
-          <div className="flex gap-1.5 pb-2">
-            <Button
-              variant={selectedCategory === "All" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory("All")}
-              className="h-7 text-xs"
-            >
-              All ({mods.length})
-            </Button>
-            <Button
-              variant={selectedCategory === "Favorites" ? "default" : "outline"}
-              size="sm"
-              onClick={() => setSelectedCategory("Favorites")}
-              className="h-7 text-xs"
-            >
-              <Star className="h-3 w-3 mr-1" />
-              Favorites ({favoritedModIds.size})
-            </Button>
-            {CATEGORIES.map(category => {
-              const count = mods.filter(m => m.category === category.name).length;
-              if (count === 0) return null;
-              return (
-                <Button
-                  key={category.name}
-                  variant={selectedCategory === category.name ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedCategory(category.name)}
-                  className="h-7 text-xs"
-                >
-                  {category.name} ({count})
-                </Button>
-              );
-            })}
-          </div>
-        </ScrollArea>
+        {/* View Tabs */}
+        <div className="flex gap-2">
+          <Button
+            variant={selectedView === "mods" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedView("mods")}
+            className="h-8"
+          >
+            Mods ({mods.length})
+          </Button>
+          <Button
+            variant={selectedView === "favorites" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedView("favorites")}
+            className="h-8"
+          >
+            Favorites ({favoritedModIds.size})
+          </Button>
+          <Button
+            variant={selectedView === "recent" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedView("recent")}
+            className="h-8"
+          >
+            <Clock className="h-3 w-3 mr-1" />
+            Recent
+          </Button>
+        </div>
 
         {/* Search Input */}
         <Input
@@ -135,10 +135,11 @@ export const ModList = ({
       </div>
       <ScrollArea className="flex-1">
         <div className="pl-2 pr-1 py-2 space-y-1.5 mr-1">
-          {filteredMods.map((mod) => {
+          {sortedMods.map((mod) => {
             const modConfigs = configFiles[mod.id] || [];
             const lastEditTime = getModEditTime(mod.id);
             const hasBeenEdited = lastEditTime !== null;
+            const lastEditDate = lastEditTime ? new Date(lastEditTime) : null;
             
             return (
               <Card key={mod.id} className="overflow-hidden border-border bg-card/50">
@@ -176,14 +177,6 @@ export const ModList = ({
                           <h3 className="font-semibold text-sm break-words hyphens-auto leading-tight">
                             {splitCamelCase(mod.name)}
                           </h3>
-                          {mod.category && (
-                            <Badge 
-                              variant="outline" 
-                              className={`text-[10px] px-1.5 py-0 h-4 shrink-0 ${getCategoryColor(mod.category)}`}
-                            >
-                              {mod.category}
-                            </Badge>
-                          )}
                           {hasBeenEdited && (
                             <Badge 
                               variant="secondary" 
@@ -203,13 +196,13 @@ export const ModList = ({
                           <span className="shrink-0">
                             {mod.configCount} config{mod.configCount !== 1 ? 's' : ''}
                           </span>
-                          {hasBeenEdited && lastEditTime && (
+                          {hasBeenEdited && lastEditDate && (
                             <>
                               <span className="shrink-0">•</span>
                               <div className="flex items-center gap-1 shrink-0">
                                 <Clock className="h-3 w-3" />
                                 <span className="whitespace-nowrap">
-                                  {formatDistanceToNow(lastEditTime, { addSuffix: true })}
+                                  {formatDistanceToNow(lastEditDate, { addSuffix: true })}
                                 </span>
                               </div>
                             </>
