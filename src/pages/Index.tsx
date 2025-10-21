@@ -282,9 +282,16 @@ const Index = () => {
   const [showZipProgress, setShowZipProgress] = useState(false);
   const [editedModIds, setEditedModIds] = useState<Set<string>>(new Set());
   const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(() => {
-    // Load favorites from localStorage on mount
-    const saved = localStorage.getItem("spt-favorites");
-    return saved ? new Set(JSON.parse(saved)) : new Set();
+    // Load favorites from localStorage on mount (safe parse)
+    try {
+      const saved = localStorage.getItem("spt-favorites");
+      const arr = saved ? JSON.parse(saved) : [];
+      return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+      console.warn("Invalid favorites data in localStorage; resetting.", e);
+      localStorage.removeItem("spt-favorites");
+      return new Set();
+    }
   });
   const [activeTab, setActiveTab] = useState<"mods" | "favorites" | "recent">("mods");
   const [modCategories, setModCategories] = useState<Record<string, string>>({});

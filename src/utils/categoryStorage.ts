@@ -16,9 +16,15 @@ export async function loadCategories(): Promise<CategoryAssignments> {
       return {};
     }
   } else {
-    // Browser localStorage
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
+    // Browser localStorage with safe parse
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.warn("Invalid categories data in localStorage; resetting.", error);
+      localStorage.removeItem(STORAGE_KEY);
+      return {};
+    }
   }
 }
 
