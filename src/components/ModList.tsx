@@ -51,7 +51,6 @@ export const ModList = ({
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedView, setSelectedView] = useState<"mods" | "favorites" | "recent">("mods");
 
   const toggleMod = (modId: string) => {
     setExpandedMods(prev => ({
@@ -61,14 +60,6 @@ export const ModList = ({
   };
 
   const filteredMods = mods.filter((mod) => {
-    // View filter
-    if (selectedView === "favorites") {
-      if (!favoritedModIds.has(mod.id)) return false;
-    } else if (selectedView === "recent") {
-      const lastEditTime = getModEditTime(mod.id);
-      if (!lastEditTime) return false;
-    }
-
     // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
@@ -83,48 +74,9 @@ export const ModList = ({
     return true;
   });
 
-  // Sort recent by edit time
-  const sortedMods = selectedView === "recent"
-    ? [...filteredMods].sort((a, b) => {
-        const aTime = getModEditTime(a.id) || 0;
-        const bTime = getModEditTime(b.id) || 0;
-        return bTime - aTime;
-      })
-    : filteredMods;
-
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-3 border-b border-border shrink-0 space-y-2">
-        {/* View Tabs */}
-        <div className="flex gap-2">
-          <Button
-            variant={selectedView === "mods" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedView("mods")}
-            className="h-8"
-          >
-            Mods ({mods.length})
-          </Button>
-          <Button
-            variant={selectedView === "favorites" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedView("favorites")}
-            className="h-8"
-          >
-            Favorites ({favoritedModIds.size})
-          </Button>
-          <Button
-            variant={selectedView === "recent" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setSelectedView("recent")}
-            className="h-8"
-          >
-            <Clock className="h-3 w-3 mr-1" />
-            Recent
-          </Button>
-        </div>
-
-        {/* Search Input */}
+      <div className="p-3 border-b border-border shrink-0">
         <Input
           ref={searchInputRef}
           placeholder="Search mods... (Ctrl+F)"
@@ -135,7 +87,7 @@ export const ModList = ({
       </div>
       <ScrollArea className="flex-1">
         <div className="pl-2 pr-1 py-2 space-y-1.5 mr-1">
-          {sortedMods.map((mod) => {
+          {filteredMods.map((mod) => {
             const modConfigs = configFiles[mod.id] || [];
             const lastEditTime = getModEditTime(mod.id);
             const hasBeenEdited = lastEditTime !== null;
