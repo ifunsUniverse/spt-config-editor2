@@ -342,6 +342,7 @@ const Index = () => {
         
         mods = await scanSPTFolderElectron(handle);
         pathName = handle.split(/[/\\]/).pop() || handle;
+        console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
       } else {
         // Browser FileSystemDirectoryHandle
         // For browser, we can't persist the handle directly, save marker first
@@ -350,6 +351,7 @@ const Index = () => {
         
         mods = await scanSPTFolder(handle as FileSystemDirectoryHandle);
         pathName = (handle as FileSystemDirectoryHandle).name;
+        console.log('[Scan] Browser mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
       }
       
       if (mods.length === 0) {
@@ -373,6 +375,7 @@ const Index = () => {
       });
       
     } catch (error: any) {
+      console.error('[Scan] Error scanning folder:', error);
       toast.error("Scan failed", {
         description: error.message || "Could not scan the folder structure"
       });
@@ -675,12 +678,16 @@ const handleExportMods = async () => {
   // Build config files map
   const configFilesMap: Record<string, ConfigFile[]> = {};
   if (scannedMods.length > 0) {
-    scannedMods.forEach(sm => {
-      configFilesMap[sm.mod.id] = sm.configs.map((cfg, idx) => ({
-        fileName: cfg.fileName,
-        index: idx
-      }));
-    });
+    try {
+      scannedMods.forEach(sm => {
+        configFilesMap[sm.mod.id] = sm.configs.map((cfg, idx) => ({
+          fileName: cfg.fileName,
+          index: idx
+        }));
+      });
+    } catch (error) {
+      console.error('[ConfigMap] Error building config map:', error);
+    }
   } else {
     // Mock data - create placeholder config files
     MOCK_MODS.forEach(mod => {
@@ -691,18 +698,23 @@ const handleExportMods = async () => {
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
   const selectedMod = selectedScannedMod?.mod || MOCK_MODS.find(m => m.id === selectedModId);
 
-  // Get config data
+  // Get config data with guards
   let configFile = "config.json";
   let configValues: ConfigValue[] = [];
   let rawJson = {};
 
   if (selectedScannedMod) {
-    const config = selectedScannedMod.configs[selectedConfigIndex];
+    // Guard: ensure selectedConfigIndex is within bounds
+    const maxConfigIndex = (selectedScannedMod.configs?.length || 1) - 1;
+    const safeConfigIndex = Math.max(0, Math.min(selectedConfigIndex, maxConfigIndex));
+    
+    const config = selectedScannedMod.configs?.[safeConfigIndex];
     if (config) {
       configFile = config.fileName;
-      configValues = config.values;
-      rawJson = config.rawJson;
+      configValues = config.values || [];
+      rawJson = config.rawJson || {};
     }
+    console.log('[Editor] selectedModId:', selectedModId, 'configIndex:', safeConfigIndex, 'configFile:', configFile, 'values:', configValues.length);
   } else if (selectedModId) {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
@@ -839,7 +851,7 @@ const handleExportMods = async () => {
              />
            </div>
         </div>
-        {selectedMod && selectedModId ? (
+        {selectedMod && selectedModId && configValues.length > 0 ? (
           <ConfigEditor
             modName={selectedMod.name}
             configFile={configFile}
@@ -864,6 +876,14 @@ const handleExportMods = async () => {
              currentCategory={getModCategory(selectedModId, modCategories)}
              onCategoryChange={handleCategoryChange}
            />
+        ) : selectedMod && selectedModId ? (
+          <div className="flex-1 flex items-center justify-center bg-background">
+            <div className="text-center text-muted-foreground space-y-2">
+              <Package className="w-12 h-12 mx-auto opacity-50" />
+              <p className="font-medium">No configuration files found</p>
+              <p className="text-sm">This mod doesn't have any editable config files</p>
+            </div>
+          </div>
         ) : (
           <div className="flex-1 flex items-center justify-center bg-background">
             <p className="text-muted-foreground">Select a config file to edit</p>

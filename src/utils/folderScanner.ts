@@ -106,26 +106,45 @@ async function scanConfigFilesRecursive(
 
   // @ts-ignore - values() exists but TypeScript doesn't recognize it
   for await (const entry of dirHandle.values()) {
-    if (entry.kind === "file") {
-      // Accept all JSON variants: .json, .json5, .jsonc, and any other .json* files
-      const lowerName = entry.name.toLowerCase();
-      const isConfigFile = 
-        lowerName.endsWith(".json") || 
-        lowerName.endsWith(".json5") ||
-        lowerName.endsWith(".jsonc") ||
-        /\.json[a-z0-9]*$/i.test(entry.name); // Matches any .json* extension
+    if (entry.kind === "directory") {
+      // Skip dev/build directories
+      if (["node_modules", ".git", "dist", "build", ".vscode"].includes(entry.name)) {
+        continue;
+      }
+      // Recursively scan subdirectories
+      const subDirHandle = entry as FileSystemDirectoryHandle;
+      const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+      const subConfigs = await scanConfigFilesRecursive(subDirHandle, subPath);
+      configs.push(...subConfigs);
+    } else if (entry.kind === "file") {
+      const fileName = entry.name;
       
-      if (isConfigFile) {
+      // Skip dev/build files
+      if (
+        fileName === "package.json" ||
+        fileName.startsWith("tsconfig") ||
+        fileName === "package-lock.json" ||
+        fileName === "pnpm-lock.yaml" ||
+        fileName === "yarn.lock" ||
+        fileName.startsWith(".eslintrc") ||
+        fileName.startsWith(".prettierrc")
+      ) {
+        continue;
+      }
+      
+      // Check if file is a JSON variant
+      if (
+        fileName.endsWith(".json") ||
+        fileName.endsWith(".json5") ||
+        fileName.endsWith(".jsonc")
+      ) {
         try {
           const fileHandle = entry as FileSystemFileHandle;
           const file = await fileHandle.getFile();
           const text = await file.text();
           
-          // Parse JSON/JSON5/JSONC - JSON5 parser supports all variants including comments
-          const json = (entry.name.toLowerCase().endsWith(".json5") || 
-                       entry.name.toLowerCase().endsWith(".jsonc"))
-            ? JSON5.parse(text) 
-            : JSON.parse(text);
+          // Always use JSON5 to support comments and trailing commas
+          const json = JSON5.parse(text);
 
           // Only include if it looks like a config (has usable properties)
           if (isValidConfig(json)) {
@@ -143,12 +162,6 @@ async function scanConfigFilesRecursive(
           console.warn(`Could not parse ${entry.name}:`, error);
         }
       }
-    } else if (entry.kind === "directory") {
-      // Recursively scan subdirectories
-      const subDirHandle = entry as FileSystemDirectoryHandle;
-      const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-      const subConfigs = await scanConfigFilesRecursive(subDirHandle, subPath);
-      configs.push(...subConfigs);
     }
   }
 

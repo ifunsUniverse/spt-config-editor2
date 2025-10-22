@@ -130,26 +130,42 @@ async function scanConfigFilesRecursiveElectron(
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
 
-      if (entry.isFile) {
-        // Accept all JSON variants: .json, .json5, .jsonc, and any other .json* files
-        const lowerName = entry.name.toLowerCase();
-        const isConfigFile =
-          lowerName.endsWith(".json") ||
-          lowerName.endsWith(".json5") ||
-          lowerName.endsWith(".jsonc") ||
-          /\.json[a-z0-9]*$/i.test(entry.name); // Matches any .json* extension
-
-        if (isConfigFile) {
+      if (entry.isDirectory) {
+        // Skip dev/build directories
+        if (["node_modules", ".git", "dist", "build", ".vscode"].includes(entry.name)) {
+          continue;
+        }
+        // Recursively scan subdirectories
+        const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
+        const subConfigs = await scanConfigFilesRecursiveElectron(fullPath, subPath);
+        configs.push(...subConfigs);
+      } else if (entry.isFile) {
+        const fileName = entry.name;
+        
+        // Skip dev/build files
+        if (
+          fileName === "package.json" ||
+          fileName.startsWith("tsconfig") ||
+          fileName === "package-lock.json" ||
+          fileName === "pnpm-lock.yaml" ||
+          fileName === "yarn.lock" ||
+          fileName.startsWith(".eslintrc") ||
+          fileName.startsWith(".prettierrc")
+        ) {
+          continue;
+        }
+        
+        // Check if file is a JSON variant
+        if (
+          fileName.endsWith(".json") ||
+          fileName.endsWith(".json5") ||
+          fileName.endsWith(".jsonc")
+        ) {
           try {
             const fileText = await api.readFile(fullPath);
-
-            // Parse JSON/JSON5/JSONC - JSON5 parser supports all variants including comments
-            const lowerName = entry.name.toLowerCase();
-            const json = (lowerName.endsWith(".json5") || 
-                         lowerName.endsWith(".jsonc") ||
-                         /\.json[a-z0-9]+$/i.test(entry.name))
-              ? JSON5.parse(fileText)
-              : JSON.parse(fileText);
+            
+            // Always use JSON5 to support comments and trailing commas
+            const json = JSON5.parse(fileText);
 
             // Only include if it looks like a config (has usable properties)
             if (isValidConfig(json)) {
@@ -168,11 +184,6 @@ async function scanConfigFilesRecursiveElectron(
             console.warn(`Could not parse ${entry.name}:`, error);
           }
         }
-      } else if (entry.isDirectory) {
-        // Recursively scan subdirectories
-        const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-        const subConfigs = await scanConfigFilesRecursiveElectron(fullPath, subPath);
-        configs.push(...subConfigs);
       }
     }
   } catch (error) {

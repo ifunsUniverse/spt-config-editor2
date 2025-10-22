@@ -20,7 +20,13 @@ export const CategorySidebar = ({
   mods
 }: CategorySidebarProps) => {
   const allModIds = mods.map(m => m.id);
-  const counts = getCategoryCounts(categories, allModIds);
+  let counts: Record<string, number> = {};
+  try {
+    counts = getCategoryCounts(categories, allModIds);
+  } catch (error) {
+    console.error('[CategorySidebar] Error getting category counts:', error);
+    counts = {};
+  }
 
   // Sort categories by count (descending)
   const sortedCategories = [...CATEGORIES].sort((a, b) => {
