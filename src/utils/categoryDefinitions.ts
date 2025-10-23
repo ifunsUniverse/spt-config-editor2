@@ -7,6 +7,12 @@ export interface Category {
 
 export const CATEGORIES: Category[] = [
   {
+    name: "Traders",
+    color: "bg-purple-500 hover:bg-purple-600",
+    bgColor: "bg-purple-500",
+    textColor: "text-white"
+  },
+  {
     name: "AI Behavior",
     color: "bg-purple-500 hover:bg-purple-600",
     bgColor: "bg-purple-500",
