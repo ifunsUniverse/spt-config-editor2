@@ -3,6 +3,7 @@ import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
+import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
@@ -608,11 +609,12 @@ const handleExportMods = async () => {
              selectedModId={selectedModId}
              selectedConfigIndex={selectedConfigIndex}
              onSelectMod={handleSelectMod}
-             favoritedModIds={favoritedModIds}
-             onToggleFavorite={handleToggleFavorite}
-             editHistory={editHistory}
-             searchInputRef={searchInputRef}
-             />
+              favoritedModIds={favoritedModIds}
+              onToggleFavorite={handleToggleFavorite}
+              editHistory={editHistory}
+              searchInputRef={searchInputRef}
+              modCategories={modCategories}
+              />
            </div>
         </div>
         {selectedMod && selectedModId && configValues.length > 0 ? (

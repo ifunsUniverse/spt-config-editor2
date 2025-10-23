@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { splitCamelCase } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
 import { formatDistanceToNow } from "date-fns";
+import { ModMetadataViewer, ModMetadata } from "@/components/ModMetadataViewer";
+import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 
 export interface Mod {
   id: string;
@@ -19,6 +21,7 @@ export interface Mod {
   categories?: string[];
   author?: string;
   description?: string;
+  metadata?: ModMetadata;
 }
 
 export interface ConfigFile {
@@ -36,6 +39,7 @@ interface ModListProps {
   onToggleFavorite: (modId: string) => void;
   editHistory: ModEditHistory[];
   searchInputRef?: React.RefObject<HTMLInputElement>;
+  modCategories?: Record<string, string>;
 }
 
 export const ModList = ({ 
@@ -47,7 +51,8 @@ export const ModList = ({
   favoritedModIds,
   onToggleFavorite,
   editHistory,
-  searchInputRef
+  searchInputRef,
+  modCategories = {}
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,6 +134,13 @@ export const ModList = ({
                           <h3 className="font-semibold text-sm break-words hyphens-auto leading-tight">
                             {splitCamelCase(mod.name)}
                           </h3>
+                          {modCategories[mod.id] && (
+                            <Badge 
+                              className={`${getCategoryBgColor(modCategories[mod.id])} text-white border-0 text-[10px] px-1.5 py-0 h-4 shrink-0`}
+                            >
+                              {modCategories[mod.id]}
+                            </Badge>
+                          )}
                           {hasBeenEdited && (
                             <Badge 
                               variant="secondary" 
@@ -162,6 +174,12 @@ export const ModList = ({
                         </div>
                       </div>
                     </CollapsibleTrigger>
+                    {mod.metadata && (
+                      <ModMetadataViewer 
+                        metadata={mod.metadata}
+                        modName={mod.name}
+                      />
+                    )}
                   </div>
 
                   <CollapsibleContent>

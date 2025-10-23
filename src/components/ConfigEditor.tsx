@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Save, RotateCcw, Package, AlertCircle, Home } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Save, RotateCcw, Package, AlertCircle, Home, CheckCircle, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -58,16 +58,45 @@ export const ConfigEditor = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [matchCount, setMatchCount] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Reset when config changes
   useEffect(() => {
     setRawText(JSON.stringify(rawJson, null, 2));
     setHasChanges(false);
     setJsonError(null);
+    setSearchQuery("");
+    setShowSearch(false);
     if (onChangesDetected) {
       onChangesDetected(false);
     }
   }, [configFile, modName]);
+
+  // Search functionality
+  useEffect(() => {
+    if (searchQuery) {
+      const regex = new RegExp(searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const matches = rawText.match(regex);
+      setMatchCount(matches ? matches.length : 0);
+    } else {
+      setMatchCount(0);
+    }
+  }, [searchQuery, rawText]);
+
+  // Keyboard shortcut for search (Ctrl+F)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        setShowSearch(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleRawTextChange = (text: string) => {
     setRawText(text);
@@ -161,6 +190,56 @@ export const ConfigEditor = ({
     });
   };
 
+  const handleValidateJSON = () => {
+    try {
+      JSON5.parse(rawText);
+      toast.success("Valid JSON", {
+        description: "Configuration is properly formatted"
+      });
+    } catch (error: any) {
+      const lineMatch = error.message.match(/line (\d+)/);
+      const line = lineMatch ? parseInt(lineMatch[1]) : null;
+      
+      toast.error("Invalid JSON", {
+        description: line ? `Error at line ${line}: ${error.message}` : error.message
+      });
+
+      // Highlight error line
+      if (line && textareaRef.current) {
+        const lines = rawText.split('\n');
+        let charCount = 0;
+        for (let i = 0; i < line - 1; i++) {
+          charCount += lines[i].length + 1; // +1 for newline
+        }
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(charCount, charCount + lines[line - 1].length);
+      }
+    }
+  };
+
+  const handleFixCommonIssues = () => {
+    let fixed = rawText;
+    
+    // Add missing commas between properties
+    fixed = fixed.replace(/("\s*)\n(\s*")/g, '$1,\n$2');
+    
+    // Remove trailing commas
+    fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+    
+    // Normalize quotes
+    fixed = fixed.replace(/'/g, '"');
+    
+    setRawText(fixed);
+    setHasChanges(true);
+    if (onChangesDetected) {
+      onChangesDetected(true);
+    }
+    
+    toast.success("Fixed common issues", {
+      description: "Added missing commas, removed trailing commas, normalized quotes"
+    });
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-background">
       {/* Header */}
@@ -214,6 +293,24 @@ export const ConfigEditor = ({
               Reset
             </Button>
             <Button
+              onClick={handleValidateJSON}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <CheckCircle className="w-4 h-4" />
+              Validate JSON
+            </Button>
+            <Button
+              onClick={handleFixCommonIssues}
+              variant="outline"
+              size="sm"
+              className="gap-2"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Fix Issues
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={!hasChanges || jsonError !== null}
               size="sm"
@@ -251,13 +348,59 @@ export const ConfigEditor = ({
       {/* Content */}
       <div className="flex-1 flex flex-col overflow-hidden p-6">
         <div className="flex-1 flex flex-col space-y-2">
-          <Textarea
-            value={rawText}
-            onChange={(e) => handleRawTextChange(e.target.value)}
-            className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
-            placeholder="Edit JSON/JSON5 configuration..."
-            spellCheck={false}
-          />
+          {/* Search Bar */}
+          {showSearch && (
+            <div className="flex items-center gap-2 p-2 bg-accent rounded-md">
+              <Search className="w-4 h-4 text-muted-foreground" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search in config..."
+                className="flex-1 bg-transparent border-none outline-none text-sm"
+                autoFocus
+              />
+              {matchCount > 0 && (
+                <span className="text-xs text-muted-foreground">
+                  {matchCount} match{matchCount !== 1 ? 'es' : ''}
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6"
+                onClick={() => {
+                  setShowSearch(false);
+                  setSearchQuery("");
+                }}
+              >
+                <X className="w-3 h-3" />
+              </Button>
+            </div>
+          )}
+          
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={rawText}
+              onChange={(e) => handleRawTextChange(e.target.value)}
+              className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
+              placeholder="Edit JSON/JSON5 configuration..."
+              spellCheck={false}
+            />
+            {!showSearch && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute top-2 right-2 gap-1 text-xs"
+                onClick={() => setShowSearch(true)}
+              >
+                <Search className="w-3 h-3" />
+                <kbd className="text-[10px] opacity-60">Ctrl+F</kbd>
+              </Button>
+            )}
+          </div>
+          
           <p className="text-xs text-muted-foreground shrink-0">
             Supports JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
           </p>
