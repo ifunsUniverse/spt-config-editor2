@@ -328,6 +328,38 @@ const Index = () => {
     }
   });
 
+  // CRITICAL: All hooks must be called before any early returns!
+  // Derive mods from scanned data or use mock data
+  const mods = scannedMods.length > 0 
+    ? scannedMods.map(sm => sm.mod)
+    : MOCK_MODS;
+
+  // Get recently edited mods
+  const editHistory = getEditHistory();
+  const recentlyEditedModIds = [...new Set(editHistory.map(h => h.modId))];
+
+  // Filter mods based on active tab and category
+  const filteredModsByCategory = useMemo(() => {
+    let result = mods;
+    
+    // Apply category filter if one is selected
+    if (selectedCategory) {
+      result = result.filter(m => getModCategory(m.id, modCategories) === selectedCategory);
+    }
+    
+    return result;
+  }, [mods, selectedCategory, modCategories]);
+
+  // Get recently edited mods with filter applied
+  const recentlyEditedMods = mods
+    .filter(m => recentlyEditedModIds.includes(m.id))
+    .filter(m => !selectedCategory || getModCategory(m.id, modCategories) === selectedCategory)
+    .sort((a, b) => {
+      const aTime = getModEditTime(a.id) || 0;
+      const bTime = getModEditTime(b.id) || 0;
+      return bTime - aTime;
+    });
+
   const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
     setIsScanning(true);
     
@@ -670,11 +702,6 @@ const handleExportMods = async () => {
     );
   }
 
-  // Use scanned data if available, otherwise fall back to mock data
-  const mods = scannedMods.length > 0 
-    ? scannedMods.map(sm => sm.mod)
-    : MOCK_MODS;
-
   // Build config files map
   const configFilesMap: Record<string, ConfigFile[]> = {};
   if (scannedMods.length > 0) {
@@ -718,30 +745,6 @@ const handleExportMods = async () => {
   } else if (selectedModId) {
     configValues = MOCK_CONFIGS[selectedModId] || [];
   }
-
-  // Filter mods based on active tab and category
-  const filteredModsByCategory = useMemo(() => {
-    let result = mods;
-    
-    // Apply category filter if one is selected
-    if (selectedCategory) {
-      result = result.filter(m => getModCategory(m.id, modCategories) === selectedCategory);
-    }
-    
-    return result;
-  }, [mods, selectedCategory, modCategories]);
-
-  // Get recently edited mods
-  const editHistory = getEditHistory();
-  const recentlyEditedModIds = [...new Set(editHistory.map(h => h.modId))];
-  const recentlyEditedMods = mods
-    .filter(m => recentlyEditedModIds.includes(m.id))
-    .filter(m => !selectedCategory || getModCategory(m.id, modCategories) === selectedCategory)
-    .sort((a, b) => {
-      const aTime = getModEditTime(a.id) || 0;
-      const bTime = getModEditTime(b.id) || 0;
-      return bTime - aTime;
-    });
 
   // Handler for category changes
   const handleCategoryChange = async (category: string | null) => {
