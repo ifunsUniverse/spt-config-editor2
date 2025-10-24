@@ -4,7 +4,9 @@ import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { ModMetadataViewer } from "@/components/ModMetadataViewer";
+import { SettingsDialog } from "@/components/SettingsDialog";
+import { DeveloperTools } from "@/components/DeveloperTools";
 import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
@@ -63,6 +65,8 @@ const Index = () => {
   const [modCategories, setModCategories] = useState<Record<string, string>>({});
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
+  const [devMode, setDevMode] = useState(false);
+  const [showValidationSummary, setShowValidationSummary] = useState(false);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
@@ -617,31 +621,34 @@ const handleExportMods = async () => {
               />
            </div>
         </div>
-        {selectedMod && selectedModId && configValues.length > 0 ? (
-          <ConfigEditor
-            modName={selectedMod.name}
-            configFile={configFile}
-            values={configValues}
-            rawJson={rawJson}
-            modId={selectedModId}
-            onSave={handleSaveConfig}
-            hasUnsavedChanges={hasUnsavedChanges}
-            onChangesDetected={(has) => {
-              setHasUnsavedChanges(has);
-              if (has && selectedModId) {
-                setEditedModIds((prev) => {
-                  const next = new Set(prev);
-                  next.add(selectedModId);
-                  return next;
-                });
-              }
-            }}
-             onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
-             onHome={handleHome}
-             saveConfigRef={saveConfigRef}
-             currentCategory={getModCategory(selectedModId, modCategories)}
-             onCategoryChange={handleCategoryChange}
-           />
+         {selectedMod && selectedModId && configValues.length > 0 ? (
+           <ConfigEditor
+             modName={selectedMod.name}
+             configFile={configFile}
+             values={configValues}
+             rawJson={rawJson}
+             modId={selectedModId}
+             onSave={handleSaveConfig}
+             hasUnsavedChanges={hasUnsavedChanges}
+             onChangesDetected={(has) => {
+               setHasUnsavedChanges(has);
+               if (has && selectedModId) {
+                 setEditedModIds((prev) => {
+                   const next = new Set(prev);
+                   next.add(selectedModId);
+                   return next;
+                 });
+               }
+             }}
+              onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
+              onHome={handleHome}
+              saveConfigRef={saveConfigRef}
+              currentCategory={getModCategory(selectedModId, modCategories)}
+              onCategoryChange={handleCategoryChange}
+              onValidateAll={() => setShowValidationSummary(true)}
+              devMode={devMode}
+              onDevModeChange={setDevMode}
+            />
         ) : selectedMod && selectedModId ? (
           <div className="flex-1 flex items-center justify-center bg-background">
             <div className="text-center text-muted-foreground space-y-2">
@@ -650,12 +657,37 @@ const handleExportMods = async () => {
               <p className="text-sm">This mod doesn't have any editable config files</p>
             </div>
           </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center bg-background">
-            <p className="text-muted-foreground">Select a config file to edit</p>
-          </div>
-        )}
+         ) : (
+           <div className="flex-1 flex items-center justify-center bg-background">
+             <p className="text-muted-foreground">Select a config file to edit</p>
+           </div>
+          )}
+
+          {/* Developer Tools Panel */}
+          {devMode && (
+            <div className="w-80 border-l border-border bg-card overflow-hidden">
+              <DeveloperTools />
+            </div>
+          )}
       </div>
+
+      {/* Dialogs */}
+      <ConfigValidationSummary
+        open={showValidationSummary}
+        onOpenChange={setShowValidationSummary}
+        scannedMods={scannedMods.map(sm => ({
+          mod: sm.mod,
+          configs: sm.configs.map(c => ({
+            fileName: c.fileName,
+            content: c.rawJson
+          }))
+        }))}
+        onNavigateToConfig={(modId, configIndex) => {
+          setSelectedModId(modId);
+          setSelectedConfigIndex(configIndex);
+          setShowValidationSummary(false);
+        }}
+      />
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>

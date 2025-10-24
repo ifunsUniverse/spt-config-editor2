@@ -23,11 +23,21 @@ interface ConfigValidationSummaryProps {
     configs: Array<{ fileName: string; content: any }>;
   }>;
   onNavigateToConfig: (modId: string, configIndex: number) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const ConfigValidationSummary = ({ scannedMods, onNavigateToConfig }: ConfigValidationSummaryProps) => {
-  const [isOpen, setIsOpen] = useState(false);
+export const ConfigValidationSummary = ({ 
+  scannedMods, 
+  onNavigateToConfig,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange 
+}: ConfigValidationSummaryProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
+
+  const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setIsOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
 
   const validationResults = useMemo(() => {
     if (!isValidating) return [];

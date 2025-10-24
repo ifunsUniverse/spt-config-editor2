@@ -6,7 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfigHistory } from "@/components/ConfigHistory";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import { SettingsDialog } from "@/components/SettingsDialog";
 import { CategoryDialog } from "@/components/CategoryDialog";
 import { saveConfigHistory } from "@/utils/configHistory";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
@@ -36,6 +36,9 @@ interface ConfigEditorProps {
   showThemeToggle?: boolean;
   currentCategory?: string | null;
   onCategoryChange?: (category: string | null) => void;
+  onValidateAll?: () => void;
+  devMode?: boolean;
+  onDevModeChange?: (enabled: boolean) => void;
 }
 
 export const ConfigEditor = ({ 
@@ -52,7 +55,10 @@ export const ConfigEditor = ({
   saveConfigRef,
   showThemeToggle = true,
   currentCategory,
-  onCategoryChange
+  onCategoryChange,
+  onValidateAll,
+  devMode = false,
+  onDevModeChange
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
   const [hasChanges, setHasChanges] = useState(false);
@@ -331,7 +337,19 @@ export const ConfigEditor = ({
                 Pack & Export
               </Button>
             )}
-            {showThemeToggle && <ThemeToggle />}
+            {onValidateAll && (
+              <Button
+                onClick={onValidateAll}
+                size="sm"
+                variant="outline"
+                className="gap-2"
+              >
+                Validate All
+              </Button>
+            )}
+            {showThemeToggle && onDevModeChange && (
+              <SettingsDialog devMode={devMode} onDevModeChange={onDevModeChange} />
+            )}
           </div>
         </div>
 
