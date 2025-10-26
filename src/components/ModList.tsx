@@ -81,13 +81,13 @@ export const ModList = ({
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-3 border-b border-border shrink-0">
+      <div className="p-3 border-b border-border/50 bg-sidebar-accent/20 shrink-0">
         <Input
           ref={searchInputRef}
           placeholder="Search mods... (Ctrl+F)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-input border-border h-8"
+          className="bg-sidebar-background/80 border-border/40 focus-visible:ring-primary/50 h-9 text-sm placeholder:text-muted-foreground/60"
         />
       </div>
       <ScrollArea className="flex-1">
