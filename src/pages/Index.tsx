@@ -129,17 +129,31 @@ const Index = () => {
       return bTime - aTime;
     });
 
-  const handleFolderSelected = async (path: string) => {
+  const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
     setIsScanning(true);
     
     try {
-      // Desktop-only: Save to localStorage FIRST before any async operations
-      localStorage.setItem('lastSPTFolder', path);
-      console.log('✅ Saved Electron folder path to localStorage:', path);
-      
-      const mods: any = await scanSPTFolderElectron(path);
-      const pathName = path.split(/[/\\]/).pop() || path;
-      console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
+      let mods: ScannedMod[] | ElectronScannedMod[];
+      let pathName: string;
+
+      if (isElectron() && typeof handle === 'string') {
+        // Electron path - Save to localStorage FIRST before any async operations
+        localStorage.setItem('lastSPTFolder', handle);
+        console.log('✅ Saved Electron folder path to localStorage:', handle);
+        
+        mods = await scanSPTFolderElectron(handle);
+        pathName = handle.split(/[/\\]/).pop() || handle;
+        console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
+      } else {
+        // Browser FileSystemDirectoryHandle
+        // For browser, we can't persist the handle directly, save marker first
+        localStorage.setItem('lastSPTFolder', 'browser-handle');
+        console.log('✅ Saved browser handle marker to localStorage');
+        
+        mods = await scanSPTFolder(handle as FileSystemDirectoryHandle);
+        pathName = (handle as FileSystemDirectoryHandle).name;
+        console.log('[Scan] Browser mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
+      }
       
       if (mods.length === 0) {
         toast.warning("No mods found", {
@@ -148,7 +162,7 @@ const Index = () => {
         return;
       }
 
-      setScannedMods(mods);
+      setScannedMods(mods as ScannedMod[]);
       setSptPath(pathName);
       
       // Auto-select first mod
@@ -158,7 +172,7 @@ const Index = () => {
       }
 
       toast.success(`Found ${mods.length} mod(s)`, {
-        description: `${mods.reduce((sum: number, m: any) => sum + m.configs.length, 0)} config files detected`
+        description: `${mods.reduce((sum, m) => sum + m.configs.length, 0)} config files detected`
       });
       
     } catch (error: any) {
@@ -419,8 +433,21 @@ const handleExportMods = async () => {
       return;
     }
 
-    console.log('📂 Loading Electron folder:', lastFolder);
-    await handleFolderSelected(lastFolder);
+    if (isElectron()) {
+      // For Electron, we saved the full path
+      if (lastFolder !== 'browser-handle') {
+        console.log('📂 Loading Electron folder:', lastFolder);
+        await handleFolderSelected(lastFolder);
+      } else {
+        console.log('⚠️ Last folder was from browser mode');
+        toast.error("Previous folder was selected in browser mode");
+      }
+    } else {
+      console.log('🌐 Browser mode - cannot auto-load folders');
+      toast.info("Browser mode", {
+        description: "Please select your folder again. Browser security prevents automatic folder access."
+      });
+    }
   };
 
   if (!sptPath) {
@@ -494,38 +521,28 @@ const handleExportMods = async () => {
 
   return (
     <>
-      <div className="flex w-full h-screen overflow-hidden bg-background">
-        {/* Sidebar */}
-        <div className="w-80 border-r border-border/50 bg-sidebar-background flex flex-col h-full shadow-lg">
-          {/* Sidebar Header */}
-          <div className="border-b border-border/50 px-4 py-3 shrink-0 bg-sidebar-background/50">
-            <h2 className="text-lg font-bold text-sidebar-foreground flex items-center gap-2">
-              <Package className="w-5 h-5 text-primary" />
-              SPT Mod Manager
-            </h2>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="border-b border-border/50 px-3 pt-3 pb-2 shrink-0">
-            <div className="flex gap-1 mb-2">
+      <div className="flex w-full h-screen overflow-hidden relative">
+        <div className="w-72 border-r border-border bg-card flex flex-col h-full">
+          <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
+            <div className="flex gap-1 mb-1.5">
               <Button
                 variant={activeTab === "mods" ? "default" : "ghost"}
                 onClick={() => setActiveTab("mods")}
-                className="flex-1 h-9 text-xs font-medium"
+                className="flex-1 h-8 text-xs"
               >
                 Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
               </Button>
               <Button
                 variant={activeTab === "favorites" ? "default" : "ghost"}
                 onClick={() => setActiveTab("favorites")}
-                className="flex-1 h-9 text-xs font-medium"
+                className="flex-1 h-8 text-xs"
               >
                 Favorites ({favoritedModIds.size})
               </Button>
               <Button
                 variant={activeTab === "recent" ? "default" : "ghost"}
                 onClick={() => setActiveTab("recent")}
-                className="flex-1 h-9 text-xs font-medium"
+                className="flex-1 h-8 text-xs"
                 title="Recently Edited"
               >
                 Recent
@@ -537,20 +554,18 @@ const handleExportMods = async () => {
               variant="outline"
               size="sm"
               onClick={() => setShowCategoryBrowser(true)}
-              className="w-full h-8 text-xs flex items-center gap-2 justify-start mb-2 bg-sidebar-accent/30 hover:bg-sidebar-accent/50 border-border/50"
+              className="w-full h-8 text-xs flex items-center gap-2 justify-start"
             >
-              <FolderOpen className="w-3.5 h-3.5" />
+              <FolderOpen className="w-4 h-4" />
               <span>Categories</span>
               {selectedCategory && (
-                <span className="ml-auto text-xs text-muted-foreground truncate max-w-[100px]">
-                  {selectedCategory}
+                <span className="ml-auto text-xs text-muted-foreground">
+                  ({selectedCategory})
                 </span>
               )}
             </Button>
-
-            {/* Favorites Actions */}
             {activeTab === "favorites" && favoritedModIds.size > 0 && (
-              <div className="flex gap-1">
+              <div className="flex gap-1 mb-1">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -583,29 +598,28 @@ const handleExportMods = async () => {
                 </Button>
               </div>
             )}
-          </div>
+           </div>
            
-          {/* Mod List */}
-          <div className="flex-1 overflow-hidden">
-            <ModList
-              mods={
-                activeTab === "mods" 
-                  ? filteredModsByCategory.filter(m => !favoritedModIds.has(m.id))
-                  : activeTab === "favorites"
-                  ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
-                  : recentlyEditedMods
-              }
-              configFiles={configFilesMap}
-              selectedModId={selectedModId}
-              selectedConfigIndex={selectedConfigIndex}
-              onSelectMod={handleSelectMod}
+           <div className="flex-1 overflow-hidden">
+             <ModList
+             mods={
+               activeTab === "mods" 
+                 ? filteredModsByCategory.filter(m => !favoritedModIds.has(m.id))
+                 : activeTab === "favorites"
+                 ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
+                 : recentlyEditedMods
+             }
+             configFiles={configFilesMap}
+             selectedModId={selectedModId}
+             selectedConfigIndex={selectedConfigIndex}
+             onSelectMod={handleSelectMod}
               favoritedModIds={favoritedModIds}
               onToggleFavorite={handleToggleFavorite}
               editHistory={editHistory}
               searchInputRef={searchInputRef}
               modCategories={modCategories}
-            />
-          </div>
+              />
+           </div>
         </div>
          {selectedMod && selectedModId && configValues.length > 0 ? (
            <ConfigEditor
