@@ -1,5 +1,12 @@
 import { useState } from "react";
 import { Settings, Moon, Sun, Monitor } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +31,43 @@ interface SettingsDialogProps {
 export function SettingsDialog({ devMode, onDevModeChange }: SettingsDialogProps) {
   const { theme, setTheme } = useTheme();
   const [showThemeEditor, setShowThemeEditor] = useState(false);
+  // General tab state
+const [rememberSession, setRememberSession] = useState(
+  () => localStorage.getItem("rememberSession") === "true"
+);
+// General tab handlers
+const handleExport = () => {
+  // TODO: implement export logic
+  console.log("Export settings");
+};
+
+const handleImport = () => {
+  // TODO: implement import logic
+  console.log("Import settings");
+};
+
+const handleBackup = () => {
+  // TODO: implement backup logic
+  console.log("Backup configs");
+};
+
+const handleRestore = () => {
+  // TODO: implement restore logic
+  console.log("Restore configs");
+};
+
+const handleCheckUpdates = () => {
+  window.open(
+    "https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions",
+    "_blank"
+  );
+};
+
+const [numberFormat, setNumberFormat] = useState(
+  () => localStorage.getItem("numberFormat") || "commas"
+);
+
+  
 
   return (
     <Dialog>
@@ -48,51 +92,80 @@ export function SettingsDialog({ devMode, onDevModeChange }: SettingsDialogProps
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="dev-mode" className="flex flex-col gap-1">
-                  <span className="font-medium">Developer Mode</span>
-                  <span className="text-sm text-muted-foreground">
-                    Enable advanced developer tools and features
-                  </span>
-                </Label>
-                <Switch
-                  id="dev-mode"
-                  checked={devMode}
-                  onCheckedChange={onDevModeChange}
-                />
-              </div>
-            </div>
-          </TabsContent>
+          <TabsContent value="general" className="space-y-6 mt-4">
+  {/* Startup & Behavior */}
+  <div className="space-y-2">
+    <h3 className="font-semibold text-lg">Startup & Behavior</h3>
+    <div className="flex items-center justify-between">
+      <Label htmlFor="remember-session" className="flex flex-col gap-1">
+        <span className="font-medium">Remember Last Session</span>
+        <span className="text-sm text-muted-foreground">
+          Reopen the last project or mods list on startup
+        </span>
+      </Label>
+      <Switch
+        id="remember-session"
+        checked={rememberSession}
+        onCheckedChange={setRememberSession}
+      />
+    </div>
+  </div>
+  
+  {/* Data & Storage */}
+  <div className="space-y-2">
+    <h3 className="font-semibold text-lg">Data & Storage</h3>
+    <div className="flex gap-2">
+      <Button variant="outline" onClick={handleBackup}>Backup Configs</Button>
+      <Button variant="outline" onClick={handleRestore}>Restore Configs</Button>
+    </div>
+  </div>
+
+  {/* Updates */}
+  <div className="space-y-2">
+    <h3 className="font-semibold text-lg">Updates</h3>
+    <Button onClick={handleCheckUpdates}>Check for Updates</Button>
+  </div>
+</TabsContent>
 
           <TabsContent value="appearance" className="space-y-4 mt-4">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Theme</Label>
                 <RadioGroup value={theme} onValueChange={setTheme}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="light" id="light" />
-                    <Label htmlFor="light" className="flex items-center gap-2 font-normal cursor-pointer">
-                      <Sun className="h-4 w-4" />
-                      Light
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="dark" id="dark" />
-                    <Label htmlFor="dark" className="flex items-center gap-2 font-normal cursor-pointer">
-                      <Moon className="h-4 w-4" />
-                      Dark
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="system" id="system" />
-                    <Label htmlFor="system" className="flex items-center gap-2 font-normal cursor-pointer">
-                      <Monitor className="h-4 w-4" />
-                      System
-                    </Label>
-                  </div>
-                </RadioGroup>
+  <div className="flex items-center space-x-2">
+  <RadioGroupItem value="light" id="light" />
+  <Label
+    htmlFor="light"
+    className="flex items-center gap-2 font-normal cursor-pointer"
+  >
+    <Sun className="h-4 w-4" />
+    Light
+  </Label>
+</div>
+
+<div className="flex items-center space-x-2">
+  <RadioGroupItem value="dark" id="dark" />
+  <Label
+    htmlFor="dark"
+    className="flex items-center gap-2 font-normal cursor-pointer"
+  >
+    <Moon className="h-4 w-4" />
+    Dark
+  </Label>
+</div>
+
+<div className="flex items-center space-x-2">
+  <RadioGroupItem value="system" id="system" />
+  <Label
+    htmlFor="system"
+    className="flex items-center gap-2 font-normal cursor-pointer"
+  >
+    <Monitor className="h-4 w-4" />
+    System
+  </Label>
+</div>
+
+</RadioGroup>
               </div>
 
               <div className="pt-4 border-t">

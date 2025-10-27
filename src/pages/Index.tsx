@@ -602,24 +602,25 @@ const handleExportMods = async () => {
            
            <div className="flex-1 overflow-hidden">
              <ModList
-             mods={
-               activeTab === "mods" 
-                 ? filteredModsByCategory.filter(m => !favoritedModIds.has(m.id))
-                 : activeTab === "favorites"
-                 ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
-                 : recentlyEditedMods
-             }
-             configFiles={configFilesMap}
-             selectedModId={selectedModId}
-             selectedConfigIndex={selectedConfigIndex}
-             onSelectMod={handleSelectMod}
-              favoritedModIds={favoritedModIds}
-              onToggleFavorite={handleToggleFavorite}
-              editHistory={editHistory}
-              searchInputRef={searchInputRef}
-              modCategories={modCategories}
-              />
-           </div>
+  mods={
+    activeTab === "favorites"
+      ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
+      : activeTab === "recent"
+      ? recentlyEditedMods
+      : selectedCategory
+      ? filteredModsByCategory // category selected → include favorites too
+      : filteredModsByCategory.filter(m => !favoritedModIds.has(m.id)) // mods tab, no category → exclude favorites
+  }
+  configFiles={configFilesMap}
+  selectedModId={selectedModId}
+  selectedConfigIndex={selectedConfigIndex}
+  onSelectMod={handleSelectMod}
+  favoritedModIds={favoritedModIds}
+  onToggleFavorite={handleToggleFavorite}
+  editHistory={editHistory}
+  searchInputRef={searchInputRef}
+  modCategories={modCategories}
+/>       </div>
         </div>
          {selectedMod && selectedModId && configValues.length > 0 ? (
            <ConfigEditor

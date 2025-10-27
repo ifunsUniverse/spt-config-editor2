@@ -181,22 +181,6 @@ export function ThemeEditor() {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="font-family">Font Family</Label>
-        <Select value={config.fontFamily} onValueChange={(value) => setConfig({ ...config, fontFamily: value })}>
-          <SelectTrigger id="font-family">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {FONT_OPTIONS.map(font => (
-              <SelectItem key={font.value} value={font.value}>
-                {font.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-2">
         <Label htmlFor="font-size">Font Size: {config.fontSize}px</Label>
         <Slider
           id="font-size"

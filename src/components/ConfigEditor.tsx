@@ -273,9 +273,10 @@ return (
         onCategoryChange(null);
       }
     }}
+
     variant="outline"
     size="sm"
-    className="gap-2 mt-2"
+    className="gap-2 mt-2 hover:bg-red-900 hover:text-white"
   >
     ➖ Remove from{" "}
     <Badge
