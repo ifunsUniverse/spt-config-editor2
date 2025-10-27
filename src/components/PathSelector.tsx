@@ -1,9 +1,10 @@
-import { useState } from "react";
+import {  useEffect, useState } from "react";
 import { FolderOpen, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { isElectron as isElectronAPI, electronAPI } from "@/utils/electronBridge";
+import { tips } from "@/components/ui/tips";
 
 
 interface PathSelectorProps {
@@ -14,6 +15,12 @@ interface PathSelectorProps {
 export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
+  const [tip, setTip] = useState("");
+
+useEffect(() => {
+  const randomIndex = Math.floor(Math.random() * tips.length);
+  setTip(tips[randomIndex]);
+}, []);
 
 
   const handleSelectFolder = async () => {
@@ -97,12 +104,12 @@ export const PathSelector = ({ onFolderSelected }: PathSelectorProps) => {
           
           {/* Info */}
           {!isElectronAPI() && (
-            <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20">
-              <p className="text-xs text-foreground">
-                <strong>Tip:</strong> Without the desktop app, you're basically editing with a broken arm.
-              </p>
-            </div>
-          )}
+  <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20">
+    <p className="text-xs text-foreground">
+      <strong></strong> {tip}
+    </p>
+  </div>
+)}
         </div>
 
         <div className="space-y-4">

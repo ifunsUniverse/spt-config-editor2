@@ -117,7 +117,7 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
           <SheetHeader>
             <SheetTitle>Configuration History</SheetTitle>
             <SheetDescription>
-              Previous versions of {configFile}
+              Previous versions of 📂mods/{modId}/{configFile}
             </SheetDescription>
           </SheetHeader>
           

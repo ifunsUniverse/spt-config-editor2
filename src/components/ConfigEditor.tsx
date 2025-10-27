@@ -1,3 +1,10 @@
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { useState, useEffect, useRef } from "react";
 import { Save, RotateCcw, Package, AlertCircle, Home, CheckCircle, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +19,9 @@ import { saveConfigHistory } from "@/utils/configHistory";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
 import JSON5 from "json5";
+import { Dropdown } from "react-day-picker";
+import { Wrench } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export interface ConfigValue {
   key: string;
@@ -246,198 +256,221 @@ export const ConfigEditor = ({
     });
   };
 
-  return (
-    <div className="flex-1 flex flex-col h-full bg-background">
-      {/* Header */}
-      <div className="border-b border-border p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-xl font-bold text-foreground">{modName}</h2>
-            <p className="text-sm text-muted-foreground">{configFile}</p>
-            
-            {/* Add to Category Button */}
+return (
+  <div className="flex-1 flex flex-col h-full bg-background">
+    {/* Header */}
+    <div className="border-b border-border p-4">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">{modName}</h2>
+          <p className="text-sm text-muted-foreground">📂user/mods/{modId}/{configFile}</p>
+
+          {/* Add to Category Button */}
+          {currentCategory ? (
+  <Button
+    onClick={() => {
+      if (onCategoryChange) {
+        onCategoryChange(null);
+      }
+    }}
+    variant="outline"
+    size="sm"
+    className="gap-2 mt-2"
+  >
+    ➖ Remove from{" "}
+    <Badge
+      className={cn(
+        "rounded-full px-3 py-1 text-xs font-medium text-white border-0",
+        getCategoryBgColor(currentCategory)
+      )}
+    >
+      {currentCategory}
+    </Badge>
+  </Button>
+) : (
+  <Button
+    onClick={() => setShowCategoryDialog(true)}
+    variant="outline"
+    size="sm"
+    className="gap-2 mt-2"
+  >
+    ➕ Add to Category
+  </Button>
+)}
+
+
+        </div>
+
+        <div className="flex gap-2 items-center">
+          {onHome && (
             <Button
-              onClick={() => setShowCategoryDialog(true)}
-              variant="outline"
-              size="sm"
-              className="gap-2 mt-2"
-            >
-              ➕ Add to Category
-              {currentCategory && (
-                <Badge className={`${getCategoryBgColor(currentCategory)} text-white border-0`}>
-                  {currentCategory}
-                </Badge>
-              )}
-            </Button>
-          </div>
-          <div className="flex gap-2 items-center">
-            {onHome && (
-              <Button
-                onClick={onHome}
-                variant="outline"
-                size="sm"
-                className="gap-2 border-border"
-              >
-                <Home className="w-4 h-4" />
-                Home
-              </Button>
-            )}
-            <ConfigHistory 
-              modId={modId}
-              modName={modName}
-              configFile={configFile}
-              onRestore={handleRestoreHistory}
-            />
-            <Button
-              onClick={handleReset}
-              disabled={!hasChanges}
+              onClick={onHome}
               variant="outline"
               size="sm"
               className="gap-2 border-border"
             >
-              <RotateCcw className="w-4 h-4" />
-              Reset
+              <Home className="w-4 h-4" />
+              Home
             </Button>
-            <Button
-              onClick={handleValidateJSON}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Validate JSON
-            </Button>
-            <Button
-              onClick={handleFixCommonIssues}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <AlertCircle className="w-4 h-4" />
-              Fix Issues
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={!hasChanges || jsonError !== null}
-              size="sm"
-              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-              title="Save changes (Ctrl+S)"
-            >
-              <Save className="w-4 h-4" />
-              Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
-            </Button>
-            {onExportMods && (
-              <Button
-                onClick={onExportMods}
-                size="sm"
-                variant="secondary"
-                className="gap-2"
-              >
-                <Package className="w-4 h-4" />
-                Pack & Export
-              </Button>
-            )}
-            {onValidateAll && (
-              <Button
-                onClick={onValidateAll}
-                size="sm"
-                variant="outline"
-                className="gap-2"
-              >
-                Validate All
-              </Button>
-            )}
-            {showThemeToggle && onDevModeChange && (
-              <SettingsDialog devMode={devMode} onDevModeChange={onDevModeChange} />
-            )}
-          </div>
-        </div>
+          )}
 
-        {jsonError && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              <span className="font-medium">JSON/JSON5 Error:</span> {jsonError}
-            </AlertDescription>
-          </Alert>
-        )}
+          <Button
+            onClick={handleReset}
+            disabled={!hasChanges}
+            variant="outline"
+            size="sm"
+            className="gap-2 border-border"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset
+          </Button>
+
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || jsonError !== null}
+            size="sm"
+            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+            title="Save changes (Ctrl+S)"
+          >
+            <Save className="w-4 h-4" />
+            Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
+          </Button>
+
+          {onExportMods && (
+            <Button
+              onClick={onExportMods}
+              size="sm"
+              variant="secondary"
+              className="gap-2"
+            >
+              <Package className="w-4 h-4" />
+              Pack & Export
+            </Button>
+          )}
+
+          {showThemeToggle && onDevModeChange && (
+            <SettingsDialog devMode={devMode} onDevModeChange={onDevModeChange} />
+          )}
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col overflow-hidden p-6">
-        <div className="flex-1 flex flex-col space-y-2">
-          {/* Search Bar */}
-          {showSearch && (
-            <div className="flex items-center gap-2 p-2 bg-accent rounded-md">
-              <Search className="w-4 h-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search in config..."
-                className="flex-1 bg-transparent border-none outline-none text-sm"
-                autoFocus
-              />
-              {matchCount > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  {matchCount} match{matchCount !== 1 ? 'es' : ''}
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => {
-                  setShowSearch(false);
-                  setSearchQuery("");
-                }}
-              >
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          )}
-          
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={rawText}
-              onChange={(e) => handleRawTextChange(e.target.value)}
-              className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
-              placeholder="Edit JSON/JSON5 configuration..."
-              spellCheck={false}
+      {jsonError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            <span className="font-medium">JSON/JSON5 Error:</span> {jsonError}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
+
+    {/* Content */}
+    <div className="flex-1 flex flex-col overflow-hidden p-6">
+      <div className="flex-1 flex flex-col space-y-2">
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="flex items-center gap-2 p-2 bg-accent rounded-md">
+            <Search className="w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search in config..."
+              className="flex-1 bg-transparent border-none outline-none text-sm"
+              autoFocus
             />
+            {matchCount > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {matchCount} match{matchCount !== 1 ? "es" : ""}
+              </span>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => {
+                setShowSearch(false);
+                setSearchQuery("");
+              }}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        )}
+
+        <div className="flex-1 relative">
+          <Textarea
+            ref={textareaRef}
+            value={rawText}
+            onChange={(e) => handleRawTextChange(e.target.value)}
+            className="font-mono text-sm h-full resize-none leading-relaxed bg-card border-border"
+            placeholder="Edit JSON/JSON5 configuration..."
+            spellCheck={false}
+          />
+
+          {/* Search + Tools cluster */}
+          <div className="absolute top-2 right-2 flex gap-2">
             {!showSearch && (
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute top-2 right-2 gap-1 text-xs"
+                className="gap-1 text-xs"
                 onClick={() => setShowSearch(true)}
               >
                 <Search className="w-3 h-3" />
                 <kbd className="text-[10px] opacity-60">Ctrl+F</kbd>
               </Button>
             )}
-          </div>
-          
-          <p className="text-xs text-muted-foreground shrink-0">
-            Supports JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
-          </p>
-        </div>
-      </div>
 
-      {/* Category Dialog */}
-      <CategoryDialog
-        modId={modId}
-        modName={modName}
-        currentCategory={currentCategory || null}
-        open={showCategoryDialog}
-        onOpenChange={setShowCategoryDialog}
-        onCategoryAssigned={(category) => {
-          if (onCategoryChange) {
-            onCategoryChange(category);
-          }
-        }}
-      />
+                        <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="gap-1 text-xs">
+                  <Wrench className="w-3 h-3" />
+                  Tools
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <ConfigHistory
+                    modId={modId}
+                    modName={modName}
+                    configFile={configFile}
+                    onRestore={handleRestoreHistory}
+                  />
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={handleValidateJSON}>
+                  Validate JSON
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleFixCommonIssues}>
+                  Fix Common Issues
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+                      </div>
+                    </div>
+
+        <p className="text-xs text-muted-foreground shrink-0">
+          Supports JSONC, JSON and JSON5 syntax. Changes are validated in real-time. Auto-formats on save.
+        </p>
+      </div>
     </div>
-  );
+
+    {/* Category Dialog */}
+    <CategoryDialog
+      modId={modId}
+      modName={modName}
+      currentCategory={currentCategory || null}
+      open={showCategoryDialog}
+      onOpenChange={setShowCategoryDialog}
+      onCategoryAssigned={(category) => {
+        if (onCategoryChange) {
+          onCategoryChange(category);
+        }
+      }}
+    />
+  </div>
+);
 };
