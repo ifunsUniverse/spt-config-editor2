@@ -13,7 +13,6 @@ interface ThemeConfig {
   fontFamily: string;
   fontSize: number;
   borderRadius: number;
-  backgroundImage?: string;
 }
 
 const FONT_OPTIONS = [
@@ -48,6 +47,11 @@ export function ThemeEditor() {
     }
   }, []);
 
+  // Apply theme changes immediately for live preview
+  useEffect(() => {
+    applyTheme(config);
+  }, [config]);
+
   const applyTheme = (cfg: ThemeConfig) => {
     const root = document.documentElement;
     
@@ -55,21 +59,17 @@ export function ThemeEditor() {
     root.style.setProperty('--primary', cfg.primaryColor);
     root.style.setProperty('--accent', cfg.accentColor);
     
-    // Apply font family via CSS variable
-    root.style.setProperty('--theme-font-family', `${cfg.fontFamily}, system-ui, sans-serif`);
+    // Apply font family via CSS variable with proper quoting
+    const fontFamily = cfg.fontFamily.includes(' ') 
+      ? `"${cfg.fontFamily}", system-ui, sans-serif`
+      : `${cfg.fontFamily}, system-ui, sans-serif`;
+    root.style.setProperty('--theme-font-family', fontFamily);
     
     // Apply font size via CSS variable
     root.style.setProperty('--theme-font-size', `${cfg.fontSize}px`);
     
     // Apply border radius
     root.style.setProperty('--radius', `${cfg.borderRadius}rem`);
-
-    // Apply background image via CSS variable
-    if (cfg.backgroundImage) {
-      root.style.setProperty('--theme-bg-image', `url(${cfg.backgroundImage})`);
-    } else {
-      root.style.setProperty('--theme-bg-image', 'none');
-    }
   };
 
   const handleSave = () => {
@@ -85,24 +85,11 @@ export function ThemeEditor() {
       fontFamily: "Inter",
       fontSize: 16,
       borderRadius: 0.75,
-      backgroundImage: undefined,
     };
     setConfig(defaultConfig);
+    setRoundedUI(true);
     localStorage.removeItem('themeConfig');
-    applyTheme(defaultConfig);
     toast.success('Theme reset to default!');
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const imageUrl = event.target?.result as string;
-        setConfig({ ...config, backgroundImage: imageUrl });
-      };
-      reader.readAsDataURL(file);
-    }
   };
 
   const hslToHex = (hsl: string) => {
@@ -231,26 +218,6 @@ export function ThemeEditor() {
             setConfig({ ...config, borderRadius: checked ? 0.75 : 0 });
           }}
         />
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="bg-image">Background Image</Label>
-        <Input
-          id="bg-image"
-          type="file"
-          accept="image/*,.gif"
-          onChange={handleImageUpload}
-          className="cursor-pointer"
-        />
-        {config.backgroundImage && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setConfig({ ...config, backgroundImage: undefined })}
-          >
-            Remove Background
-          </Button>
-        )}
       </div>
 
       <div className="flex gap-2 pt-4">
