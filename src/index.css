@@ -165,3 +165,22 @@ All colors MUST be HSL.
     scrollbar-gutter: stable;
   }
 }
+
+/* Theme Editor Variables */
+:root {
+  --theme-font-family: Inter, system-ui, sans-serif;
+  --theme-font-size: 16px;
+  --theme-bg-image: none;
+}
+
+/* App Container for Theme Background */
+#app-container {
+  min-height: 100vh;
+  width: 100%;
+  background-image: var(--theme-bg-image);
+  background-size: cover;
+  background-attachment: fixed;
+  background-position: center;
+  font-family: var(--theme-font-family);
+  font-size: var(--theme-font-size);
+}

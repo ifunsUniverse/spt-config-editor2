@@ -19,7 +19,7 @@ interface ThemeConfig {
 const FONT_OPTIONS = [
   { value: "Inter", label: "Inter" },
   { value: "Roboto", label: "Roboto" },
-  { value: "'JetBrains Mono'", label: "JetBrains Mono" },
+  { value: "JetBrains Mono", label: "JetBrains Mono" },
   { value: "system-ui", label: "System Default" },
 ];
 
@@ -51,26 +51,24 @@ export function ThemeEditor() {
   const applyTheme = (cfg: ThemeConfig) => {
     const root = document.documentElement;
     
-    // Apply colors
+    // Apply colors to CSS variables
     root.style.setProperty('--primary', cfg.primaryColor);
     root.style.setProperty('--accent', cfg.accentColor);
     
-    // Apply font
-    document.body.style.fontFamily = cfg.fontFamily;
+    // Apply font family via CSS variable
+    root.style.setProperty('--theme-font-family', `${cfg.fontFamily}, system-ui, sans-serif`);
     
-    // Apply font size
-    root.style.fontSize = `${cfg.fontSize}px`;
+    // Apply font size via CSS variable
+    root.style.setProperty('--theme-font-size', `${cfg.fontSize}px`);
     
     // Apply border radius
     root.style.setProperty('--radius', `${cfg.borderRadius}rem`);
 
-    // Apply background image if set
+    // Apply background image via CSS variable
     if (cfg.backgroundImage) {
-      document.body.style.backgroundImage = `url(${cfg.backgroundImage})`;
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundAttachment = 'fixed';
+      root.style.setProperty('--theme-bg-image', `url(${cfg.backgroundImage})`);
     } else {
-      document.body.style.backgroundImage = '';
+      root.style.setProperty('--theme-bg-image', 'none');
     }
   };
 
@@ -87,6 +85,7 @@ export function ThemeEditor() {
       fontFamily: "Inter",
       fontSize: 16,
       borderRadius: 0.75,
+      backgroundImage: undefined,
     };
     setConfig(defaultConfig);
     localStorage.removeItem('themeConfig');
