@@ -27,16 +27,18 @@ export async function scanSPTFolderElectron(
   const api = electronAPI();
 
   try {
-    // Navigate to user/mods directory
-    const userPath = path.join(rootPath, "user");
+    // Navigate to SPT/user/mods directory
+    const sptPath = path.join(rootPath, "SPT");
+    const userPath = path.join(sptPath, "user");
     const modsPath = path.join(userPath, "mods");
 
+    const sptExists = await api.exists(sptPath);
     const userExists = await api.exists(userPath);
     const modsExists = await api.exists(modsPath);
 
-    if (!userExists || !modsExists) {
+    if (!sptExists || !userExists || !modsExists) {
       throw new Error(
-        "Could not find user/mods directory. Make sure you selected your SPT installation folder."
+        "Could not find SPT/user/mods directory. Make sure you selected your SPT installation folder."
       );
     }
 
@@ -59,6 +61,7 @@ export async function scanSPTFolderElectron(
 
   return scannedMods;
 }
+
 
 /**
  * Scans a single mod folder for package.json and config files

@@ -71,6 +71,18 @@ const Index = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
 
+  useEffect(() => {
+  const remember = JSON.parse(localStorage.getItem("rememberLastSession") || "false");
+  const lastSession = localStorage.getItem("lastSession");
+
+  if (remember && lastSession) {
+    const { modId, configFile } = JSON.parse(lastSession);
+    // 👇 Replace this with your actual load logic
+    loadModSession(modId, configFile);
+  }
+}, []);
+
+
   // Load categories on mount
   useEffect(() => {
     loadCategories().then(categories => {
@@ -424,31 +436,27 @@ const handleExportMods = async () => {
   };
 
   const handleLoadLastFolder = async () => {
-    const lastFolder = localStorage.getItem('lastSPTFolder');
-    console.log('🔍 Loading last folder from localStorage:', lastFolder);
-    
-    if (!lastFolder) {
-      console.log('❌ No last folder found in localStorage');
-      toast.error("No previous folder found");
-      return;
-    }
+  const lastFolder = localStorage.getItem("lastSPTFolder");
+  console.log("🔍 Loading last folder from localStorage:", lastFolder);
 
-    if (isElectron()) {
-      // For Electron, we saved the full path
-      if (lastFolder !== 'browser-handle') {
-        console.log('📂 Loading Electron folder:', lastFolder);
-        await handleFolderSelected(lastFolder);
-      } else {
-        console.log('⚠️ Last folder was from browser mode');
-        toast.error("Previous folder was selected in browser mode");
-      }
+  if (!lastFolder) {
+    toast.error("No previous folder found");
+    return;
+  }
+
+  if (isElectron()) {
+    if (lastFolder !== "browser-handle") {
+      console.log("📂 Loading Electron folder:", lastFolder);
+      await handleFolderSelected(lastFolder); // re‑scan with saved path
     } else {
-      console.log('🌐 Browser mode - cannot auto-load folders');
-      toast.info("Browser mode", {
-        description: "Please select your folder again. Browser security prevents automatic folder access."
-      });
+      toast.error("Previous folder was selected in browser mode");
     }
-  };
+  } else {
+    toast.info("Browser mode", {
+      description: "Please select your folder again. Browser security prevents automatic folder access."
+    });
+  }
+};
 
   if (!sptPath) {
     return (
@@ -630,6 +638,7 @@ const handleExportMods = async () => {
              rawJson={rawJson}
              modId={selectedModId}
              onSave={handleSaveConfig}
+             sptPath={sptPath}
              hasUnsavedChanges={hasUnsavedChanges}
              onChangesDetected={(has) => {
                setHasUnsavedChanges(has);

@@ -10,6 +10,10 @@ files:
   - dist
   - dist-electron
 
+extraMetadata:
+  main: dist-electron/main.js
+  
+
 win:
   target:
     - nsis

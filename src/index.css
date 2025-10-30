@@ -2,10 +2,43 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* ──────────────────────────────── */
+/* Monaco Editor Overrides          */
+/* ──────────────────────────────── */
 
+/* Absolute Monaco background annihilation */
+.monaco-editor,
+.monaco-editor-background,
+.monaco-editor .margin,
+.monaco-editor .margin .margin-view-overlays,
+.monaco-editor .scrollbar,
+.monaco-editor .scrollbar > .scrollbar-track,
+.monaco-editor .scrollbar > .scrollbar-track-piece,
+.monaco-scrollable-element,
+.monaco-editor .overlayWidgets,
+.monaco-editor .decorationsOverviewRuler,
+.monaco-editor .glyph-margin {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+
+.monaco-editor .margin .line-numbers {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+
+/* Style Monaco scrollbar thumb to match theme */
+.monaco-editor .scrollbar > .slider {
+  background: hsl(var(--muted-foreground) / 0.3) !important;
+}
+.monaco-editor .scrollbar > .slider:hover {
+  background: hsl(var(--muted-foreground) / 0.5) !important;
+}
+
+/* ──────────────────────────────── */
+/* Design System Variables          */
+/* ──────────────────────────────── */
 @layer base {
   :root {
     --background: 220 26% 8%;
@@ -110,13 +143,11 @@ All colors MUST be HSL.
   }
 
   /* Sleek Auto-Hiding Scrollbar Styles */
-  /* Firefox */
   * {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
 
-  /* Webkit (Chrome, Edge, Safari) */
   *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -133,7 +164,6 @@ All colors MUST be HSL.
     transition: opacity 0.3s ease, background-color 0.2s ease;
   }
 
-  /* Show scrollbar on hover or when scrolling */
   *:hover::-webkit-scrollbar-thumb,
   *:focus::-webkit-scrollbar-thumb,
   *:active::-webkit-scrollbar-thumb {
@@ -149,18 +179,15 @@ All colors MUST be HSL.
     background: hsl(var(--muted-foreground) / 0.7);
   }
 
-  /* Corner between scrollbars */
   *::-webkit-scrollbar-corner {
     background: transparent;
   }
 
-  /* Enhanced scrollbar for specific components */
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
 
-  /* Ensure scrollbars don't cause layout shift */
   * {
     scrollbar-gutter: stable;
   }

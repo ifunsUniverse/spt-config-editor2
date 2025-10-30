@@ -99,21 +99,19 @@ app.on('window-all-closed', () => {
 // IPC Handlers
 
 // Select folder dialog
-ipcMain.handle('dialog:selectFolder', async () => {
+ipcMain.handle("dialog:selectFolder", async () => {
   const result = await dialog.showOpenDialog({
-    properties: ['openDirectory'],
-    title: 'Select SPT Installation Folder',
+    properties: ["openDirectory"],
+    title: "Select SPT Installation Folder",
   });
 
   if (result.canceled || result.filePaths.length === 0) {
     return { canceled: true };
   }
 
-  return {
-    canceled: false,
-    path: result.filePaths[0],
-  };
+  return { canceled: false, path: result.filePaths[0] };
 });
+
 
 // Read directory contents
 ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {

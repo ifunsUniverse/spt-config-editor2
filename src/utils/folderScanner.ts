@@ -23,12 +23,33 @@ export async function scanSPTFolder(
   const scannedMods: ScannedMod[] = [];
 
   try {
-    // Navigate to user/mods directory
-    const userHandle = await rootHandle.getDirectoryHandle("user", { create: false });
-    const modsHandle = await userHandle.getDirectoryHandle("mods", { create: false });
+    // Candidate mod directories to check
+    const candidates = [
+      ["user", "mods"],           // current default
+      ["SPT", "user", "mods"],    // if nested under "spt"
+    ];
+
+    let modsHandle: FileSystemDirectoryHandle | null = null;
+
+    for (const parts of candidates) {
+      try {
+        let handle: FileSystemDirectoryHandle = rootHandle;
+        for (const part of parts) {
+          handle = await handle.getDirectoryHandle(part, { create: false });
+        }
+        modsHandle = handle;
+        break; // found a valid path
+      } catch {
+        // ignore and try next candidate
+      }
+    }
+
+    if (!modsHandle) {
+      throw new Error("Could not find a mods directory in any known location.");
+    }
 
     // Iterate through mod folders
-    // @ts-ignore - values() exists but TypeScript doesn't recognize it
+    // @ts-ignore
     for await (const entry of modsHandle.values()) {
       if (entry.kind === "directory") {
         const modData = await scanModFolder(entry);
@@ -40,7 +61,7 @@ export async function scanSPTFolder(
   } catch (error) {
     console.error("Error scanning SPT folder:", error);
     throw new Error(
-      "Could not find user/mods directory. Make sure you selected your SPT installation folder."
+      "Could not find mods directory. Make sure you selected your SPT installation folder."
     );
   }
 

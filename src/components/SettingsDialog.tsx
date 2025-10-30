@@ -33,8 +33,14 @@ export function SettingsDialog({ devMode, onDevModeChange }: SettingsDialogProps
   const [showThemeEditor, setShowThemeEditor] = useState(false);
   // General tab state
 const [rememberSession, setRememberSession] = useState(
-  () => localStorage.getItem("rememberSession") === "true"
+  JSON.parse(localStorage.getItem("rememberSession") || "false")
 );
+
+const handleRememberSessionChange = (value: boolean) => {
+  setRememberSession(enabled);
+  localStorage.setItem("rememberLastSession", JSON.stringify(enabled));
+};
+
 // General tab handlers
 const handleExport = () => {
   // TODO: implement export logic

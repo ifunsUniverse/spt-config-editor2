@@ -1,0 +1,33 @@
+For All Versions of The Game.
+
+- Added Tools Button to The Config Editor
+and Move the History, Validate JSON and Fix Common issues buttons inside it
+-> Fix Common issues <- Currently non functional will Fix
+
+- Added a Settings Button and moved dark - light mode in the apperance tab.
+also has some new features like 
+- Check for updates.
+This will open a window to the tools versions page.
+NOTE: Some functions arnt working here either will fix when I have time.
+
+- Added Categories.
+With this you can assign categories to your mods and filter them!
+
+Filtering categories Will pull from both Mods and Favorites then put them back
+in the corrisponding places they originally were.
+
+With these coming updates I have decided to drop working with AI
+and have decided to learn how to program myself so if anything
+looks wonky or off, 🙋 its me so I apologize.
+
+Things that arn't functionable.
+In Settings Startup & Behavior:
+- Remember Last Session.
+
+In Settings Data & Storage:
+- Backup Configs
+- Restore Configs
+
+In Settings Advanced Tab:
+- Clear Edit History <- Will actually remove this feature
+- Reset Categories <- Just sends you back to the Home Screen.
