@@ -7,7 +7,6 @@ import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { ModMetadataViewer } from "@/components/ModMetadataViewer";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { DeveloperTools } from "@/components/DeveloperTools";
-import { scanSPTFolder, ScannedMod, saveConfigToFile } from "@/utils/folderScanner";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -21,7 +20,6 @@ import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Loader2, Package, Download, Upload, Trash2, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { isElectron } from "@/utils/electronBridge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +35,7 @@ import { Progress } from "@/components/ui/progress";
 const Index = () => {
   const [sptPath, setSptPath] = useState<string | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
-  const [scannedMods, setScannedMods] = useState<ScannedMod[]>([]);
+  const [scannedMods, setScannedMods] = useState<ElectronScannedMod[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [selectedConfigIndex, setSelectedConfigIndex] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -71,16 +69,27 @@ const Index = () => {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
 
+  // Load last session on mount
   useEffect(() => {
-  const remember = JSON.parse(localStorage.getItem("rememberLastSession") || "false");
-  const lastSession = localStorage.getItem("lastSession");
+    const remember = JSON.parse(localStorage.getItem("rememberLastSession") || "false");
+    const lastSession = localStorage.getItem("lastSession");
 
-  if (remember && lastSession) {
-    const { modId, configFile } = JSON.parse(lastSession);
-    // 👇 Replace this with your actual load logic
-    loadModSession(modId, configFile);
-  }
-}, []);
+    if (remember && lastSession && sptPath) {
+      try {
+        const { modId, configFile } = JSON.parse(lastSession);
+        const mod = scannedMods.find(m => m.mod.id === modId);
+        if (mod) {
+          const configIndex = mod.configs.findIndex(c => c.fileName === configFile);
+          if (configIndex >= 0) {
+            setSelectedModId(modId);
+            setSelectedConfigIndex(configIndex);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to restore last session:", e);
+      }
+    }
+  }, [sptPath, scannedMods]);
 
 
   // Load categories on mount
@@ -141,31 +150,17 @@ const Index = () => {
       return bTime - aTime;
     });
 
-  const handleFolderSelected = async (handle: FileSystemDirectoryHandle | string) => {
+  const handleFolderSelected = async (folderPath: string) => {
     setIsScanning(true);
     
     try {
-      let mods: ScannedMod[] | ElectronScannedMod[];
-      let pathName: string;
-
-      if (isElectron() && typeof handle === 'string') {
-        // Electron path - Save to localStorage FIRST before any async operations
-        localStorage.setItem('lastSPTFolder', handle);
-        console.log('✅ Saved Electron folder path to localStorage:', handle);
-        
-        mods = await scanSPTFolderElectron(handle);
-        pathName = handle.split(/[/\\]/).pop() || handle;
-        console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
-      } else {
-        // Browser FileSystemDirectoryHandle
-        // For browser, we can't persist the handle directly, save marker first
-        localStorage.setItem('lastSPTFolder', 'browser-handle');
-        console.log('✅ Saved browser handle marker to localStorage');
-        
-        mods = await scanSPTFolder(handle as FileSystemDirectoryHandle);
-        pathName = (handle as FileSystemDirectoryHandle).name;
-        console.log('[Scan] Browser mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
-      }
+      // Save to localStorage FIRST before any async operations
+      localStorage.setItem('lastSPTFolder', folderPath);
+      console.log('✅ Saved Electron folder path to localStorage:', folderPath);
+      
+      const mods = await scanSPTFolderElectron(folderPath);
+      const pathName = folderPath.split(/[/\\]/).pop() || folderPath;
+      console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
       
       if (mods.length === 0) {
         toast.warning("No mods found", {
@@ -174,7 +169,7 @@ const Index = () => {
         return;
       }
 
-      setScannedMods(mods as ScannedMod[]);
+      setScannedMods(mods);
       setSptPath(pathName);
       
       // Auto-select first mod
@@ -248,22 +243,12 @@ const Index = () => {
     if (!config) return;
 
     try {
-      if (isElectron() && 'filePath' in config) {
-        // Electron save
-        await saveConfigToFileElectron(
-          (config as any).filePath,
-          values,
-          config.rawJson
-        );
-      } else {
-        // Browser save
-        await saveConfigToFile(
-          (selectedMod as any).folderHandle,
-          config.fileName,
-          values,
-          config.rawJson
-        );
-      }
+      // Electron-only save
+      await saveConfigToFileElectron(
+        (config as any).filePath,
+        values,
+        config.rawJson
+      );
 
       setHasUnsavedChanges(false);
       if (selectedModId) {
@@ -436,27 +421,17 @@ const handleExportMods = async () => {
   };
 
   const handleLoadLastFolder = async () => {
-  const lastFolder = localStorage.getItem("lastSPTFolder");
-  console.log("🔍 Loading last folder from localStorage:", lastFolder);
+    const lastFolder = localStorage.getItem("lastSPTFolder");
+    console.log("🔍 Loading last folder from localStorage:", lastFolder);
 
-  if (!lastFolder) {
-    toast.error("No previous folder found");
-    return;
-  }
-
-  if (isElectron()) {
-    if (lastFolder !== "browser-handle") {
-      console.log("📂 Loading Electron folder:", lastFolder);
-      await handleFolderSelected(lastFolder); // re‑scan with saved path
-    } else {
-      toast.error("Previous folder was selected in browser mode");
+    if (!lastFolder) {
+      toast.error("No previous folder found");
+      return;
     }
-  } else {
-    toast.info("Browser mode", {
-      description: "Please select your folder again. Browser security prevents automatic folder access."
-    });
-  }
-};
+
+    console.log("📂 Loading Electron folder:", lastFolder);
+    await handleFolderSelected(lastFolder); // re-scan with saved path
+  };
 
   if (!sptPath) {
     return (
@@ -634,12 +609,10 @@ const handleExportMods = async () => {
            <ConfigEditor
              modName={selectedMod.name}
              configFile={configFile}
-             values={configValues}
              rawJson={rawJson}
              modId={selectedModId}
              onSave={handleSaveConfig}
              sptPath={sptPath}
-             hasUnsavedChanges={hasUnsavedChanges}
              onChangesDetected={(has) => {
                setHasUnsavedChanges(has);
                if (has && selectedModId) {
@@ -654,11 +627,10 @@ const handleExportMods = async () => {
               onHome={handleHome}
               saveConfigRef={saveConfigRef}
               currentCategory={getModCategory(selectedModId, modCategories)}
-              onCategoryChange={handleCategoryChange}
-              onValidateAll={() => setShowValidationSummary(true)}
-              devMode={devMode}
-              onDevModeChange={setDevMode}
-            />
+               onCategoryChange={handleCategoryChange}
+               devMode={devMode}
+               onDevModeChange={setDevMode}
+             />
         ) : selectedMod && selectedModId ? (
           <div className="flex-1 flex items-center justify-center bg-background">
             <div className="text-center text-muted-foreground space-y-2">

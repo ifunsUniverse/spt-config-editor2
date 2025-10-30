@@ -1,45 +1,49 @@
 import JSZip from "jszip";
-import { ScannedMod } from "./folderScanner";
+import { ElectronScannedMod } from "./electronFolderScanner";
+import { electronAPI } from "./electronBridge";
+import path from "path-browserify";
 
 /**
- * Recursively adds all files from a directory handle to a JSZip instance
+ * Recursively adds all files from an Electron directory path to a JSZip instance
  */
-async function addDirectoryToZip(
+async function addDirectoryToZipElectron(
   zip: JSZip,
-  dirHandle: FileSystemDirectoryHandle,
-  basePath: string
+  dirPath: string,
+  basePath: string,
+  api: ReturnType<typeof electronAPI>
 ): Promise<void> {
-  // @ts-ignore - values() exists but TypeScript doesn't recognize it
-  for await (const entry of dirHandle.values()) {
+  const entries = await api.readdir(dirPath);
+  
+  for (const entry of entries) {
+    const fullPath = path.join(dirPath, entry.name);
     const entryPath = `${basePath}/${entry.name}`;
 
-    if (entry.kind === "file") {
-      const fileHandle = entry as FileSystemFileHandle;
-      const file = await fileHandle.getFile();
-      zip.file(entryPath, file);
-    } else if (entry.kind === "directory") {
-      const subDirHandle = entry as FileSystemDirectoryHandle;
-      await addDirectoryToZip(zip, subDirHandle, entryPath);
+    if (entry.isFile) {
+      const content = await api.readFile(fullPath);
+      zip.file(entryPath, content);
+    } else if (entry.isDirectory) {
+      await addDirectoryToZipElectron(zip, fullPath, entryPath, api);
     }
   }
 }
 
 /**
- * Exports all scanned mods as a ZIP file with user/mods structure
+ * Exports all scanned mods as a ZIP file with user/mods structure (Electron version)
  * Returns the blob URL for downloading
  */
 export async function exportModsAsZip(
-  scannedMods: ScannedMod[],
+  scannedMods: ElectronScannedMod[],
   onProgress?: (percent: number, currentFile?: string) => void
 ): Promise<string> {
   const zip = new JSZip();
+  const api = electronAPI();
 
   // Add each mod folder to user/mods/[modFolder]
   for (const scannedMod of scannedMods) {
-    const modFolderName = scannedMod.folderHandle.name;
+    const modFolderName = scannedMod.mod.id;
     const modPath = `user/mods/${modFolderName}`;
     
-    await addDirectoryToZip(zip, scannedMod.folderHandle, modPath);
+    await addDirectoryToZipElectron(zip, scannedMod.folderPath, modPath, api);
   }
 
   // Generate the ZIP with streaming and compression

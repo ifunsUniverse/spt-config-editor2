@@ -37,8 +37,8 @@ const [rememberSession, setRememberSession] = useState(
 );
 
 const handleRememberSessionChange = (value: boolean) => {
-  setRememberSession(enabled);
-  localStorage.setItem("rememberLastSession", JSON.stringify(enabled));
+  setRememberSession(value);
+  localStorage.setItem("rememberLastSession", JSON.stringify(value));
 };
 
 // General tab handlers

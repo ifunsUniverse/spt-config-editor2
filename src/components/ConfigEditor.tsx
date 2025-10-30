@@ -328,12 +328,7 @@ return (
           )}
 
           {/* Settings button + dialog */}
-          <SettingsDialog devMode={devMode} onDevModeChange={onDevModeChange}>
-            <Button variant="outline" size="sm" className="gap-2 border-border">
-              <Settings className="w-4 h-4" />
-              Settings
-            </Button>
-          </SettingsDialog>
+          <SettingsDialog devMode={devMode || false} onDevModeChange={onDevModeChange || (() => {})} />
         </div>
       </div>
 

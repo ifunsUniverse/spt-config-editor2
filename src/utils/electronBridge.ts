@@ -6,20 +6,16 @@ declare global {
   }
 }
 
-export const isElectron = (): boolean => {
-  return typeof window !== 'undefined' && !!window.electronAPI;
-};
-
+// Electron-only app - API is always available
 export const electronAPI = () => {
-  if (!isElectron()) {
-    throw new Error('Electron API not available');
+  if (!window.electronAPI) {
+    throw new Error('Electron API not available - this app must run in Electron');
   }
-  return window.electronAPI!;
+  return window.electronAPI;
 };
 
 // Category file helpers
 export async function readCategoryFile(): Promise<string | null> {
-  if (!isElectron()) return null;
   try {
     const api = electronAPI();
     const userDataPath = await api.getDocumentsPath();
@@ -34,7 +30,6 @@ export async function readCategoryFile(): Promise<string | null> {
 }
 
 export async function writeCategoryFile(content: string): Promise<void> {
-  if (!isElectron()) return;
   try {
     const api = electronAPI();
     const userDataPath = await api.getDocumentsPath();
