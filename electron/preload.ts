@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
 export interface ElectronAPI {
   selectFolder: () => Promise<{ canceled: boolean; path?: string }>;

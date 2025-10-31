@@ -1,4 +1,4 @@
-import { isElectron, electronAPI } from './electronBridge';
+import { electronAPI } from './electronBridge';
 
 export interface ConfigHistory {
   modId: string;
@@ -28,55 +28,24 @@ export const saveConfigHistory = async (
   const timestamp = Date.now();
   const defaultLabel = label || `Auto-save at ${new Date().toLocaleTimeString()}`;
 
-  if (isElectron()) {
-    try {
-      const api = electronAPI();
-      const content = JSON.stringify({
-        modId,
-        modName,
-        configFile,
-        timestamp,
-        rawJson,
-        label: defaultLabel,
-      }, null, 2);
-
-      await api.writeHistoryBackup(modName, configFile, timestamp, content);
-      await cleanupOldBackups(modName, configFile);
-    } catch (error) {
-      console.error("Failed to save config history to disk:", error);
-      saveToLocalStorage(modId, configFile, rawJson, defaultLabel, timestamp);
-    }
-  } else {
-    saveToLocalStorage(modId, configFile, rawJson, defaultLabel, timestamp);
-  }
-};
-
-const saveToLocalStorage = (
-  modId: string,
-  configFile: string,
-  rawJson: any,
-  label: string,
-  timestamp: number
-): void => {
   try {
-    const key = getStorageKey(modId, configFile);
-    const history = getConfigHistoryFromLocalStorage(modId, configFile);
-    
-    const newEntry: ConfigHistory = {
+    const api = electronAPI();
+    const content = JSON.stringify({
       modId,
-      modName: modId,
+      modName,
       configFile,
       timestamp,
       rawJson,
-      label,
-    };
-    
-    const updatedHistory = [newEntry, ...history].slice(0, MAX_HISTORY_PER_CONFIG);
-    localStorage.setItem(key, JSON.stringify(updatedHistory));
+      label: defaultLabel,
+    }, null, 2);
+
+    await api.writeHistoryBackup(modName, configFile, timestamp, content);
+    await cleanupOldBackups(modName, configFile);
   } catch (error) {
-    console.error("Failed to save config history to localStorage:", error);
+    console.error("Failed to save config history to disk:", error);
   }
 };
+
 
 const cleanupOldBackups = async (modName: string, configFile: string): Promise<void> => {
   try {
@@ -100,48 +69,29 @@ export const getConfigHistory = async (
   modName: string,
   configFile: string
 ): Promise<ConfigHistory[]> => {
-  if (isElectron()) {
-    try {
-      const api = electronAPI();
-      const backups = await api.readHistoryBackups(modName, configFile);
-      
-      const maxAge = Date.now() - (MAX_HISTORY_AGE_DAYS * 24 * 60 * 60 * 1000);
-      return backups
-        .filter(backup => backup.timestamp > maxAge)
-        .map(backup => ({
-          modId,
-          modName,
-          configFile,
-          timestamp: backup.timestamp,
-          rawJson: backup.content.rawJson || backup.content,
-          label: backup.content.label || `Backup from ${new Date(backup.timestamp).toLocaleString()}`,
-          filename: backup.filename,
-        }))
-        .slice(0, MAX_HISTORY_PER_CONFIG);
-    } catch (error) {
-      console.error("Failed to load config history from disk:", error);
-      return getConfigHistoryFromLocalStorage(modId, configFile);
-    }
-  } else {
-    return getConfigHistoryFromLocalStorage(modId, configFile);
-  }
-};
-
-const getConfigHistoryFromLocalStorage = (modId: string, configFile: string): ConfigHistory[] => {
   try {
-    const key = getStorageKey(modId, configFile);
-    const stored = localStorage.getItem(key);
+    const api = electronAPI();
+    const backups = await api.readHistoryBackups(modName, configFile);
     
-    if (!stored) return [];
-    
-    const history: ConfigHistory[] = JSON.parse(stored);
     const maxAge = Date.now() - (MAX_HISTORY_AGE_DAYS * 24 * 60 * 60 * 1000);
-    return history.filter(entry => entry.timestamp > maxAge);
+    return backups
+      .filter(backup => backup.timestamp > maxAge)
+      .map(backup => ({
+        modId,
+        modName,
+        configFile,
+        timestamp: backup.timestamp,
+        rawJson: backup.content.rawJson || backup.content,
+        label: backup.content.label || `Backup from ${new Date(backup.timestamp).toLocaleString()}`,
+        filename: backup.filename,
+      }))
+      .slice(0, MAX_HISTORY_PER_CONFIG);
   } catch (error) {
-    console.error("Failed to load config history from localStorage:", error);
+    console.error("Failed to load config history from disk:", error);
     return [];
   }
 };
+
 
 // ========== CLEAR HISTORY ==========
 export const clearConfigHistory = async (
@@ -149,38 +99,11 @@ export const clearConfigHistory = async (
   modName: string,
   configFile: string
 ): Promise<void> => {
-  if (isElectron()) {
-    try {
-      const api = electronAPI();
-      await api.clearHistoryBackups(modName, configFile);
-    } catch (error) {
-      console.error("Failed to clear config history from disk:", error);
-      clearConfigHistoryFromLocalStorage(modId, configFile);
-    }
-  } else {
-    clearConfigHistoryFromLocalStorage(modId, configFile);
+  try {
+    const api = electronAPI();
+    await api.clearHistoryBackups(modName, configFile);
+  } catch (error) {
+    console.error("Failed to clear config history from disk:", error);
   }
 };
 
-const clearConfigHistoryFromLocalStorage = (modId: string, configFile: string): void => {
-  try {
-    const key = getStorageKey(modId, configFile);
-    localStorage.removeItem(key);
-  } catch (error) {
-    console.error("Failed to clear config history from localStorage:", error);
-  }
-};
-
-// ========== CLEAR ALL HISTORY ==========
-export const clearAllHistory = (): void => {
-  try {
-    const keys = Object.keys(localStorage);
-    keys.forEach(key => {
-      if (key.startsWith('spt-config-history-')) {
-        localStorage.removeItem(key);
-      }
-    });
-  } catch (error) {
-    console.error("Failed to clear all history:", error);
-  }
-};

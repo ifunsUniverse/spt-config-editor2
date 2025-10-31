@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
         entry: "electron/main.ts",
         vite: {
           build: {
-            outDir: "dist-electron",
+            outDir: "electron",
             rollupOptions: {
               external: ["electron"],
             },
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => {
         },
         vite: {
           build: {
-            outDir: "dist-electron",
+            outDir: "electron",
           },
         },
       },

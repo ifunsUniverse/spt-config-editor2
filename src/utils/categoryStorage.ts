@@ -1,4 +1,4 @@
-import { isElectron, readCategoryFile, writeCategoryFile } from "./electronBridge";
+import { readCategoryFile, writeCategoryFile } from "./electronBridge";
 
 const STORAGE_KEY = "spt-mod-categories";
 
@@ -7,37 +7,20 @@ export interface CategoryAssignments {
 }
 
 export async function loadCategories(): Promise<CategoryAssignments> {
-  if (isElectron()) {
-    try {
-      const content = await readCategoryFile();
-      return content ? JSON.parse(content) : {};
-    } catch (error) {
-      console.log("No categories file found in Electron, returning empty");
-      return {};
-    }
-  } else {
-    // Browser localStorage with safe parse
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : {};
-    } catch (error) {
-      console.warn("Invalid categories data in localStorage; resetting.", error);
-      localStorage.removeItem(STORAGE_KEY);
-      return {};
-    }
+  try {
+    const content = await readCategoryFile();
+    return content ? JSON.parse(content) : {};
+  } catch (error) {
+    console.log("No categories file found in Electron, returning empty");
+    return {};
   }
 }
 
 export async function saveCategories(assignments: CategoryAssignments): Promise<void> {
-  if (isElectron()) {
-    try {
-      await writeCategoryFile(JSON.stringify(assignments, null, 2));
-    } catch (error) {
-      console.error("Failed to save categories in Electron:", error);
-    }
-  } else {
-    // Browser localStorage
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments));
+  try {
+    await writeCategoryFile(JSON.stringify(assignments, null, 2));
+  } catch (error) {
+    console.error("Failed to save categories in Electron:", error);
   }
 }
 

@@ -1,9 +1,7 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu } from 'electron';
-import path from 'path';
-import fs from 'fs/promises';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const path = require('path');
+const fs = require('fs').promises;
+const fsSync = require('fs');
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -30,7 +28,9 @@ const createWindow = () => {
 
   // Show window when ready to prevent flashing
   mainWindow.once('ready-to-show', () => {
-    mainWindow?.show();
+    if (mainWindow) {
+      mainWindow.show();
+    }
   });
 
   // Load the app
@@ -56,21 +56,19 @@ app.whenReady().then(() => {
       const docsPath = app.getPath('documents');
       const categoryPath = path.join(docsPath, 'SPTModConfigEditor', 'UserData', 'categories.json');
       
-      try {
-        await fs.access(categoryPath);
-      } catch {
+      if (!fsSync.existsSync(categoryPath)) {
         return null;
       }
       
       const content = await fs.readFile(categoryPath, 'utf-8');
       return content;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to read category file:', error);
       return null;
     }
   });
 
-  ipcMain.handle('fs:writeCategoryFile', async (_event, content: string) => {
+  ipcMain.handle('fs:writeCategoryFile', async (_event, content) => {
     try {
       const docsPath = app.getPath('documents');
       const userDataDir = path.join(docsPath, 'SPTModConfigEditor', 'UserData');
@@ -78,7 +76,7 @@ app.whenReady().then(() => {
       
       await fs.mkdir(userDataDir, { recursive: true });
       await fs.writeFile(categoryPath, content, 'utf-8');
-    } catch (error: any) {
+    } catch (error) {
       throw new Error(`Failed to write category file: ${error.message}`);
     }
   });
@@ -114,7 +112,7 @@ ipcMain.handle("dialog:selectFolder", async () => {
 
 
 // Read directory contents
-ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {
+ipcMain.handle('fs:readdir', async (_event, dirPath) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     return entries.map(entry => ({
@@ -122,33 +120,33 @@ ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {
       isDirectory: entry.isDirectory(),
       isFile: entry.isFile(),
     }));
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to read directory: ${error.message}`);
   }
 });
 
 // Read file contents
-ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
+ipcMain.handle('fs:readFile', async (_event, filePath) => {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
     return content;
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to read file: ${error.message}`);
   }
 });
 
 // Write file contents
-ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string) => {
+ipcMain.handle('fs:writeFile', async (_event, filePath, content) => {
   try {
     await fs.writeFile(filePath, content, 'utf-8');
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to write file: ${error.message}`);
   }
 });
 
 // Check if path exists
-ipcMain.handle('fs:exists', async (_event, targetPath: string) => {
+ipcMain.handle('fs:exists', async (_event, targetPath) => {
   try {
     await fs.access(targetPath);
     return true;
@@ -158,7 +156,7 @@ ipcMain.handle('fs:exists', async (_event, targetPath: string) => {
 });
 
 // Get path stats
-ipcMain.handle('fs:stat', async (_event, targetPath: string) => {
+ipcMain.handle('fs:stat', async (_event, targetPath) => {
   try {
     const stats = await fs.stat(targetPath);
     return {
@@ -166,7 +164,7 @@ ipcMain.handle('fs:stat', async (_event, targetPath: string) => {
       isFile: stats.isFile(),
       size: stats.size,
     };
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to get stats: ${error.message}`);
   }
 });
@@ -177,7 +175,7 @@ ipcMain.handle('app:getDocumentsPath', async () => {
 });
 
 // Write history backup to disk
-ipcMain.handle('fs:writeHistoryBackup', async (_event, modName: string, configFile: string, timestamp: number, content: string) => {
+ipcMain.handle('fs:writeHistoryBackup', async (_event, modName, configFile, timestamp, content) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
@@ -189,20 +187,18 @@ ipcMain.handle('fs:writeHistoryBackup', async (_event, modName: string, configFi
     await fs.writeFile(backupPath, content, 'utf-8');
     
     return { success: true, path: backupPath };
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to write history backup: ${error.message}`);
   }
 });
 
 // Read all history backups for a specific mod config
-ipcMain.handle('fs:readHistoryBackups', async (_event, modName: string, configFile: string) => {
+ipcMain.handle('fs:readHistoryBackups', async (_event, modName, configFile) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
     
-    try {
-      await fs.access(backupDir);
-    } catch {
+    if (!fsSync.existsSync(backupDir)) {
       return [];
     }
     
@@ -229,25 +225,25 @@ ipcMain.handle('fs:readHistoryBackups', async (_event, modName: string, configFi
     }
     
     return backups.sort((a, b) => b.timestamp - a.timestamp);
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to read history backups: ${error.message}`);
   }
 });
 
 // Delete a specific history backup file
-ipcMain.handle('fs:deleteHistoryBackup', async (_event, modName: string, filename: string) => {
+ipcMain.handle('fs:deleteHistoryBackup', async (_event, modName, filename) => {
   try {
     const docsPath = app.getPath('documents');
     const backupPath = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName, filename);
     await fs.unlink(backupPath);
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to delete history backup: ${error.message}`);
   }
 });
 
 // Clear all history backups for a specific config
-ipcMain.handle('fs:clearHistoryBackups', async (_event, modName: string, configFile: string) => {
+ipcMain.handle('fs:clearHistoryBackups', async (_event, modName, configFile) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
@@ -262,7 +258,7 @@ ipcMain.handle('fs:clearHistoryBackups', async (_event, modName: string, configF
     }
     
     return { success: true };
-  } catch (error: any) {
+  } catch (error) {
     throw new Error(`Failed to clear history backups: ${error.message}`);
   }
 });

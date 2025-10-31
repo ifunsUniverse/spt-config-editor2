@@ -8,10 +8,10 @@ directories:
 
 files:
   - dist
-  - dist-electron
+  - electron
 
 extraMetadata:
-  main: dist-electron/main.js
+  main: electron/main.js
   
 
 win:
