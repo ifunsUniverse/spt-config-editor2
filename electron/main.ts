@@ -1,3 +1,4 @@
+import type { IpcMainInvokeEvent } from 'electron';
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
@@ -51,7 +52,7 @@ app.whenReady().then(() => {
   createWindow();
   
   // Setup category handlers
-  ipcMain.handle('fs:readCategoryFile', async () => {
+  ipcMain.handle('fs:readCategoryFile', async (_event: IpcMainInvokeEvent) => {
     try {
       const docsPath = app.getPath('documents');
       const categoryPath = path.join(docsPath, 'SPTModConfigEditor', 'UserData', 'categories.json');
@@ -68,7 +69,7 @@ app.whenReady().then(() => {
     }
   });
 
-  ipcMain.handle('fs:writeCategoryFile', async (_event, content) => {
+  ipcMain.handle('fs:writeCategoryFile', async (_event: IpcMainInvokeEvent, content: string) => {
     try {
       const docsPath = app.getPath('documents');
       const userDataDir = path.join(docsPath, 'SPTModConfigEditor', 'UserData');
@@ -77,7 +78,8 @@ app.whenReady().then(() => {
       await fs.mkdir(userDataDir, { recursive: true });
       await fs.writeFile(categoryPath, content, 'utf-8');
     } catch (error) {
-      throw new Error(`Failed to write category file: ${error.message}`);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to write category file: ${message}`);
     }
   });
 
@@ -97,7 +99,7 @@ app.on('window-all-closed', () => {
 // IPC Handlers
 
 // Select folder dialog
-ipcMain.handle("dialog:selectFolder", async () => {
+ipcMain.handle("dialog:selectFolder", async (_event: IpcMainInvokeEvent) => {
   const result = await dialog.showOpenDialog({
     properties: ["openDirectory"],
     title: "Select SPT Installation Folder",
@@ -112,7 +114,7 @@ ipcMain.handle("dialog:selectFolder", async () => {
 
 
 // Read directory contents
-ipcMain.handle('fs:readdir', async (_event, dirPath) => {
+ipcMain.handle('fs:readdir', async (_event: IpcMainInvokeEvent, dirPath: string) => {
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
     return entries.map(entry => ({
@@ -121,32 +123,35 @@ ipcMain.handle('fs:readdir', async (_event, dirPath) => {
       isFile: entry.isFile(),
     }));
   } catch (error) {
-    throw new Error(`Failed to read directory: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to read directory: ${message}`);
   }
 });
 
 // Read file contents
-ipcMain.handle('fs:readFile', async (_event, filePath) => {
+ipcMain.handle('fs:readFile', async (_event: IpcMainInvokeEvent, filePath: string) => {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
     return content;
   } catch (error) {
-    throw new Error(`Failed to read file: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to read file: ${message}`);
   }
 });
 
 // Write file contents
-ipcMain.handle('fs:writeFile', async (_event, filePath, content) => {
+ipcMain.handle('fs:writeFile', async (_event: IpcMainInvokeEvent, filePath: string, content: string) => {
   try {
     await fs.writeFile(filePath, content, 'utf-8');
     return { success: true };
   } catch (error) {
-    throw new Error(`Failed to write file: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to write file: ${message}`);
   }
 });
 
 // Check if path exists
-ipcMain.handle('fs:exists', async (_event, targetPath) => {
+ipcMain.handle('fs:exists', async (_event: IpcMainInvokeEvent, targetPath: string) => {
   try {
     await fs.access(targetPath);
     return true;
@@ -156,7 +161,7 @@ ipcMain.handle('fs:exists', async (_event, targetPath) => {
 });
 
 // Get path stats
-ipcMain.handle('fs:stat', async (_event, targetPath) => {
+ipcMain.handle('fs:stat', async (_event: IpcMainInvokeEvent, targetPath: string) => {
   try {
     const stats = await fs.stat(targetPath);
     return {
@@ -165,17 +170,18 @@ ipcMain.handle('fs:stat', async (_event, targetPath) => {
       size: stats.size,
     };
   } catch (error) {
-    throw new Error(`Failed to get stats: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to get stats: ${message}`);
   }
 });
 
 // Get app documents path
-ipcMain.handle('app:getDocumentsPath', async () => {
+ipcMain.handle('app:getDocumentsPath', async (_event: IpcMainInvokeEvent) => {
   return app.getPath('documents');
 });
 
 // Write history backup to disk
-ipcMain.handle('fs:writeHistoryBackup', async (_event, modName, configFile, timestamp, content) => {
+ipcMain.handle('fs:writeHistoryBackup', async (_event: IpcMainInvokeEvent, modName: string, configFile: string, timestamp: number, content: string) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
@@ -188,12 +194,13 @@ ipcMain.handle('fs:writeHistoryBackup', async (_event, modName, configFile, time
     
     return { success: true, path: backupPath };
   } catch (error) {
-    throw new Error(`Failed to write history backup: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to write history backup: ${message}`);
   }
 });
 
 // Read all history backups for a specific mod config
-ipcMain.handle('fs:readHistoryBackups', async (_event, modName, configFile) => {
+ipcMain.handle('fs:readHistoryBackups', async (_event: IpcMainInvokeEvent, modName: string, configFile: string) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
@@ -226,24 +233,26 @@ ipcMain.handle('fs:readHistoryBackups', async (_event, modName, configFile) => {
     
     return backups.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
-    throw new Error(`Failed to read history backups: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to read history backups: ${message}`);
   }
 });
 
 // Delete a specific history backup file
-ipcMain.handle('fs:deleteHistoryBackup', async (_event, modName, filename) => {
+ipcMain.handle('fs:deleteHistoryBackup', async (_event: IpcMainInvokeEvent, modName: string, filename: string) => {
   try {
     const docsPath = app.getPath('documents');
     const backupPath = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName, filename);
     await fs.unlink(backupPath);
     return { success: true };
   } catch (error) {
-    throw new Error(`Failed to delete history backup: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to delete history backup: ${message}`);
   }
 });
 
 // Clear all history backups for a specific config
-ipcMain.handle('fs:clearHistoryBackups', async (_event, modName, configFile) => {
+ipcMain.handle('fs:clearHistoryBackups', async (_event: IpcMainInvokeEvent, modName: string, configFile: string) => {
   try {
     const docsPath = app.getPath('documents');
     const backupDir = path.join(docsPath, 'SPTModConfigEditor', 'History Backups', modName);
@@ -259,6 +268,7 @@ ipcMain.handle('fs:clearHistoryBackups', async (_event, modName, configFile) => 
     
     return { success: true };
   } catch (error) {
-    throw new Error(`Failed to clear history backups: ${error.message}`);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to clear history backups: ${message}`);
   }
 });
