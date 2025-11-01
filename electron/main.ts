@@ -1,10 +1,11 @@
+import type { Dirent } from 'fs';
 import type { IpcMainInvokeEvent } from 'electron';
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs').promises;
 const fsSync = require('fs');
 
-let mainWindow: BrowserWindow | null = null;
+let mainWindow: ReturnType<typeof BrowserWindow> | null = null;
 
 const createWindow = () => {
   mainWindow = new BrowserWindow({
@@ -24,6 +25,10 @@ const createWindow = () => {
     show: false,
   });
 
+  mainWindow.once('ready-to-show', () => {
+  mainWindow.show(); // ← only show when ready
+});
+
   // Hide the menu bar
   Menu.setApplicationMenu(null);
 
@@ -36,7 +41,7 @@ const createWindow = () => {
 
   // Load the app
   if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
@@ -114,46 +119,36 @@ ipcMain.handle("dialog:selectFolder", async (_event: IpcMainInvokeEvent) => {
 
 
 // Read directory contents
-ipcMain.handle('fs:readdir', async (_event: IpcMainInvokeEvent, dirPath: string) => {
-  try {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    return entries.map(entry => ({
-      name: entry.name,
-      isDirectory: entry.isDirectory(),
-      isFile: entry.isFile(),
-    }));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to read directory: ${message}`);
-  }
+ipcMain.handle('fs:readdir', async (_event, dirPath: string) => {
+  const entries = await fs.readdir(dirPath, { withFileTypes: true });
+  return entries.map(e => ({
+    name: e.name,
+    isFile: e.isFile(),
+    isDirectory: e.isDirectory(),
+  }));
 });
 
 // Read file contents
-ipcMain.handle('fs:readFile', async (_event: IpcMainInvokeEvent, filePath: string) => {
+ipcMain.handle('fs:readFile', async (_event, filePath: string) => {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
-    return content;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to read file: ${message}`);
+    const data = await fs.readFile(filePath, 'utf-8');
+    return data;
+  } catch (err) {
+    console.error('Failed to read file:', err);
+    throw err;
   }
 });
 
 // Write file contents
-ipcMain.handle('fs:writeFile', async (_event: IpcMainInvokeEvent, filePath: string, content: string) => {
-  try {
-    await fs.writeFile(filePath, content, 'utf-8');
-    return { success: true };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(`Failed to write file: ${message}`);
-  }
+ipcMain.handle('fs:writeFile', async (_event, filePath: string, content: string) => {
+  await fs.writeFile(filePath, content, 'utf-8');
+  return true;
 });
 
 // Check if path exists
-ipcMain.handle('fs:exists', async (_event: IpcMainInvokeEvent, targetPath: string) => {
+ipcMain.handle('fs:exists', async (_event, filePath: string) => {
   try {
-    await fs.access(targetPath);
+    await fs.access(filePath);
     return true;
   } catch {
     return false;

@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 import Editor from "@monaco-editor/react";
 import { registerTransparentTheme } from "@/utils/monaco-theme";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-
 
 export interface ConfigValue {
   key: string;
@@ -77,14 +76,14 @@ export const ConfigEditor = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
-
-  // 👇 your search-related state must also be inside
+  const [config, setConfig] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [matchCount, setMatchCount] = useState(0);
-
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
+  const configPath = configFile || null;
 
   // Reset when config changes
   useEffect(() => {
@@ -126,6 +125,33 @@ export const ConfigEditor = ({
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
   };
+
+useEffect(() => {
+  if (!configPath) {
+    console.warn("Missing path info — cannot load config");
+    setLoading(false);
+    setError(true);
+    return;
+  }
+
+  if (window.electronAPI?.readFile) {
+    window.electronAPI.readFile(configPath)
+      .then((data) => {
+        setConfig(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load config:", err);
+        setError(true);
+        setLoading(false);
+      });
+  } else {
+    console.warn("electronAPI not available — running in browser?");
+    setLoading(false);
+    setError(true);
+  }
+}, [configPath]);
+
 
   useEffect(() => {
   const remember = JSON.parse(localStorage.getItem("rememberLastSession") || "false");
@@ -328,7 +354,10 @@ return (
           )}
 
           {/* Settings button + dialog */}
-          <SettingsDialog devMode={devMode || false} onDevModeChange={onDevModeChange || (() => {})} />
+          <SettingsDialog
+            devMode={devMode || false}
+            onDevModeChange={onDevModeChange || (() => {})}
+          />
         </div>
       </div>
 
@@ -405,49 +434,67 @@ return (
 
       {/* Config editor area */}
       <div className="flex-1 flex flex-col overflow-hidden p-6">
-        <div className="flex-1 rounded-md border border-border bg-card overflow-hidden">
-          <Editor
-            height="100%"
-            language="json"
-            value={rawText}
-            onChange={(val) => val && handleRawTextChange(val)}
-            onValidate={(markers) => {
-              if (markers.length > 0) {
-                setJsonError(markers[0].message);
-              } else {
-                setJsonError(null);
-              }
-            }}
-            theme="vs-dark"
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              formatOnPaste: true,
-              formatOnType: true,
-              automaticLayout: true,
-              renderWhitespace: "none",
-            }}
-          />
-        </div>
+        {loading && (
+          <p className="text-sm text-muted-foreground">Loading config...</p>
+        )}
 
-        <p className="text-xs text-muted-foreground shrink-0 mt-2">
-          Supports JSONC, JSON and JSON5 syntax. Changes are validated in
-          real-time. Auto-formats on save.
-        </p>
+        {error && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Failed to load config. Please check your file path or try again.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!loading && !error && config && (
+          <>
+            <div className="flex-1 rounded-md border border-border bg-card overflow-hidden">
+              <Editor
+                height="100%"
+                language="json"
+                value={rawText}
+                onChange={(val) => val && handleRawTextChange(val)}
+                onValidate={(markers) => {
+                  if (markers.length > 0) {
+                    setJsonError(markers[0].message);
+                  } else {
+                    setJsonError(null);
+                  }
+                }}
+                theme="vs-dark"
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  formatOnPaste: true,
+                  formatOnType: true,
+                  automaticLayout: true,
+                  renderWhitespace: "none",
+                }}
+              />
+            </div>
+
+            <p className="text-xs text-muted-foreground shrink-0 mt-2">
+              Supports JSONC, JSON and JSON5 syntax. Changes are validated in
+              real-time. Auto-formats on save.
+            </p>
+          </>
+        )}
       </div>
-      
-{/* Category dialog */}
-{showCategoryDialog && (
-  <CategoryDialog
-      modId={modId}
-      modName={modName}
-      currentCategory={currentCategory}
-      open={showCategoryDialog}
-      onOpenChange={setShowCategoryDialog}
-      onCategoryAssigned={(category) => onCategoryChange?.(category)}
-       />
-       )}
-      </div>
+
+      {/* Category dialog */}
+      {showCategoryDialog && (
+        <CategoryDialog
+          modId={modId}
+          modName={modName}
+          currentCategory={currentCategory}
+          open={showCategoryDialog}
+          onOpenChange={setShowCategoryDialog}
+          onCategoryAssigned={(category) => onCategoryChange?.(category)}
+        />
+      )}
     </div>
+  </div>
 );
+
 };

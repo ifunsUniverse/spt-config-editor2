@@ -27,8 +27,14 @@ export async function scanSPTFolderElectron(
   const api = electronAPI();
 
   try {
-    // Navigate to SPT/user/mods directory
-    const sptPath = path.join(rootPath, "SPT");
+    // Normalize root so we always end up at .../SPT/user/mods
+    let sptPath = rootPath;
+
+    // If the user picked the parent folder (e.g. SPT-4.0.X), append "SPT"
+    if (!sptPath.toLowerCase().endsWith("spt")) {
+      sptPath = path.join(sptPath, "SPT");
+    }
+
     const userPath = path.join(sptPath, "user");
     const modsPath = path.join(userPath, "mods");
 

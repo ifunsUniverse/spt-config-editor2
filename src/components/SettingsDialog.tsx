@@ -99,23 +99,6 @@ const [numberFormat, setNumberFormat] = useState(
           </TabsList>
 
           <TabsContent value="general" className="space-y-6 mt-4">
-  {/* Startup & Behavior */}
-  <div className="space-y-2">
-    <h3 className="font-semibold text-lg">Startup & Behavior</h3>
-    <div className="flex items-center justify-between">
-      <Label htmlFor="remember-session" className="flex flex-col gap-1">
-        <span className="font-medium">Remember Last Session</span>
-        <span className="text-sm text-muted-foreground">
-          Reopen the last project or mods list on startup
-        </span>
-      </Label>
-      <Switch
-        id="remember-session"
-        checked={rememberSession}
-        onCheckedChange={setRememberSession}
-      />
-    </div>
-  </div>
   
   {/* Data & Storage */}
   <div className="space-y-2">

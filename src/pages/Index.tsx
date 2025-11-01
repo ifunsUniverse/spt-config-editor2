@@ -218,6 +218,7 @@ const Index = () => {
       setPendingModSwitch(null);
     }
   };
+  
 
   const handleDiscardAndSwitch = () => {
     if (pendingModSwitch) {
@@ -455,20 +456,19 @@ const handleExportMods = async () => {
   }
 
   // Build config files map
-  const configFilesMap: Record<string, ConfigFile[]> = {};
-  try {
-    scannedMods.forEach(sm => {
-      configFilesMap[sm.mod.id] = sm.configs.map((cfg, idx) => ({
-        fileName: cfg.fileName,
-        index: idx
-      }));
-    });
-  } catch (error) {
-    console.error('[ConfigMap] Error building config map:', error);
-  }
+const configFilesMap: Record<string, ConfigFile[]> = {};
+for (const mod of scannedMods) {
+  configFilesMap[mod.mod.id] = mod.configs;
+}
 
-  const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
-  const selectedMod = selectedScannedMod?.mod;
+// then derive selected mod + config
+const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
+const selectedMod = selectedScannedMod ? selectedScannedMod.mod : null;
+const selectedConfig =
+  selectedScannedMod && selectedConfigIndex != null
+    ? selectedScannedMod.configs[selectedConfigIndex]
+    : null;
+  
 
   // Get config data with guards
   let configFile = "config.json";
@@ -605,45 +605,46 @@ const handleExportMods = async () => {
   modCategories={modCategories}
 />       </div>
         </div>
-         {selectedMod && selectedModId && configValues.length > 0 ? (
-           <ConfigEditor
-             modName={selectedMod.name}
-             configFile={configFile}
-             rawJson={rawJson}
-             modId={selectedModId}
-             onSave={handleSaveConfig}
-             sptPath={sptPath}
-             onChangesDetected={(has) => {
-               setHasUnsavedChanges(has);
-               if (has && selectedModId) {
-                 setEditedModIds((prev) => {
-                   const next = new Set(prev);
-                   next.add(selectedModId);
-                   return next;
-                 });
-               }
-             }}
-              onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
-              onHome={handleHome}
-              saveConfigRef={saveConfigRef}
-              currentCategory={getModCategory(selectedModId, modCategories)}
-               onCategoryChange={handleCategoryChange}
-               devMode={devMode}
-               onDevModeChange={setDevMode}
-             />
-        ) : selectedMod && selectedModId ? (
-          <div className="flex-1 flex items-center justify-center bg-background">
-            <div className="text-center text-muted-foreground space-y-2">
-              <Package className="w-12 h-12 mx-auto opacity-50" />
-              <p className="font-medium">No configuration files found</p>
-              <p className="text-sm">This mod doesn't have any editable config files</p>
-            </div>
-          </div>
-         ) : (
-           <div className="flex-1 flex items-center justify-center bg-background">
-             <p className="text-muted-foreground">Select a config file to edit</p>
-           </div>
-          )}
+         {selectedMod && selectedModId && selectedConfig ? (
+  <ConfigEditor
+    modName={selectedMod.name}
+    configFile={selectedConfig.filePath}
+    rawJson={selectedConfig.rawJson}
+    modId={selectedModId}
+    onSave={handleSaveConfig}
+    sptPath={sptPath}
+    onChangesDetected={(has) => {
+      setHasUnsavedChanges(has);
+      if (has && selectedModId) {
+        setEditedModIds((prev) => {
+          const next = new Set(prev);
+          next.add(selectedModId);
+          return next;
+        });
+      }
+    }}
+    onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
+    onHome={handleHome}
+    saveConfigRef={saveConfigRef}
+    currentCategory={getModCategory(selectedModId, modCategories)}
+    onCategoryChange={handleCategoryChange}
+    devMode={devMode}
+    onDevModeChange={setDevMode}
+  />
+) : selectedMod && selectedModId ? (
+  <div className="flex-1 flex items-center justify-center bg-background">
+    <div className="text-center text-muted-foreground space-y-2">
+      <Package className="w-12 h-12 mx-auto opacity-50" />
+      <p className="font-medium">No configuration files found</p>
+      <p className="text-sm">This mod doesn't have any editable config files</p>
+    </div>
+  </div>
+) : (
+  <div className="flex-1 flex items-center justify-center bg-background">
+    <p className="text-muted-foreground">Select a config file to edit</p>
+  </div>
+)}
+
 
           {/* Developer Tools Panel */}
           {devMode && (
