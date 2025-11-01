@@ -106,6 +106,11 @@ async function scanModFolderElectron(
       return null; // Skip mods with no configs
     }
 
+    // Assign sequential indices AFTER all configs are collected to avoid duplicates
+    configs.forEach((config, idx) => {
+      config.index = idx;
+    });
+
     const mod: Mod = {
       id: folderName,
       name: modName,
@@ -188,7 +193,7 @@ async function scanConfigFilesRecursiveElectron(
                 values,
                 rawJson: json,
                 filePath: fullPath,
-                index: configs.length,
+                index: -1, // Will be assigned after all configs are collected
               });
             }
           } catch (error) {
