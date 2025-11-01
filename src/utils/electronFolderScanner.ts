@@ -9,6 +9,7 @@ export interface ElectronScannedConfig {
   values: ConfigValue[];
   rawJson: any;
   filePath: string;
+  index: number;
 }
 
 export interface ElectronScannedMod {
@@ -187,6 +188,7 @@ async function scanConfigFilesRecursiveElectron(
                 values,
                 rawJson: json,
                 filePath: fullPath,
+                index: configs.length,
               });
             }
           } catch (error) {
