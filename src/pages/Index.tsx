@@ -193,11 +193,27 @@ const Index = () => {
   };
 
   const handleSelectMod = (modId: string, configIndex: number) => {
+    // Validate the mod exists and has configs
+    const targetMod = scannedMods.find(m => m.mod.id === modId);
+    if (!targetMod) {
+      console.error('[handleSelectMod] Mod not found:', modId);
+      return;
+    }
+    
+    if (!targetMod.configs || targetMod.configs.length === 0) {
+      console.error('[handleSelectMod] Mod has no configs:', modId);
+      return;
+    }
+    
+    // Ensure configIndex is within bounds
+    const safeConfigIndex = Math.max(0, Math.min(configIndex, targetMod.configs.length - 1));
+    console.log('[handleSelectMod]', { modId, requestedIndex: configIndex, safeIndex: safeConfigIndex, configCount: targetMod.configs.length });
+    
     if (hasUnsavedChanges) {
-      setPendingModSwitch({ modId, configIndex });
+      setPendingModSwitch({ modId, configIndex: safeConfigIndex });
     } else {
       setSelectedModId(modId);
-      setSelectedConfigIndex(configIndex);
+      setSelectedConfigIndex(safeConfigIndex);
       setHasUnsavedChanges(false);
     }
   };
@@ -461,13 +477,23 @@ for (const mod of scannedMods) {
   configFilesMap[mod.mod.id] = mod.configs;
 }
 
-// then derive selected mod + config
+// then derive selected mod + config with validation
 const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
 const selectedMod = selectedScannedMod ? selectedScannedMod.mod : null;
-const selectedConfig =
-  selectedScannedMod && selectedConfigIndex != null
-    ? selectedScannedMod.configs[selectedConfigIndex]
-    : null;
+
+// Safely get config with bounds checking
+let selectedConfig = null;
+if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.configs.length > 0) {
+  const safeIndex = Math.max(0, Math.min(selectedConfigIndex, selectedScannedMod.configs.length - 1));
+  selectedConfig = selectedScannedMod.configs[safeIndex];
+  console.log('[selectedConfig]', { 
+    modId: selectedModId, 
+    requestedIndex: selectedConfigIndex, 
+    safeIndex, 
+    configCount: selectedScannedMod.configs.length,
+    configFile: selectedConfig?.fileName 
+  });
+}
   
 
   // Get config data with guards
