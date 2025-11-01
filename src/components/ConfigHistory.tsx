@@ -1,6 +1,10 @@
-import { useState } from "react";
+import { useState, forwardRef } from "react";
 import { History, Trash2, RotateCcw } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -19,10 +23,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { ConfigHistory as ConfigHistoryType, getConfigHistory, clearConfigHistory } from "@/utils/configHistory";
-import { formatDistanceToNow } from "date-fns";
+
+import {
+  ConfigHistory as ConfigHistoryType,
+  getConfigHistory,
+  clearConfigHistory,
+} from "@/utils/configHistory";
 
 interface ConfigHistoryProps {
   modId: string;
@@ -31,13 +37,25 @@ interface ConfigHistoryProps {
   onRestore: (rawJson: any) => void;
 }
 
-export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigHistoryProps) => {
+export const ConfigHistory = ({
+  modId,
+  modName,
+  configFile,
+  onRestore,
+}: ConfigHistoryProps) => {
   const [history, setHistory] = useState<ConfigHistoryType[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState<ConfigHistoryType | null>(null);
   const [showRestoreConfirm, setShowRestoreConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<ConfigHistoryType | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const refreshHistory = async () => {
+    setIsLoading(true);
+    const historyData = await getConfigHistory(modId, modName, configFile);
+    setHistory(historyData);
+    setIsLoading(false);
+  };
 
   const handleRestore = (entry: ConfigHistoryType) => {
     setSelectedEntry(entry);
@@ -52,22 +70,11 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
     }
   };
 
-  const handleClearHistory = () => {
-    setShowClearConfirm(true);
-  };
-
   const confirmClearHistory = async () => {
     setIsLoading(true);
     await clearConfigHistory(modId, modName, configFile);
     await refreshHistory();
     setShowClearConfirm(false);
-    setIsLoading(false);
-  };
-
-  const refreshHistory = async () => {
-    setIsLoading(true);
-    const historyData = await getConfigHistory(modId, modName, configFile);
-    setHistory(historyData);
     setIsLoading(false);
   };
 
@@ -85,15 +92,10 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
 
     entries.forEach(entry => {
       const age = now - entry.timestamp;
-      if (age < oneDay) {
-        groups.today.push(entry);
-      } else if (age < 2 * oneDay) {
-        groups.yesterday.push(entry);
-      } else if (age < oneWeek) {
-        groups.thisWeek.push(entry);
-      } else {
-        groups.older.push(entry);
-      }
+      if (age < oneDay) groups.today.push(entry);
+      else if (age < 2 * oneDay) groups.yesterday.push(entry);
+      else if (age < oneWeek) groups.thisWeek.push(entry);
+      else groups.older.push(entry);
     });
 
     return groups;
@@ -120,16 +122,16 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
               Previous versions of 📂mods/{modId}/{configFile}
             </SheetDescription>
           </SheetHeader>
-          
+
           <div className="mt-6 flex justify-between items-center mb-4">
             <Badge variant="secondary">
-              {history.length} {history.length === 1 ? 'entry' : 'entries'}
+              {history.length} {history.length === 1 ? "entry" : "entries"}
             </Badge>
             {history.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClearHistory}
+                onClick={() => setShowClearConfirm(true)}
                 className="gap-2 text-destructive hover:text-destructive"
               >
                 <Trash2 className="w-4 h-4" />
@@ -145,48 +147,23 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
               </div>
             ) : (
               <div className="space-y-6">
-                {groups.today.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Today</h3>
-                    <div className="space-y-2">
-                      {groups.today.map((entry, idx) => (
-                        <HistoryEntry key={idx} entry={entry} onRestore={handleRestore} />
-                      ))}
+                {Object.entries(groups).map(([label, entries]) =>
+                  entries.length > 0 ? (
+                    <div key={label}>
+                      <h3 className="text-sm font-semibold mb-2 text-muted-foreground">
+                        {label === "thisWeek" ? "This Week" : label.charAt(0).toUpperCase() + label.slice(1)}
+                      </h3>
+                      <div className="space-y-2">
+                        {entries.map(entry => (
+                          <HistoryEntry
+                            key={entry.timestamp}
+                            entry={entry}
+                            onRestore={handleRestore}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-                
-                {groups.yesterday.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Yesterday</h3>
-                    <div className="space-y-2">
-                      {groups.yesterday.map((entry, idx) => (
-                        <HistoryEntry key={idx} entry={entry} onRestore={handleRestore} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {groups.thisWeek.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-muted-foreground">This Week</h3>
-                    <div className="space-y-2">
-                      {groups.thisWeek.map((entry, idx) => (
-                        <HistoryEntry key={idx} entry={entry} onRestore={handleRestore} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {groups.older.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-muted-foreground">Older</h3>
-                    <div className="space-y-2">
-                      {groups.older.map((entry, idx) => (
-                        <HistoryEntry key={idx} entry={entry} onRestore={handleRestore} />
-                      ))}
-                    </div>
-                  </div>
+                  ) : null
                 )}
               </div>
             )}
@@ -219,7 +196,10 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmClearHistory} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmClearHistory}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               Clear All
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -229,32 +209,38 @@ export const ConfigHistory = ({ modId, modName, configFile, onRestore }: ConfigH
   );
 };
 
-const HistoryEntry = ({ 
-  entry, 
-  onRestore 
-}: { 
-  entry: ConfigHistoryType; 
+type HistoryEntryProps = {
+  entry: ConfigHistoryType;
   onRestore: (entry: ConfigHistoryType) => void;
-}) => {
-  return (
-    <div className="flex items-start justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
-          {entry.label}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          {formatDistanceToNow(entry.timestamp, { addSuffix: true })}
-        </p>
-      </div>
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={() => onRestore(entry)}
-        className="gap-2 shrink-0 ml-2"
-      >
-        <RotateCcw className="w-3 h-3" />
-        Restore
-      </Button>
-    </div>
-  );
 };
+
+
+
+export const HistoryEntry = forwardRef<HTMLDivElement, HistoryEntryProps>(
+  ({ entry, onRestore }, ref) => {
+    return (
+      <div
+        ref={ref}
+        className="flex items-start justify-between p-3 border border-border rounded-lg hover:bg-accent/50 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{entry.label}</p>
+          <p className="text-xs text-muted-foreground">
+            {formatDistanceToNow(entry.timestamp, { addSuffix: true })}
+          </p>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => onRestore(entry)}
+          className="gap-2 shrink-0 ml-2"
+        >
+          <RotateCcw className="w-3 h-3" />
+          Restore
+        </Button>
+      </div>
+    );
+  }
+);
+
+HistoryEntry.displayName = "HistoryEntry";

@@ -86,17 +86,7 @@ export const ConfigValidationSummary = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={handleValidateAll}
-        >
-          <CheckCircle2 className="w-4 h-4" />
-          Validate All
-        </Button>
-      </DialogTrigger>
+      
       <DialogContent className="max-w-2xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Config Validation Summary</DialogTitle>
