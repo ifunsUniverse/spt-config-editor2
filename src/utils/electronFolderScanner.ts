@@ -5,7 +5,7 @@ import {
   readFile,
   selectFolder,
 } from "@/utils/electronBridge";
-import { ConfigValue } from "@/components/ConfigEditor";
+import { ConfigValue } from "@/utils/configHelpers";
 import { Mod } from "@/components/ModList";
 
 export interface ScannedFileInfo {

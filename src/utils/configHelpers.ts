@@ -1,5 +1,13 @@
 import JSON5 from "json5";
 
+export interface ConfigValue {
+  key: string;
+  value: any;
+  type: "boolean" | "string" | "number" | "select" | "keybind";
+  description?: string;
+  options?: string[];
+}
+
 export interface ConfigFormField {
   key: string;
   value: any;
@@ -31,4 +39,25 @@ export const parseConfigWithMetadata = (rawText: string): any => {
 
   const parsed = JSON5.parse(rawText);
   return { parsed, metadata: commentMap };
+};
+
+export const jsonToConfigValues = (json: any, prefix = ""): ConfigValue[] => {
+  const vals: ConfigValue[] = [];
+  for (const [key, value] of Object.entries(json)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key;
+    if (typeof value === "boolean") {
+      vals.push({ key: fullKey, value, type: "boolean" });
+    } else if (typeof value === "number") {
+      vals.push({ key: fullKey, value, type: "number" });
+    } else if (typeof value === "string") {
+      vals.push({ key: fullKey, value, type: "string" });
+    } else if (
+      typeof value === "object" &&
+      value !== null &&
+      !Array.isArray(value)
+    ) {
+      vals.push(...jsonToConfigValues(value, fullKey));
+    }
+  }
+  return vals;
 };

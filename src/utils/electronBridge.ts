@@ -10,8 +10,12 @@ export const exists = (path: string) =>
 export const readFile = (path: string) =>
   window.electronBridge?.readFile(path);
 
-export const selectFolder = () =>
-  window.electronBridge?.selectFolder();
+export const selectFolder = async () => {
+  if (!window.electronBridge) {
+    return { canceled: true, path: undefined };
+  }
+  return window.electronBridge.selectFolder();
+};
 
 export const writeCategoryFile = (json: string) =>
   window.electronBridge?.writeCategoryFile(json);

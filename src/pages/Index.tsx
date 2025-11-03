@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
-import { ConfigEditor, ConfigValue } from "@/components/ConfigEditor";
+import { ConfigEditor } from "@/components/ConfigEditor";
+import { ConfigValue, jsonToConfigValues } from "@/utils/configHelpers";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { ModMetadataViewer } from "@/components/ModMetadataViewer";
@@ -512,8 +513,8 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
     const config = selectedScannedMod.configs?.[safeConfigIndex];
     if (config) {
       configFile = config.fileName;
-      configValues = config.values || [];
       rawJson = config.rawJson || {};
+      configValues = jsonToConfigValues(rawJson);
     }
     console.log('[Editor] selectedModId:', selectedModId, 'configIndex:', safeConfigIndex, 'configFile:', configFile, 'values:', configValues.length);
   }
