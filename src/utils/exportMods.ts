@@ -1,6 +1,6 @@
 import JSZip from "jszip";
 import { ElectronScannedMod } from "./electronFolderScanner";
-import { electronAPI } from "./electronBridge";
+import { readdir, readFile } from "./electronBridge";
 import path from "path-browserify";
 
 /**
@@ -9,20 +9,19 @@ import path from "path-browserify";
 async function addDirectoryToZipElectron(
   zip: JSZip,
   dirPath: string,
-  basePath: string,
-  api: ReturnType<typeof electronAPI>
+  basePath: string
 ): Promise<void> {
-  const entries = await api.readdir(dirPath);
+  const entries = await readdir(dirPath);
   
   for (const entry of entries) {
     const fullPath = path.join(dirPath, entry.name);
     const entryPath = `${basePath}/${entry.name}`;
 
     if (entry.isFile) {
-      const content = await api.readFile(fullPath);
+      const content = await readFile(fullPath);
       zip.file(entryPath, content);
     } else if (entry.isDirectory) {
-      await addDirectoryToZipElectron(zip, fullPath, entryPath, api);
+      await addDirectoryToZipElectron(zip, fullPath, entryPath);
     }
   }
 }
@@ -36,14 +35,13 @@ export async function exportModsAsZip(
   onProgress?: (percent: number, currentFile?: string) => void
 ): Promise<string> {
   const zip = new JSZip();
-  const api = electronAPI();
 
   // Add each mod folder to user/mods/[modFolder]
   for (const scannedMod of scannedMods) {
     const modFolderName = scannedMod.mod.id;
     const modPath = `user/mods/${modFolderName}`;
     
-    await addDirectoryToZipElectron(zip, scannedMod.folderPath, modPath, api);
+    await addDirectoryToZipElectron(zip, scannedMod.folderPath, modPath);
   }
 
   // Generate the ZIP with streaming and compression

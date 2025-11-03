@@ -4,10 +4,12 @@ import { writeCategoryFile, readCategoryFile } from "@/utils/electronBridge";
 
 const CATEGORY_FILE = "categories.json";
 
+export type CategoryAssignments = Record<string, string>;
+
 /**
  * ✅ Save categories to disk (Electron)
  */
-export async function saveCategories(categories: Record<string, string>) {
+export async function saveCategories(categories: CategoryAssignments) {
   try {
     const json = JSON.stringify(categories, null, 2);
     await writeCategoryFile(json);
@@ -19,7 +21,7 @@ export async function saveCategories(categories: Record<string, string>) {
 /**
  * ✅ Load categories from disk
  */
-export async function loadCategories(): Promise<Record<string, string>> {
+export async function loadCategories(): Promise<CategoryAssignments> {
   try {
     const data = await readCategoryFile();
     return data ? JSON.parse(data) : {};
@@ -34,7 +36,7 @@ export async function loadCategories(): Promise<Record<string, string>> {
 export async function assignModToCategory(
   modId: string,
   category: string,
-  existingMap: Record<string, string>
+  existingMap: CategoryAssignments
 ) {
   const updated = { ...existingMap, [modId]: category };
   await saveCategories(updated);
@@ -46,7 +48,7 @@ export async function assignModToCategory(
  */
 export async function removeModFromCategory(
   modId: string,
-  existingMap: Record<string, string>
+  existingMap: CategoryAssignments
 ) {
   const updated = { ...existingMap };
   delete updated[modId];
@@ -59,7 +61,7 @@ export async function removeModFromCategory(
  */
 export function getModCategory(
   modId: string,
-  map: Record<string, string>
+  map: CategoryAssignments
 ): string | null {
   return map[modId] ?? null;
 }
@@ -68,7 +70,7 @@ export function getModCategory(
  * ✅ Used by CategoryBrowser to show category counts
  */
 export function getCategoryCounts(
-  categoryMap: Record<string, string>,
+  categoryMap: CategoryAssignments,
   allModIds: string[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};

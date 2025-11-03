@@ -139,7 +139,7 @@ export function FormConfigEditor({ config, metadata = {}, onChange }: FormConfig
           {/* Dropdown */}
           {dropdownOptions && (
             <select
-              value={value}
+              value={String(value)}
               className="no-collapse w-full rounded-md border bg-background p-2 mt-1"
               onChange={(e) => updateField(path, e.target.value)}
               {...preventCollapse}

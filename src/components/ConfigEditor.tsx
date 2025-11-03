@@ -174,8 +174,8 @@ useEffect(() => {
     return;
   }
 
-  if (window.electronAPI?.readFile) {
-    window.electronAPI.readFile(configPath)
+  if (window.electronBridge?.readFile) {
+    window.electronBridge.readFile(configPath)
       .then((data) => {
         setConfig(data);
         setLoading(false);
@@ -186,7 +186,7 @@ useEffect(() => {
         setLoading(false);
       });
   } else {
-    console.warn("electronAPI not available — running in browser?");
+    console.warn("electronBridge not available — running in browser?");
     setLoading(false);
     setError(true);
   }
