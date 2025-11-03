@@ -3,7 +3,7 @@ import { FolderOpen, Upload, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { electronAPI } from "@/utils/electronBridge";
+import { selectFolder } from "@/utils/electronBridge";
 import { tips } from "@/components/ui/tips";
 import {
   AlertDialog,
@@ -36,30 +36,31 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
   // --- Folder selection handler (Electron only) ---
   const handleSelectFolder = async () => {
-    try {
-      setIsScanning(true);
+  try {
+    setIsScanning(true);
 
-      const api = electronAPI();
-      const result = await api.selectFolder();
+    const result = await selectFolder(); // <-- directly call imported function
 
-      if (result.canceled || !result.path) {
-        setIsScanning(false);
-        return;
-      }
-
-      setPath(result.path);
-      localStorage.setItem("lastSPTFolder", result.path);
-      toast.success("Folder selected", { description: "Scanning for mods..." });
-      onFolderSelected(result.path);
-    } catch (error: any) {
-      console.error("Error selecting folder:", error);
-      toast.error("Failed to select folder", {
-        description: error.message || "Could not access the selected folder",
-      });
-    } finally {
+    if (result.canceled || !result.path) {
       setIsScanning(false);
+      return;
     }
-  };
+
+    setPath(result.path);
+    localStorage.setItem("lastSPTFolder", result.path);
+    toast.success("Folder selected", { description: "Scanning for mods..." });
+
+    onFolderSelected(result.path);
+  } catch (error: any) {
+    console.error("Error selecting folder:", error);
+    toast.error("Failed to select folder", {
+      description: error.message || "Could not access the selected folder",
+    });
+  } finally {
+    setIsScanning(false);
+  }
+};
+
 
   // --- Render ---
   return (

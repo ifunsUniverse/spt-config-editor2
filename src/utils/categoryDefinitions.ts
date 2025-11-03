@@ -31,6 +31,12 @@ export const CATEGORIES: Category[] = [
     textColor: "text-white"
   },
   {
+    name: "UI & HUD",
+    color: "bg-purple-500 hover:bg-purple-600",
+    bgColor: "bg-purple-500",
+    textColor: "text-white"
+  },
+  {
     name: "Movement & Stamina",
     color: "bg-blue-500 hover:bg-blue-600",
     bgColor: "bg-blue-500",

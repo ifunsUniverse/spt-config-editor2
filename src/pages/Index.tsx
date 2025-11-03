@@ -7,6 +7,7 @@ import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { ModMetadataViewer } from "@/components/ModMetadataViewer";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { DeveloperTools } from "@/components/DeveloperTools";
+import { CategoryDialog } from "@/components/CategoryDialog";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
 import { exportModsAsZip, downloadZipFromUrl } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -65,6 +66,8 @@ const Index = () => {
   const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
   const [devMode, setDevMode] = useState(false);
   const [showValidationSummary, setShowValidationSummary] = useState(false);
+  const [categoryTargetModId, setCategoryTargetModId] = useState<string | null>(null);
+
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
@@ -611,65 +614,90 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
            
            <div className="flex-1 overflow-hidden">
              <ModList
-  mods={
-    activeTab === "favorites"
-      ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
-      : activeTab === "recent"
-      ? recentlyEditedMods
-      : selectedCategory
-      ? filteredModsByCategory // category selected → include favorites too
-      : filteredModsByCategory.filter(m => !favoritedModIds.has(m.id)) // mods tab, no category → exclude favorites
-  }
-  configFiles={configFilesMap}
-  selectedModId={selectedModId}
-  selectedConfigIndex={selectedConfigIndex}
-  onSelectMod={handleSelectMod}
-  favoritedModIds={favoritedModIds}
-  onToggleFavorite={handleToggleFavorite}
-  editHistory={editHistory}
-  searchInputRef={searchInputRef}
-  modCategories={modCategories}
-/>       </div>
+             mods={
+                activeTab === "favorites"
+                  ? filteredModsByCategory.filter(m => favoritedModIds.has(m.id))
+                  : activeTab === "recent"
+                  ? recentlyEditedMods
+                  : selectedCategory
+                  ? filteredModsByCategory // category selected → include favorites too
+                  : filteredModsByCategory.filter(m => !favoritedModIds.has(m.id)) // mods tab, no category → exclude favorites
+                        }
+                        configFiles={configFilesMap}
+                        selectedModId={selectedModId}
+                        selectedConfigIndex={selectedConfigIndex}
+                        onSelectMod={handleSelectMod}
+                        favoritedModIds={favoritedModIds}
+                        onToggleFavorite={handleToggleFavorite}
+                        editHistory={editHistory}
+                        searchInputRef={searchInputRef}
+                        modCategories={modCategories}
+                        onCategoryAssign={(modId) => setCategoryTargetModId(modId)} 
+          /> </div>
+          {categoryTargetModId && (
+              <CategoryDialog
+                modId={categoryTargetModId}
+                modName={mods.find((m) => m.id === categoryTargetModId)?.name || ""}
+                currentCategory={modCategories[categoryTargetModId] ?? null}
+                open={true}
+                onOpenChange={() => setCategoryTargetModId(null)}
+                onCategoryAssigned={async (category) => {
+                  if (!categoryTargetModId) return;
+
+                  let updatedMap;
+                  if (category) {
+                    updatedMap = await assignModToCategory(categoryTargetModId, category, modCategories);
+                  } else {
+                    updatedMap = await removeModFromCategory(categoryTargetModId, modCategories);
+                  }
+
+                  setModCategories(updatedMap);
+                  setCategoryTargetModId(null);
+                }}
+              />
+            )}
+
+
         </div>
          {selectedMod && selectedModId && selectedConfig ? (
-  <ConfigEditor
-    modName={selectedMod.name}
-    configFile={selectedConfig.filePath}
-    rawJson={selectedConfig.rawJson}
-    modId={selectedModId}
-    onSave={handleSaveConfig}
-    sptPath={sptPath}
-    onChangesDetected={(has) => {
-      setHasUnsavedChanges(has);
-      if (has && selectedModId) {
-        setEditedModIds((prev) => {
-          const next = new Set(prev);
-          next.add(selectedModId);
-          return next;
-        });
-      }
-    }}
-    onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
-    onHome={handleHome}
-    saveConfigRef={saveConfigRef}
-    currentCategory={getModCategory(selectedModId, modCategories)}
-    onCategoryChange={handleCategoryChange}
-    devMode={devMode}
-    onDevModeChange={setDevMode}
-  />
-) : selectedMod && selectedModId ? (
-  <div className="flex-1 flex items-center justify-center bg-background">
-    <div className="text-center text-muted-foreground space-y-2">
-      <Package className="w-12 h-12 mx-auto opacity-50" />
-      <p className="font-medium">No configuration files found</p>
-      <p className="text-sm">This mod doesn't have any editable config files</p>
-    </div>
-  </div>
-) : (
-  <div className="flex-1 flex items-center justify-center bg-background">
-    <p className="text-muted-foreground">Select a config file to edit</p>
-  </div>
-)}
+            <ConfigEditor
+              modName={selectedMod.name}
+              configFile={selectedConfig.filePath}
+              rawJson={selectedConfig.rawJson}
+              modId={selectedModId}
+              onSave={handleSaveConfig}
+              sptPath={sptPath}
+              onChangesDetected={(has) => {
+                setHasUnsavedChanges(has);
+                if (has && selectedModId) {
+                  setEditedModIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(selectedModId);
+                    return next;
+                  });
+                }
+              }}
+                  onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
+                  onHome={handleHome}
+                  saveConfigRef={saveConfigRef}
+                  currentCategory={getModCategory(selectedModId, modCategories)}
+                  onCategoryChange={handleCategoryChange}
+                  devMode={devMode}
+                  onDevModeChange={setDevMode}
+                />
+              ) : selectedMod && selectedModId ? (
+                <div className="flex-1 flex items-center justify-center bg-background">
+                  <div className="text-center text-muted-foreground space-y-2">
+                    <Package className="w-12 h-12 mx-auto opacity-50" />
+                    <p className="font-medium">No configuration files found</p>
+                    <p className="text-sm">This mod doesn't have any editable config files</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex items-center justify-center bg-background">
+                  <p className="text-muted-foreground">Select a config file to edit</p>
+                </div>
+              )}
 
 
           {/* Developer Tools Panel */}

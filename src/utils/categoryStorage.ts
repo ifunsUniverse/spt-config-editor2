@@ -1,71 +1,83 @@
-import { readCategoryFile, writeCategoryFile } from "./electronBridge";
+// ✅ categoryStorage.ts
 
-const STORAGE_KEY = "spt-mod-categories";
+import { writeCategoryFile, readCategoryFile } from "@/utils/electronBridge";
 
-export interface CategoryAssignments {
-  [modId: string]: string;
+const CATEGORY_FILE = "categories.json";
+
+/**
+ * ✅ Save categories to disk (Electron)
+ */
+export async function saveCategories(categories: Record<string, string>) {
+  try {
+    const json = JSON.stringify(categories, null, 2);
+    await writeCategoryFile(json);
+  } catch (error) {
+    console.error("❌ Failed to save categories:", error);
+  }
 }
 
-export async function loadCategories(): Promise<CategoryAssignments> {
+/**
+ * ✅ Load categories from disk
+ */
+export async function loadCategories(): Promise<Record<string, string>> {
   try {
-    const content = await readCategoryFile();
-    return content ? JSON.parse(content) : {};
-  } catch (error) {
-    console.log("No categories file found in Electron, returning empty");
+    const data = await readCategoryFile();
+    return data ? JSON.parse(data) : {};
+  } catch {
     return {};
   }
 }
 
-export async function saveCategories(assignments: CategoryAssignments): Promise<void> {
-  try {
-    await writeCategoryFile(JSON.stringify(assignments, null, 2));
-  } catch (error) {
-    console.error("Failed to save categories in Electron:", error);
-  }
-}
-
+/**
+ * ✅ Assign a mod to a category
+ */
 export async function assignModToCategory(
   modId: string,
   category: string,
-  currentAssignments: CategoryAssignments
-): Promise<CategoryAssignments> {
-  const updated = { ...currentAssignments, [modId]: category };
+  existingMap: Record<string, string>
+) {
+  const updated = { ...existingMap, [modId]: category };
   await saveCategories(updated);
   return updated;
 }
 
+/**
+ * ✅ Remove a mod from a category
+ */
 export async function removeModFromCategory(
   modId: string,
-  currentAssignments: CategoryAssignments
-): Promise<CategoryAssignments> {
-  const updated = { ...currentAssignments };
+  existingMap: Record<string, string>
+) {
+  const updated = { ...existingMap };
   delete updated[modId];
   await saveCategories(updated);
   return updated;
 }
 
-export function getModCategory(modId: string, assignments: CategoryAssignments): string | null {
-  return assignments[modId] || null;
+/**
+ * ✅ Get a mod's category
+ */
+export function getModCategory(
+  modId: string,
+  map: Record<string, string>
+): string | null {
+  return map[modId] ?? null;
 }
 
-export function getModsByCategory(category: string, assignments: CategoryAssignments): string[] {
-  return Object.entries(assignments)
-    .filter(([_, cat]) => cat === category)
-    .map(([modId]) => modId);
-}
-
+/**
+ * ✅ Used by CategoryBrowser to show category counts
+ */
 export function getCategoryCounts(
-  assignments: CategoryAssignments,
+  categoryMap: Record<string, string>,
   allModIds: string[]
 ): Record<string, number> {
   const counts: Record<string, number> = {};
-  
-  for (const modId of allModIds) {
-    const category = assignments[modId];
-    if (category) {
-      counts[category] = (counts[category] || 0) + 1;
-    }
-  }
-  
+
+  allModIds.forEach((modId) => {
+    const category = categoryMap[modId];
+    if (!category) return;
+    counts[category] = (counts[category] || 0) + 1;
+  });
+
   return counts;
 }

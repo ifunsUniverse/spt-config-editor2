@@ -25,6 +25,9 @@ import { cn } from "@/lib/utils";
 import Editor from "@monaco-editor/react";
 import { registerTransparentTheme } from "@/utils/monaco-theme";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { FormConfigEditor } from "@/components/FormConfigEditor";
+import { parseConfigWithMetadata } from "@/utils/configHelpers";
+
 
 export interface ConfigValue {
   key: string;
@@ -73,6 +76,7 @@ export const ConfigEditor = ({
 }: ConfigEditorProps) => {
   // 🔑 All hooks go here, inside the component
   const [rawText, setRawText] = useState<string>(JSON.stringify(rawJson, null, 2));
+  const [liveJson, setLiveJson] = useState(rawJson);
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
@@ -84,36 +88,60 @@ export const ConfigEditor = ({
   const [matchCount, setMatchCount] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const configPath = configFile || null;
+  const [editorMode, setEditorMode] = useState<"json" | "form">("json");
+  const [formMetadata, setFormMetadata] = useState<Record<string, string>>({});
 
-  // Reset when config changes
-  useEffect(() => {
-    setRawText(JSON.stringify(rawJson, null, 2));
-    setHasChanges(false);
-    setJsonError(null);
-    if (onChangesDetected) onChangesDetected(false);
-  }, [configFile, modName]);
 
-  const handleRawTextChange = (text: string) => {
-    setRawText(text);
-    setHasChanges(true);
-    if (onChangesDetected) onChangesDetected(true);
+      useEffect(() => {
+      setLiveJson(rawJson);
+      setRawText(JSON.stringify(rawJson, null, 2));
+    }, [rawJson, configFile]);
 
-    try {
-      JSON5.parse(text);
+    // ✅ Sync Form editor when user switches mods/configs
+    useEffect(() => {
+      setLiveJson(rawJson);
+      setRawText(JSON.stringify(rawJson, null, 2));
+    }, [rawJson, configFile]);
+
+
+    // Reset when config changes
+    useEffect(() => {
+      setRawText(JSON.stringify(rawJson, null, 2));
+      setHasChanges(false);
       setJsonError(null);
-    } catch (error: any) {
-      setJsonError(error.message);
-    }
-  };
+      if (onChangesDetected) onChangesDetected(false);
+    }, [configFile, modName]);
+    
+    const handleRawTextChange = (text: string) => {
+      setRawText(text);
+
+      try {
+        const { parsed, metadata } = parseConfigWithMetadata(text);
+
+        setLiveJson(parsed);     // ✅ now updating live JSON
+        setFormMetadata(metadata);
+        setJsonError(null);
+
+        setHasChanges(true);
+        if (onChangesDetected) onChangesDetected(true);
+
+      } catch (error: any) {
+        setJsonError(error.message);
+      }
+    };
 
   const handleSave = async () => {
     try {
-      const parsedJson = JSON5.parse(rawText);
+      const parsedJson = liveJson;
       const formattedJson = JSON.stringify(parsedJson, null, 2);
       setRawText(formattedJson);
 
       const newValues = jsonToConfigValues(parsedJson);
       onSave(newValues);
+
+      await saveConfigHistory(modId, modName, configFile, parsedJson);
+      console.log("[HISTORY] Saved entry for", modId, configFile);
+
 
       setHasChanges(false);
       if (onChangesDetected) onChangesDetected(false);
@@ -125,6 +153,18 @@ export const ConfigEditor = ({
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
   };
+
+  const displayPath = React.useMemo(() => {
+  if (!configFile) return "";
+
+  // Convert Windows backslashes to forward slashes
+  const normalized = configFile.replace(/\\/g, "/");
+
+  // Grab only the part starting from "user/mods/"
+  const match = normalized.match(/SPT\/user\/mods\/[^/]+/i);
+  return match ? match[0] : normalized;
+}, [configFile]);
+
 
 useEffect(() => {
   if (!configPath) {
@@ -265,18 +305,28 @@ useEffect(() => {
     });
   };
 
+      // ✅ this updates the JSON when the user edits in Form view
+    // ✅ When form editor changes values
+    const handleFormEdit = (updatedJson: any) => {
+      setLiveJson(updatedJson);
+      setRawText(JSON.stringify(updatedJson, null, 2));
+      setHasChanges(true);
+    };
+
+
 return (
   <div className="flex-1 flex flex-col h-full bg-background">
-    {/* Header */}
+
+    {/* ─────────────────── Header ───────────────────*/}
     <div className="border-b border-border p-4">
       <div className="flex items-center justify-between mb-4">
+
+        {/* Left: mod name + path + category */}
         <div>
           <h2 className="text-xl font-bold text-foreground">{modName}</h2>
-          <p className="text-sm text-muted-foreground">
-            📂user/mods/{modId}/{configFile}
-          </p>
+          <p className="text-sm text-muted-foreground">📂 {displayPath}</p>
 
-          {/* Add to Category Button */}
+          {/* Add / Remove category */}
           {currentCategory ? (
             <Button
               onClick={() => onCategoryChange?.(null)}
@@ -306,58 +356,40 @@ return (
           )}
         </div>
 
+        {/* Right: Home / Reset / Save / Export / Settings */}
         <div className="flex gap-2 items-center">
           {onHome && (
-            <Button
-              onClick={onHome}
-              variant="outline"
-              size="sm"
-              className="gap-2 border-border"
-            >
-              <Home className="w-4 h-4" />
-              Home
+            <Button variant="outline" size="sm" onClick={onHome} className="gap-2 border-border">
+              <Home className="w-4 h-4" /> Home
             </Button>
           )}
 
           <Button
-            onClick={handleReset}
-            disabled={!hasChanges}
             variant="outline"
             size="sm"
+            disabled={!hasChanges}
+            onClick={handleReset}
             className="gap-2 border-border"
           >
-            <RotateCcw className="w-4 h-4" />
-            Reset
+            <RotateCcw className="w-4 h-4" /> Reset
           </Button>
 
           <Button
-            onClick={handleSave}
-            disabled={!hasChanges || jsonError !== null}
             size="sm"
+            disabled={!hasChanges || jsonError !== null}
+            onClick={handleSave}
             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-            title="Save changes (Ctrl+S)"
           >
-            <Save className="w-4 h-4" />
-            Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
+            <Save className="w-4 h-4" /> Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
           </Button>
 
           {onExportMods && (
-            <Button
-              onClick={onExportMods}
-              size="sm"
-              variant="secondary"
-              className="gap-2"
-            >
-              <Package className="w-4 h-4" />
-              Pack & Export
+            <Button variant="secondary" size="sm" onClick={onExportMods} className="gap-2">
+              <Package className="w-4 h-4" /> Pack & Export
             </Button>
           )}
 
-          {/* Settings button + dialog */}
-          <SettingsDialog
-            devMode={devMode || false}
-            onDevModeChange={onDevModeChange || (() => {})}
-          />
+          <SettingsDialog devMode={devMode} onDevModeChange={onDevModeChange || (() => {})} />
         </div>
       </div>
 
@@ -365,45 +397,44 @@ return (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            <span className="font-medium">JSON/JSON5 Error:</span> {jsonError}
+            <span className="font-medium">JSON Error:</span> {jsonError}
           </AlertDescription>
         </Alert>
       )}
     </div>
 
-    {/* Content */}
-    <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Controls row (search + tools) */}
-      <div className="flex items-center justify-between px-6 py-2 border-b border-border">
-        {showSearch && (
-          <div className="flex items-center gap-2 bg-accent rounded-md px-2 py-1">
-            <Search className="w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search in config..."
-              className="flex-1 bg-transparent border-none outline-none text-sm"
-              autoFocus
-            />
-            {matchCount > 0 && (
-              <span className="text-xs text-muted-foreground">
-                {matchCount} match{matchCount !== 1 ? "es" : ""}
-              </span>
-            )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={() => {
-                setShowSearch(false);
-                setSearchQuery("");
-              }}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        )}
+    {/* ─────────────────── Controls Row ───────────────────*/}
+    <div className="flex items-center justify-between px-6 py-2 border-b border-border">
+      {/* Search (left side) */}
+      {showSearch ? (
+        <div className="flex items-center gap-2 bg-accent rounded-md px-2 py-1">
+          <Search className="w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search in config..."
+            className="flex-1 bg-transparent border-none outline-none text-sm"
+            autoFocus
+          />
+          {matchCount > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {matchCount} match{matchCount !== 1 ? "es" : ""}
+            </span>
+          )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+            setShowSearch(false);
+            setSearchQuery("");
+          }}>
+            <X className="w-3 h-3" />
+          </Button>
+        </div>
+      ) : (
+        <div />
+      )}
+
+      {/* Right side controls (Tools + History + View Toggle) */}
+      <div className="flex items-center gap-2">
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -413,76 +444,71 @@ return (
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem asChild>
-              <ConfigHistory
-                modId={modId}
-                modName={modName}
-                configFile={configFile}
-                onRestore={handleRestoreHistory}
-              />
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleValidateJSON}>
-              Validate JSON
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleFixCommonIssues}>
-              Fix Common Issues
-            </DropdownMenuItem>
+            <DropdownMenuItem asChild><button onClick={handleValidateJSON}>Validate JSON</button></DropdownMenuItem>
+            <DropdownMenuItem asChild><button onClick={handleFixCommonIssues}>Fix Common Issues</button></DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <ConfigHistory
+          modId={modId}
+          modName={modName}
+          configFile={configFile}
+          onRestore={handleRestoreHistory}
+        />
+
+        {/* ✅ JSON <-> FORM toggle */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setEditorMode(editorMode === "json" ? "form" : "json")}
+          className="gap-2"
+        >
+          {editorMode === "json" ? "Form View" : "JSON View"}
+        </Button>
       </div>
+    </div>
 
-      {/* Config editor area */}
-      <div className="flex-1 flex flex-col overflow-hidden p-6">
-        {loading && (
-          <p className="text-sm text-muted-foreground">Loading config...</p>
-        )}
+    {/* ─────────────────── Config Editor ───────────────────*/}
+    <div className="flex flex-col flex-grow overflow-hidden p-6">
 
-        {error && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Failed to load config. Please check your file path or try again.
-            </AlertDescription>
-          </Alert>
-        )}
+      {!loading && !error && config && (
+        <div className="flex flex-col flex-grow overflow-hidden">
 
-        {!loading && !error && config && (
-          <>
-            <div className="flex-1 rounded-md border border-border bg-card overflow-hidden">
+          {/* ✅ prevents bubbling click events from collapsing Form sections */}
+          <div
+            className="flex-grow rounded-md border border-border bg-card overflow-hidden"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {editorMode === "json" ? (
               <Editor
                 height="100%"
                 language="json"
                 value={rawText}
-                onChange={(val) => val && handleRawTextChange(val)}
-                onValidate={(markers) => {
-                  if (markers.length > 0) {
-                    setJsonError(markers[0].message);
-                  } else {
-                    setJsonError(null);
-                  }
-                }}
+                onChange={(v) => v && handleRawTextChange(v)}
                 theme="vs-dark"
                 options={{
                   minimap: { enabled: false },
-                  fontSize: 14,
-                  formatOnPaste: true,
-                  formatOnType: true,
                   automaticLayout: true,
-                  renderWhitespace: "none",
                 }}
               />
-            </div>
+            ) : (
+              <FormConfigEditor
+                config={liveJson}
+                metadata={formMetadata}
+                onChange={handleFormEdit}
+              />
+            )}
+          </div>
 
-            <p className="text-xs text-muted-foreground shrink-0 mt-2">
-              Supports JSONC, JSON and JSON5 syntax. Changes are validated in
-              real-time. Auto-formats on save.
-            </p>
-          </>
-        )}
-      </div>
+          <p className="text-xs text-muted-foreground shrink-0 mt-2">
+            {editorMode === "json"
+              ? "Supports JSON, JSON5, and JSONC syntax. Auto-formats on save."
+              : "Form view automatically updates the JSON configuration."}
+          </p>
+        </div>
+      )}
 
-      {/* Category dialog */}
       {showCategoryDialog && (
         <CategoryDialog
           modId={modId}
@@ -494,7 +520,7 @@ return (
         />
       )}
     </div>
+
   </div>
 );
-
 };

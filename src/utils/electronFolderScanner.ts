@@ -1,328 +1,47 @@
-import { Mod } from "@/components/ModList";
-import { ConfigValue } from "@/components/ConfigEditor";
-import JSON5 from "json5";
-import { electronAPI } from "./electronBridge";
-import path from "path-browserify";
+import {
+  readdir,
+  stat,
+  exists,
+  readFile,
+  selectFolder,
+} from "@/utils/electronBridge";
 
-export interface ElectronScannedConfig {
-  fileName: string;
-  values: ConfigValue[];
-  rawJson: any;
-  filePath: string;
-  index: number;
+
+export interface ScannedFileInfo {
+  name: string;
+  isFile: boolean;
+  isDirectory: boolean;
+  fullPath: string;
 }
 
-export interface ElectronScannedMod {
-  mod: Mod;
-  configs: ElectronScannedConfig[];
-  folderPath: string;
-}
-
-/**
- * Scans a folder structure for SPT mods and their configs using Electron APIs
- */
-export async function scanSPTFolderElectron(
-  rootPath: string
-): Promise<ElectronScannedMod[]> {
-  const scannedMods: ElectronScannedMod[] = [];
-  const api = electronAPI();
-
+export async function scanFolder(folderPath: string): Promise<ScannedFileInfo[]> {
   try {
-    // Normalize root so we always end up at .../SPT/user/mods
-    let sptPath = rootPath;
-
-    // If the user picked the parent folder (e.g. SPT-4.0.X), append "SPT"
-    if (!sptPath.toLowerCase().endsWith("spt")) {
-      sptPath = path.join(sptPath, "SPT");
+    // Ensure the folder actually exists
+    const folderExists = await exists(folderPath);
+    if (!folderExists) {
+      console.warn(`[Scanner] Folder does not exist: ${folderPath}`);
+      return [];
     }
 
-    const userPath = path.join(sptPath, "user");
-    const modsPath = path.join(userPath, "mods");
+    const entries = await readdir(folderPath);
 
-    const sptExists = await api.exists(sptPath);
-    const userExists = await api.exists(userPath);
-    const modsExists = await api.exists(modsPath);
+    const scannedItems = await Promise.all(
+      entries.map(async (entry) => {
+        const fullPath = `${folderPath}/${entry.name}`;
+        const info = await stat(fullPath);
 
-    if (!sptExists || !userExists || !modsExists) {
-      throw new Error(
-        "Could not find SPT/user/mods directory. Make sure you selected your SPT installation folder."
-      );
-    }
+        return {
+          name: entry.name,
+          fullPath,
+          isDirectory: info.isDirectory,
+          isFile: info.isFile,
+        } as ScannedFileInfo;
+      })
+    );
 
-    // Iterate through mod folders
-    const entries = await api.readdir(modsPath);
-
-    for (const entry of entries) {
-      if (entry.isDirectory) {
-        const modPath = path.join(modsPath, entry.name);
-        const modData = await scanModFolderElectron(modPath, entry.name);
-        if (modData) {
-          scannedMods.push(modData);
-        }
-      }
-    }
-  } catch (error: any) {
-    console.error("Error scanning SPT folder:", error);
-    throw new Error(error.message || "Could not scan the folder structure");
-  }
-
-  return scannedMods;
-}
-
-
-/**
- * Scans a single mod folder for package.json and config files
- */
-async function scanModFolderElectron(
-  modPath: string,
-  folderName: string
-): Promise<ElectronScannedMod | null> {
-  const api = electronAPI();
-
-  try {
-    // Look for package.json to get mod info
-    let modName = folderName;
-    let modVersion = "1.0.0";
-
-    try {
-      const packagePath = path.join(modPath, "package.json");
-      const packageExists = await api.exists(packagePath);
-
-      if (packageExists) {
-        const packageText = await api.readFile(packagePath);
-        const packageJson = JSON.parse(packageText);
-
-        if (packageJson.name) modName = packageJson.name;
-        if (packageJson.version) modVersion = packageJson.version;
-      }
-    } catch {
-      // No package.json, use folder name
-    }
-
-    // Recursively scan entire mod folder for all config files
-    const configs = await scanConfigFilesRecursiveElectron(modPath);
-
-    if (configs.length === 0) {
-      return null; // Skip mods with no configs
-    }
-
-    // Assign sequential indices AFTER all configs are collected to avoid duplicates
-    configs.forEach((config, idx) => {
-      config.index = idx;
-    });
-
-    const mod: Mod = {
-      id: folderName,
-      name: modName,
-      version: modVersion,
-      configCount: configs.length,
-    };
-
-    return {
-      mod,
-      configs,
-      folderPath: modPath,
-    };
+    return scannedItems;
   } catch (error) {
-    console.error(`Error scanning mod ${folderName}:`, error);
-    return null;
+    console.error("[Scanner] Failed to read folder:", error);
+    return [];
   }
-}
-
-/**
- * Recursively scans a directory and all subdirectories for JSON and JSON5 config files
- */
-async function scanConfigFilesRecursiveElectron(
-  dirPath: string,
-  relativePath: string = ""
-): Promise<ElectronScannedConfig[]> {
-  const api = electronAPI();
-  const configs: ElectronScannedConfig[] = [];
-
-  try {
-    const entries = await api.readdir(dirPath);
-
-    for (const entry of entries) {
-      const fullPath = path.join(dirPath, entry.name);
-
-      if (entry.isDirectory) {
-        // Skip dev/build directories
-        if (["node_modules", ".git", "dist", "build", ".vscode"].includes(entry.name)) {
-          continue;
-        }
-        // Recursively scan subdirectories
-        const subPath = relativePath ? `${relativePath}/${entry.name}` : entry.name;
-        const subConfigs = await scanConfigFilesRecursiveElectron(fullPath, subPath);
-        configs.push(...subConfigs);
-      } else if (entry.isFile) {
-        const fileName = entry.name;
-        
-        // Skip dev/build files
-        if (
-          fileName === "package.json" ||
-          fileName.startsWith("tsconfig") ||
-          fileName === "package-lock.json" ||
-          fileName === "pnpm-lock.yaml" ||
-          fileName === "yarn.lock" ||
-          fileName.startsWith(".eslintrc") ||
-          fileName.startsWith(".prettierrc")
-        ) {
-          continue;
-        }
-        
-        // Check if file is a JSON variant
-        if (
-          fileName.endsWith(".json") ||
-          fileName.endsWith(".json5") ||
-          fileName.endsWith(".jsonc")
-        ) {
-          try {
-            const fileText = await api.readFile(fullPath);
-            
-            // Always use JSON5 to support comments and trailing commas
-            const json = JSON5.parse(fileText);
-
-            // Only include if it looks like a config (has usable properties)
-            if (isValidConfig(json)) {
-              const values = jsonToConfigValues(json);
-              const displayName = relativePath
-                ? `${relativePath}/${entry.name}`
-                : entry.name;
-              configs.push({
-                fileName: displayName,
-                values,
-                rawJson: json,
-                filePath: fullPath,
-                index: -1, // Will be assigned after all configs are collected
-              });
-            }
-          } catch (error) {
-            console.warn(`Could not parse ${entry.name}:`, error);
-          }
-        }
-      }
-    }
-  } catch (error) {
-    console.error(`Error scanning directory ${dirPath}:`, error);
-  }
-
-  return configs;
-}
-
-/**
- * Checks if a JSON object is a valid config file
- */
-function isValidConfig(json: any): boolean {
-  if (!json || typeof json !== "object") return false;
-
-  // Exclude package.json and other metadata files
-  const excludedFields = ["name", "version", "author", "license", "main", "dependencies", "scripts", "devDependencies"];
-  const keys = Object.keys(json);
-
-  // If it only has metadata fields, it's not a config
-  if (keys.every(key => excludedFields.includes(key))) return false;
-
-  return keys.length > 0;
-}
-
-/**
- * Converts JSON object to ConfigValue array
- */
-function jsonToConfigValues(json: any, prefix = ""): ConfigValue[] {
-  const values: ConfigValue[] = [];
-
-  for (const [key, value] of Object.entries(json)) {
-    const fullKey = prefix ? `${prefix}.${key}` : key;
-
-    if (typeof value === "boolean") {
-      values.push({
-        key: fullKey,
-        value,
-        type: "boolean",
-        description: `Toggle ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`,
-      });
-    } else if (typeof value === "number") {
-      values.push({
-        key: fullKey,
-        value,
-        type: "number",
-        description: `Adjust ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`,
-      });
-    } else if (typeof value === "string") {
-      values.push({
-        key: fullKey,
-        value,
-        type: "string",
-        description: `Set ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`,
-      });
-    } else if (Array.isArray(value)) {
-      if (value.every(v => typeof v === "string")) {
-        values.push({
-          key: fullKey,
-          value: value[0] || "",
-          type: "select",
-          options: value,
-          description: `Choose ${key.replace(/([A-Z])/g, " $1").toLowerCase()}`,
-        });
-      }
-    } else if (typeof value === "object" && value !== null) {
-      const nested = jsonToConfigValues(value, fullKey);
-      values.push(...nested);
-    }
-  }
-
-  return values;
-}
-
-/**
- * Saves config values back to a file using Electron APIs
- */
-export async function saveConfigToFileElectron(
-  filePath: string,
-  values: ConfigValue[],
-  originalJson: any
-): Promise<void> {
-  const api = electronAPI();
-
-  try {
-    // Reconstruct JSON from values
-    const updatedJson = configValuesToJson(values, originalJson);
-
-    // Write file - use JSON5 for non-standard JSON files to preserve syntax
-    const lowerFilePath = filePath.toLowerCase();
-    const useJSON5 = lowerFilePath.endsWith(".json5") || 
-                     lowerFilePath.endsWith(".jsonc") ||
-                     /\.json[a-z0-9]+$/i.test(filePath); // Any .json* variant
-    const content = useJSON5
-      ? JSON5.stringify(updatedJson, null, 2)
-      : JSON.stringify(updatedJson, null, 2);
-
-    await api.writeFile(filePath, content);
-  } catch (error: any) {
-    console.error("Error saving config:", error);
-    throw new Error(`Failed to save file: ${error.message}`);
-  }
-}
-
-/**
- * Converts ConfigValue array back to JSON object
- */
-function configValuesToJson(values: ConfigValue[], originalJson: any): any {
-  const result = { ...originalJson };
-
-  for (const config of values) {
-    const keys = config.key.split(".");
-    let current = result;
-
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!(keys[i] in current)) {
-        current[keys[i]] = {};
-      }
-      current = current[keys[i]];
-    }
-
-    current[keys[keys.length - 1]] = config.value;
-  }
-
-  return result;
 }

@@ -1,42 +1,32 @@
-import type { ElectronAPI } from '../../electron/preload';
+export const readdir = (path: string) =>
+  window.electronBridge?.readdir(path);
 
-declare global {
-  interface Window {
-    electronAPI?: ElectronAPI;
-  }
-}
+export const stat = (path: string) =>
+  window.electronBridge?.stat(path);
 
-// Electron-only app - API is always available
-export const electronAPI = () => {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available - this app must run in Electron');
-  }
-  return window.electronAPI;
-};
+export const exists = (path: string) =>
+  window.electronBridge?.exists(path);
 
-// Category file helpers
-export async function readCategoryFile(): Promise<string | null> {
-  try {
-    const api = electronAPI();
-    const userDataPath = await api.getDocumentsPath();
-    const categoryPath = `${userDataPath}/SPTModConfigEditor/UserData/categories.json`;
-    const exists = await api.exists(categoryPath);
-    if (!exists) return null;
-    return await api.readFile(categoryPath);
-  } catch (error) {
-    console.error('Failed to read category file:', error);
-    return null;
-  }
-}
+export const readFile = (path: string) =>
+  window.electronBridge?.readFile(path);
 
-export async function writeCategoryFile(content: string): Promise<void> {
-  try {
-    const api = electronAPI();
-    const userDataPath = await api.getDocumentsPath();
-    const categoryPath = `${userDataPath}/SPTModConfigEditor/UserData/categories.json`;
-    await api.writeFile(categoryPath, content);
-  } catch (error) {
-    console.error('Failed to write category file:', error);
-    throw error;
-  }
-}
+export const selectFolder = () =>
+  window.electronBridge?.selectFolder();
+
+export const writeCategoryFile = (json: string) =>
+  window.electronBridge?.writeCategoryFile(json);
+
+export const readCategoryFile = () =>
+  window.electronBridge?.readCategoryFile();
+
+export const writeHistoryBackup = (modName: string, configFile: string, ts: number, json: string) =>
+  window.electronBridge?.writeHistoryBackup(modName, configFile, ts, json);
+
+export const readHistoryBackups = (modName: string, configFile: string) =>
+  window.electronBridge?.readHistoryBackups(modName, configFile);
+
+export const clearHistoryBackups = (modName: string, configFile: string) =>
+  window.electronBridge?.clearHistoryBackups(modName, configFile);
+
+export const deleteHistoryBackup = (modName: string, filename: string) =>
+  window.electronBridge?.deleteHistoryBackup(modName, filename);
