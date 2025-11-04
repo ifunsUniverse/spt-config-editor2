@@ -32,38 +32,37 @@ async function addDirectoryToZipElectron(
  */
 export async function exportModsAsZip(
   scannedMods: ElectronScannedMod[],
+  configFiles: Record<string, any>,
+  isFourOhStyle: boolean,                      // <-- version flag
   onProgress?: (percent: number, currentFile?: string) => void
-): Promise<string> {
+): Promise<string> {                           // <-- return blob URL
   const zip = new JSZip();
 
-  // Add each mod folder to user/mods/[modFolder]
-  for (const scannedMod of scannedMods) {
-    const modFolderName = scannedMod.mod.id;
-    const modPath = `user/mods/${modFolderName}`;
-    
-    await addDirectoryToZipElectron(zip, scannedMod.folderPath, modPath);
+  // decide folder layout here
+  const baseFolder = isFourOhStyle ? "SPT/user/mods" : "user/mods";
+
+  for (const mod of scannedMods) {
+    const modFolderName = mod.mod.id;
+    const modZipPath = `${baseFolder}/${modFolderName}`;
+
+    await addDirectoryToZipElectron(zip, mod.folderPath, modZipPath);
   }
 
-  // Generate the ZIP with streaming and compression
   const blob = await zip.generateAsync(
     {
       type: "blob",
       compression: "DEFLATE",
       compressionOptions: { level: 5 },
-      streamFiles: true
     },
-    (metadata: any) => {
-      try {
-        const percent = typeof metadata?.percent === "number" ? metadata.percent : 0;
-        const currentFile = (metadata as any)?.currentFile as string | undefined;
-        onProgress?.(percent, currentFile);
-      } catch {}
+    (meta) => {
+      onProgress?.(meta.percent ?? 0, meta.currentFile);
     }
   );
-  
-  const url = URL.createObjectURL(blob);
-  return url;
+
+  return URL.createObjectURL(blob); // ✅ return blob url for downloading
 }
+
+
 
 /**
  * Triggers download of the ZIP file from a blob URL

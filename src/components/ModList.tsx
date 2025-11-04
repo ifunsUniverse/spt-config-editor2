@@ -11,8 +11,6 @@ import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
 import { formatDistanceToNow } from "date-fns";
 import { ModMetadataViewer, ModMetadata } from "@/components/ModMetadataViewer";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
-
-// ✅ CONTEXT MENU (the NEW import)
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -100,25 +98,25 @@ export const ModList = ({
         />
       </div>
 
-      <ScrollArea className="flex-1 pr-2">
-        <div className="px-2 py-2 space-y-1.5">
-          {filteredMods.map((mod) => {
-            const modConfigs = configFiles[mod.id] || [];
-            const lastEditTime = getModEditTime(mod.id);
-            const hasBeenEdited = lastEditTime !== null;
-            const lastEditDate = lastEditTime ? new Date(lastEditTime) : null;
+      <ScrollArea className="flex-1 w-full">
+          <div
+            className="flex flex-col gap-2 px-2 py-3 w-full"
+          >
+            {filteredMods.map((mod) => {
+              const modConfigs = configFiles[mod.id] || [];
+              const lastEditTime = getModEditTime(mod.id);
+              const hasBeenEdited = lastEditTime !== null;
+              const lastEditDate = lastEditTime ? new Date(lastEditTime) : null;
 
-            return (
-              <ContextMenu key={mod.id}>
-                <ContextMenuTrigger className="w-full">
-
-                  <Card className="overflow-hidden border-border bg-card/50">
-                    <Collapsible
-                      open={expandedMods[mod.id]}
-                      onOpenChange={() => toggleMod(mod.id)}
-                    >
-                      <div className="flex items-center w-full p-2.5 gap-2">
-
+              return (
+                <ContextMenu key={mod.id}>
+                  <ContextMenuTrigger className="w-full">
+                    <Card className="w-full max-w-[310px] mx-auto overflow-hidden border-border bg-card/50">
+                      <Collapsible
+                        open={!!expandedMods[mod.id]}
+                        onOpenChange={() => toggleMod(mod.id)}
+                      >
+                        <div className="flex items-center w-full p-2.5 gap-2">
                         <Button
                           variant="ghost"
                           size="icon"

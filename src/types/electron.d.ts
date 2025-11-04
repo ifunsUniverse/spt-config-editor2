@@ -1,20 +1,19 @@
 declare global {
   interface Window {
-    electronBridge?: {
+    electronBridge: {
       selectFolder: () => Promise<{ canceled: boolean; path?: string }>;
-      readdir: (path: string) => Promise<Array<{ name: string; isDirectory: boolean; isFile: boolean }>>;
-      stat: (path: string) => Promise<{ isDirectory: boolean; isFile: boolean; size: number }>;
-      exists: (path: string) => Promise<boolean>;
+      readdir: (path: string) => Promise<any>;
       readFile: (path: string) => Promise<string>;
-      writeFile: (path: string, content: string) => Promise<{ success: boolean }>;
+      writeFile: (path: string, content: string) => Promise<any>;
+      exists: (path: string) => Promise<boolean>;
+      stat: (path: string) => Promise<any>;
       writeCategoryFile: (json: string) => Promise<any>;
       readCategoryFile: () => Promise<string | null>;
-      writeHistoryBackup: (modName: string, configFile: string, timestamp: number, content: string) => Promise<void>;
-      readHistoryBackups: (modName: string, configFile: string) => Promise<any[]>;
-      clearHistoryBackups: (modName: string, configFile: string) => Promise<void>;
-      deleteHistoryBackup: (modName: string, filename: string) => Promise<void>;
+      writeHistoryBackup: (...args: any[]) => Promise<any>;
+      readHistoryBackups: (...args: any[]) => Promise<any>;
+      deleteHistoryBackup: (...args: any[]) => Promise<any>;
+      clearHistoryBackups: (...args: any[]) => Promise<any>;
     };
   }
 }
-
 export {};

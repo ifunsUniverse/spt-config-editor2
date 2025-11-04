@@ -15,6 +15,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { scanModFolderElectron } from "@/utils/electronFolderScanner";
+
 
 interface PathSelectorProps {
   onFolderSelected: (handle: string) => void;
@@ -22,44 +24,74 @@ interface PathSelectorProps {
 }
 
 export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelectorProps) => {
-  // --- State ---
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [tip, setTip] = useState("");
   const [showLoadConfirm, setShowLoadConfirm] = useState(false);
 
-  // --- Pick a random tip on mount ---
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * tips.length);
     setTip(tips[randomIndex]);
   }, []);
 
-  // --- Folder selection handler (Electron only) ---
+  // ✅ MAIN SELECT SPT FOLDER
   const handleSelectFolder = async () => {
-  try {
-    setIsScanning(true);
+    try {
+      setIsScanning(true);
 
-    const result = await selectFolder(); // <-- directly call imported function
+      const result = await selectFolder();
 
-    if (result.canceled || !result.path) {
+      if (result.canceled || !result.path) {
+        setIsScanning(false);
+        return;
+      }
+
+      setPath(result.path);
+      localStorage.setItem("lastSPTFolder", result.path);
+      toast.success("Folder selected", { description: "Scanning for mods..." });
+
+      onFolderSelected(result.path);
+    } catch (error: any) {
+      console.error("Error selecting folder:", error);
+      toast.error("Failed to select folder", {
+        description: error.message || "Could not access the selected folder",
+      });
+    } finally {
       setIsScanning(false);
-      return;
     }
+  };
 
-    setPath(result.path);
-    localStorage.setItem("lastSPTFolder", result.path);
-    toast.success("Folder selected", { description: "Scanning for mods..." });
+  // ✅ UPLOAD SINGLE MOD DEBUG BUTTON
+  const handleSingleModUpload = async () => {
+    try {
+      const result = await selectFolder();
+      if (result.canceled || !result.path) return;
 
-    onFolderSelected(result.path);
-  } catch (error: any) {
-    console.error("Error selecting folder:", error);
-    toast.error("Failed to select folder", {
-      description: error.message || "Could not access the selected folder",
-    });
-  } finally {
-    setIsScanning(false);
-  }
-};
+      console.log("🧪 Manual Mod Upload →", result.path);
+
+      // 👇 IMPORTANT: import this at the top
+      // import { scanModFolderElectron } from "@/utils/electronFolderScanner";
+      const scanResult = await scanModFolderElectron(result.path);
+
+      if (!scanResult) {
+        toast.error("Mod has no readable config files", {
+          description: "Scanner could not detect any .json / .jsonc / .json5 files",
+        });
+        console.error("❌ Scanner could not read any configs in this folder");
+        return;
+      }
+
+      toast.success(`Loaded mod: ${scanResult.mod.name}`, {
+        description: `${scanResult.configs.length} configs detected`,
+      });
+
+      console.log("✅ Scanner result:", scanResult);
+    } catch (err) {
+      console.error("⚠️ Upload error:", err);
+      toast.error("Error reading mod folder");
+    }
+  };
+
 
 
   // --- Render ---
@@ -142,6 +174,19 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
               </AlertDialog>
             </>
           </div>
+
+          {false && (
+              <>
+                {/* NEW: Upload single mod for testing */}
+                <Button
+                  onClick={handleSingleModUpload}
+                  variant="secondary"
+                  className="w-full h-16 text-lg gap-3"
+                >
+                  Upload Single Mod Folder (Debug)
+                </Button>
+              </>
+            )}
 
           {/* Info text */}
           <div className="text-xs text-muted-foreground space-y-1">

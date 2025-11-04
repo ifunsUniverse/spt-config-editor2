@@ -49,6 +49,8 @@ const Index = () => {
   const [zipStartTime, setZipStartTime] = useState<number | null>(null);
   const [showZipProgress, setShowZipProgress] = useState(false);
   const [editedModIds, setEditedModIds] = useState<Set<string>>(new Set());
+  const [showZipDialog, setShowZipDialog] = useState(false);
+  const [zipInProgress, setZipInProgress] = useState(false);
   const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(() => {
     // Load favorites from localStorage on mount (safe parse)
     try {
@@ -164,7 +166,10 @@ const Index = () => {
       
       const mods = await scanSPTFolderElectron(folderPath);
       const pathName = folderPath.split(/[/\\]/).pop() || folderPath;
-      console.log('[Scan] Electron mods:', mods.length, mods[0]?.mod?.name, 'configs:', mods[0]?.configs?.length);
+      console.log("[Scan] ✅ Mods found:", mods.length);
+      console.table(mods.map(m => ({ mod: m.mod.name, configs: m.configs.length })));
+
+
       
       if (mods.length === 0) {
         toast.warning("No mods found", {
@@ -294,13 +299,9 @@ const Index = () => {
     }
   };
 
-const handleExportMods = async () => {
-  if (scannedMods.length === 0) {
-    toast.error("No mods to export");
-    return;
-  }
-
+const handleExportMods = () => {
   const modsToExport = scannedMods.filter((m) => editedModIds.has(m.mod.id));
+
   if (modsToExport.length === 0) {
     toast.info("No edited mods to export", {
       description: "Make some changes and save before exporting.",
@@ -308,27 +309,36 @@ const handleExportMods = async () => {
     return;
   }
 
-  try {
-    setZipProgress(0);
-    setZipCurrentFile(undefined);
-    setZipStartTime(Date.now());
-    setShowZipProgress(true);
-
-    const blobUrl = await exportModsAsZip(modsToExport, (percent, currentFile) => {
-      setZipProgress(percent);
-      setZipCurrentFile(currentFile);
-    });
-
-    setShowZipProgress(false);
-    setZipBlobUrl(blobUrl);
-    toast.success("Export successful – ZIP is ready to download.");
-  } catch (error: any) {
-    setShowZipProgress(false);
-    toast.error("Export failed", {
-      description: error.message || "Could not create ZIP file",
-    });
-  }
+  // ✅ Just open the version selection dialog
+  setShowZipDialog(true);
 };
+
+const handleExportVersion = async (isFourOhStyle: boolean) => {
+  setZipInProgress(true);
+
+  try {
+    const modsToExport = scannedMods.filter((m) => editedModIds.has(m.mod.id));
+
+    const url = await exportModsAsZip(
+      modsToExport,
+      configFilesMap,
+      isFourOhStyle
+    );
+
+    downloadZipFromUrl(url);  // trigger download
+
+    toast.success(
+      `Exported using ${isFourOhStyle ? "4.0.X (SPT/user/mods)" : "3.11.X (user/mods)"}`,
+    );
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to export ZIP");
+  }
+
+  setZipInProgress(false);
+  setShowZipDialog(false);
+};
+
 
   const handleDownloadZip = () => {
     if (zipBlobUrl) {
@@ -793,31 +803,38 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
       </AlertDialog>
 
       {/* Download Confirmation Dialog */}
-      <AlertDialog open={zipBlobUrl !== null} onOpenChange={(open) => !open && handleCancelDownload()}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Zip Created. Would you like to download it?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your mods have been packaged and are ready to download as SPT Mods.zip
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel 
-              onClick={handleCancelDownload}
-              className="bg-secondary text-secondary-foreground hover:bg-destructive hover:text-destructive-foreground"
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDownloadZip}
-              autoFocus
-              className="bg-success text-success-foreground hover:bg-success/90 focus-visible:ring-success"
-            >
-              Download
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* ✅ NEW export modal — version selector */}
+          <AlertDialog open={showZipDialog} onOpenChange={setShowZipDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Zip Created. Which version do you have?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Choose the directory layout to use when packaging your mods:
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="flex flex-col gap-3">
+
+                <Button
+                  onClick={() => handleExportVersion(false)} // ✅ 3.11.X export
+                  className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Export for SPT <strong>3.11.X</strong> (user/mods)
+                </Button>
+
+                <Button
+                  onClick={() => handleExportVersion(true)} // ✅ 4.0.X export
+                  className="w-full h-12 text-lg bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  Export for SPT <strong>4.0.X</strong> (SPT/user/mods)
+                </Button>
+
+                <AlertDialogCancel className="mt-2">Cancel</AlertDialogCancel>
+              </div>
+            </AlertDialogContent>
+          </AlertDialog>
+
+
 
       {/* Category Browser Dialog */}
       <CategoryBrowser
