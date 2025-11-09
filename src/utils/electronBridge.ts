@@ -1,4 +1,9 @@
-export const selectFolder = () => window.electronBridge?.selectFolder();
+export const selectFolder = () => {
+  if (!window.electronBridge?.selectFolder) {
+    return Promise.resolve({ canceled: true, path: undefined });
+  }
+  return window.electronBridge.selectFolder();
+};
 export const readdir = (path: string) => window.electronBridge?.readdir(path);
 export const readFile = (path: string) => window.electronBridge?.readFile(path);
 export const writeFile = (path: string, content: string) =>

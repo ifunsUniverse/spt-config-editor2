@@ -15,4 +15,4 @@ const electronAPI = {
   readCategoryFile: () => ipcRenderer.invoke("fs:readCategoryFile"),
   writeCategoryFile: (content) => ipcRenderer.invoke("fs:writeCategoryFile", content)
 };
-contextBridge.exposeInMainWorld("electronAPI", electronAPI);
+contextBridge.exposeInMainWorld("electronBridge", electronAPI);

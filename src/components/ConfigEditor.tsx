@@ -123,16 +123,17 @@ export const ConfigEditor = ({
 
   const handleSave = async () => {
     try {
-      const parsedJson = liveJson;
-      const formattedJson = JSON.stringify(parsedJson, null, 2);
-      setRawText(formattedJson);
+      // ✅ Save RAW TEXT directly - no re-formatting or restructuring
+      if (window.electronBridge?.writeFile) {
+        await window.electronBridge.writeFile(configFile, rawText);
+      }
 
+      const parsedJson = JSON5.parse(rawText);
       const newValues = jsonToConfigValues(parsedJson);
       onSave(newValues);
 
       await saveConfigHistory(modId, modName, configFile, parsedJson);
       console.log("[HISTORY] Saved entry for", modId, configFile);
-
 
       setHasChanges(false);
       if (onChangesDetected) onChangesDetected(false);

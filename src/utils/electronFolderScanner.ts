@@ -8,7 +8,7 @@ import {
 
 import { ConfigValue } from "@/utils/configHelpers";
 import { Mod } from "@/components/ModList";
-import { parse } from "jsonc-parser"; // <-- allow json, jsonc, json5 parsing
+import JSON5 from "json5";
 
 export interface ScannedFileInfo {
   name: string;
@@ -180,8 +180,8 @@ async function scanConfigFilesRecursiveElectron(
         try {
           const rawText = await readFile(entry.fullPath);
 
-          // ✅ jsonc-parser handles json, jsonc, and json5
-          const parsed = parse(rawText);
+          // ✅ JSON5 handles json, jsonc, and json5
+          const parsed = JSON5.parse(rawText);
 
           const relative = entry.fullPath.replace(basePath, "").replace(/^[/\\]/, "");
 
