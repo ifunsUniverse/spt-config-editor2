@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor } from "@/components/ConfigEditor";
@@ -254,7 +254,7 @@ const Index = () => {
     }
   };
 
-  const handleSaveConfig = async (values: ConfigValue[]) => {
+  const handleSaveConfig = useCallback(async (values: ConfigValue[]) => {
     if (scannedMods.length === 0) {
       // Demo mode - just log
       console.log("Saving config:", values);
@@ -297,7 +297,7 @@ const Index = () => {
       });
       throw error;
     }
-  };
+  }, [scannedMods, selectedModId, selectedConfigIndex]);
 
 const handleExportMods = () => {
   const modsToExport = scannedMods.filter((m) => editedModIds.has(m.mod.id));
@@ -542,6 +542,18 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
     }
   };
 
+  // Memoized callback for changes detection
+  const handleChangesDetected = useCallback((has: boolean) => {
+    setHasUnsavedChanges(has);
+    if (has && selectedModId) {
+      setEditedModIds((prev) => {
+        const next = new Set(prev);
+        next.add(selectedModId);
+        return next;
+      });
+    }
+  }, [selectedModId]);
+
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden relative">
@@ -678,16 +690,7 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
               modId={selectedModId}
               onSave={handleSaveConfig}
               sptPath={sptPath}
-              onChangesDetected={(has) => {
-                setHasUnsavedChanges(has);
-                if (has && selectedModId) {
-                  setEditedModIds((prev) => {
-                    const next = new Set(prev);
-                    next.add(selectedModId);
-                    return next;
-                  });
-                }
-              }}
+              onChangesDetected={handleChangesDetected}
                   onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
                   onHome={handleHome}
                   saveConfigRef={saveConfigRef}

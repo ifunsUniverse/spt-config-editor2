@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +101,7 @@ export const ConfigEditor = ({
       setHasChanges(false);
       setJsonError(null);
       if (onChangesDetected) onChangesDetected(false);
-    }, [configFile, modName]);
+    }, [configFile, modName, onChangesDetected, rawJson]);
     
     const handleRawTextChange = (text: string) => {
       setRawText(text);
@@ -121,7 +121,7 @@ export const ConfigEditor = ({
       }
     };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     try {
       // ✅ Save RAW TEXT directly - no re-formatting or restructuring
       if (window.electronBridge?.writeFile) {
@@ -144,7 +144,7 @@ export const ConfigEditor = ({
     } catch (error: any) {
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
-  };
+  }, [configFile, rawText, modId, modName, onSave, onChangesDetected]);
 
   const displayPath = React.useMemo(() => {
   if (!configFile) return "";
@@ -196,7 +196,7 @@ useEffect(() => {
     if (saveConfigRef) {
       saveConfigRef.current = handleSave;
     }
-  }, [rawText, hasChanges, jsonError]);
+  }, [rawText, hasChanges, jsonError, handleSave, saveConfigRef]);
 
   useEffect(() => {
   registerTransparentTheme();
