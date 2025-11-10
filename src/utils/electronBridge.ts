@@ -4,12 +4,40 @@ export const selectFolder = () => {
   }
   return window.electronBridge.selectFolder();
 };
-export const readdir = (path: string) => window.electronBridge?.readdir(path);
-export const readFile = (path: string) => window.electronBridge?.readFile(path);
-export const writeFile = (path: string, content: string) =>
-  window.electronBridge?.writeFile(path, content);
-export const exists = (path: string) => window.electronBridge?.exists(path);
-export const stat = (path: string) => window.electronBridge?.stat(path);
+export const readdir = (path: string) => {
+  if (!window.electronBridge?.readdir) {
+    return Promise.resolve([]);
+  }
+  return window.electronBridge.readdir(path);
+};
+
+export const readFile = (path: string) => {
+  if (!window.electronBridge?.readFile) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.readFile(path);
+};
+
+export const writeFile = (path: string, content: string) => {
+  if (!window.electronBridge?.writeFile) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.writeFile(path, content);
+};
+
+export const exists = (path: string) => {
+  if (!window.electronBridge?.exists) {
+    return Promise.resolve(false);
+  }
+  return window.electronBridge.exists(path);
+};
+
+export const stat = (path: string) => {
+  if (!window.electronBridge?.stat) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.stat(path);
+};
 // ✅ Categories
 export const writeCategoryFile = (content: string) =>
   window.electronBridge?.writeCategoryFile(content);
