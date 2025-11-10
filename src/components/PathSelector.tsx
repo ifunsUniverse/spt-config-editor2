@@ -37,6 +37,14 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
   // ✅ MAIN SELECT SPT FOLDER
   const handleSelectFolder = async () => {
     try {
+      const canOpen = typeof window !== "undefined" && !!(window as any).electronBridge?.selectFolder;
+      if (!canOpen) {
+        toast.error("Desktop feature not available here", {
+          description: "Folder dialog requires the desktop app. Build and run the Electron app to browse folders.",
+        });
+        return;
+      }
+
       setIsScanning(true);
 
       const result = await selectFolder();
