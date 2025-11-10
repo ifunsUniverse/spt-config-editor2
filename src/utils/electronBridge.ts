@@ -39,18 +39,49 @@ export const stat = (path: string) => {
   return window.electronBridge.stat(path);
 };
 // ✅ Categories
-export const writeCategoryFile = (content: string) =>
-  window.electronBridge?.writeCategoryFile(content);
-export const readCategoryFile = () => window.electronBridge?.readCategoryFile();
+export const writeCategoryFile = (content: string) => {
+  if (!window.electronBridge?.writeCategoryFile) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.writeCategoryFile(content);
+};
+
+export const readCategoryFile = () => {
+  if (!window.electronBridge?.readCategoryFile) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.readCategoryFile();
+};
+
 export function selectModFolder() {
   return window.electronBridge?.selectFolder();
 }
+
 // ✅ History backups
-export const writeHistoryBackup = (modName: string, configFile: string, timestamp: number, content: string) =>
-  window.electronBridge?.writeHistoryBackup(modName, configFile, timestamp, content);
-export const readHistoryBackups = (modName: string, configFile: string) =>
-  window.electronBridge?.readHistoryBackups(modName, configFile);
-export const deleteHistoryBackup = (modName: string, filename: string) =>
-  window.electronBridge?.deleteHistoryBackup(modName, filename);
-export const clearHistoryBackups = (modName: string, configFile: string) =>
-  window.electronBridge?.clearHistoryBackups(modName, configFile);
+export const writeHistoryBackup = (modName: string, configFile: string, timestamp: number, content: string) => {
+  if (!window.electronBridge?.writeHistoryBackup) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.writeHistoryBackup(modName, configFile, timestamp, content);
+};
+
+export const readHistoryBackups = (modName: string, configFile: string) => {
+  if (!window.electronBridge?.readHistoryBackups) {
+    return Promise.resolve([]);
+  }
+  return window.electronBridge.readHistoryBackups(modName, configFile);
+};
+
+export const deleteHistoryBackup = (modName: string, filename: string) => {
+  if (!window.electronBridge?.deleteHistoryBackup) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.deleteHistoryBackup(modName, filename);
+};
+
+export const clearHistoryBackups = (modName: string, configFile: string) => {
+  if (!window.electronBridge?.clearHistoryBackups) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.clearHistoryBackups(modName, configFile);
+};

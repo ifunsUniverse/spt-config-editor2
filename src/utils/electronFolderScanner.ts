@@ -48,7 +48,9 @@ export async function scanFolder(folderPath: string): Promise<ScannedFileInfo[]>
 
     const scanned = await Promise.all(
       entries.map(async (entry) => {
-        const fullPath = `${folderPath}/${entry.name}`;
+        // ✅ Use platform-agnostic path joining
+        const separator = folderPath.includes("\\") ? "\\" : "/";
+        const fullPath = folderPath + separator + entry.name;
         try {
           const info = await stat(fullPath);
           return {
@@ -74,8 +76,10 @@ export async function scanFolder(folderPath: string): Promise<ScannedFileInfo[]>
    Detect SPT version (3.11.x OR 4.0.x)
 -------------------------------------------------------- */
 export async function scanSPTFolderElectron(sptPath: string): Promise<ElectronScannedMod[]> {
-  const path40 = `${sptPath}/SPT/user/mods`;
-  const path311 = `${sptPath}/user/mods`;
+  // ✅ Detect Windows vs Unix paths and use correct separator
+  const separator = sptPath.includes("\\") ? "\\" : "/";
+  const path40 = sptPath + separator + "SPT" + separator + "user" + separator + "mods";
+  const path311 = sptPath + separator + "user" + separator + "mods";
 
   console.log("\n🔍 Checking SPT mod paths...");
 
@@ -121,7 +125,8 @@ export async function scanModFolderElectron(
     console.log(`🔍 Scanning mod: ${modFolderPath}`);
 
     let packageJson: any = {};
-    const pkgPath = `${modFolderPath}/package.json`;
+    const separator = modFolderPath.includes("\\") ? "\\" : "/";
+    const pkgPath = modFolderPath + separator + "package.json";
 
     if (await exists(pkgPath)) {
       try {
@@ -212,6 +217,12 @@ export async function saveConfigToFileElectron(
   originalJson: any
 ): Promise<void> {
   try {
+    // ✅ If raw JSON mode, write exactly what user typed
+    if (values.length === 1 && values[0].key === "__RAW_JSON__" && values[0].type === "raw") {
+      await window.electronBridge.writeFile(filePath, values[0].value as string);
+      return;
+    }
+
     const updatedJson = structuredClone(originalJson);
 
     for (const val of values) {

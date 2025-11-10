@@ -3,7 +3,7 @@ import JSON5 from "json5";
 export interface ConfigValue {
   key: string;
   value: any;
-  type: "boolean" | "string" | "number" | "select" | "keybind";
+  type: "boolean" | "string" | "number" | "select" | "keybind" | "raw";
   description?: string;
   options?: string[];
 }

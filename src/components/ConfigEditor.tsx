@@ -123,14 +123,16 @@ export const ConfigEditor = ({
 
   const handleSave = useCallback(async () => {
     try {
-      // ✅ Save RAW TEXT directly - no re-formatting or restructuring
-      if (window.electronBridge?.writeFile) {
-        await window.electronBridge.writeFile(configFile, rawText);
-      }
-
       const parsedJson = JSON5.parse(rawText);
-      const newValues = jsonToConfigValues(parsedJson);
-      onSave(newValues);
+
+      // ✅ When in RAW JSON mode, pass raw text directly to prevent key corruption
+      if (editorMode === "json") {
+        onSave([{ key: "__RAW_JSON__", type: "raw", value: rawText }]);
+      } else {
+        // Form mode: use structured values
+        const newValues = jsonToConfigValues(parsedJson);
+        onSave(newValues);
+      }
 
       await saveConfigHistory(modId, modName, configFile, parsedJson);
       console.log("[HISTORY] Saved entry for", modId, configFile);
@@ -144,7 +146,7 @@ export const ConfigEditor = ({
     } catch (error: any) {
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
-  }, [configFile, rawText, modId, modName, onSave, onChangesDetected]);
+  }, [configFile, rawText, modId, modName, onSave, onChangesDetected, editorMode]);
 
   const displayPath = React.useMemo(() => {
   if (!configFile) return "";
