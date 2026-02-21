@@ -172,18 +172,8 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
             </p>
             <p>• Only compatible JSON config files will be loaded</p>
             <p>• You can change this path later in settings</p>
-            <p 
-              className="flex items-center gap-2 transition-opacity cursor-default"
-              onMouseEnter={() => {
-                setHoveredLine("test");
-                markAsSeen("test");
-              }}
-              onMouseLeave={() => setHoveredLine(null)}
-            >
-              • Easy SPT Server and Launcher startup.
-              {!seenFeatures.has("test") && hoveredLine !== "test" && (
-                <span className="text-yellow-400 font-black text-[9px] animate-pulse shrink-0">NEW!</span>
-              )}
+            <p className="cursor-default">
+              • Easy SPT Server and Launcher startup (Desktop app only).
             </p>
           </div>
         </div>
