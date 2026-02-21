@@ -1,14 +1,11 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { ChevronRight, Star, Clock } from "lucide-react";
+import { ChevronRight, Star, Clock, FileJson, Folder } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { splitCamelCase } from "@/lib/utils";
+import { splitCamelCase, cn } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
-import { formatDistanceToNow } from "date-fns";
 import { ModMetadataViewer, ModMetadata } from "@/components/ModMetadataViewer";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import {
@@ -34,6 +31,7 @@ export interface Mod {
 export interface ConfigFile {
   fileName: string;
   index: number;
+  filePath?: string;
 }
 
 interface ModListProps {
@@ -47,8 +45,6 @@ interface ModListProps {
   editHistory: ModEditHistory[];
   searchInputRef?: React.RefObject<HTMLInputElement>;
   modCategories?: Record<string, string>;
-
-  // ✅ NEW PROP
   onCategoryAssign?: (modId: string) => void;
 }
 
@@ -60,12 +56,12 @@ export const ModList = ({
   onSelectMod,
   favoritedModIds,
   onToggleFavorite,
-  editHistory,
   searchInputRef,
   modCategories = {},
-  onCategoryAssign,  // ✅ NEW
+  onCategoryAssign,
 }: ModListProps) => {
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
+  const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
 
   const toggleMod = (modId: string) => {
@@ -75,163 +71,220 @@ export const ModList = ({
     }));
   };
 
+  const toggleFolder = (modId: string, folderName: string) => {
+    const key = `${modId}:${folderName}`;
+    setExpandedFolders((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
   const filteredMods = mods.filter((mod) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
       mod.name.toLowerCase().includes(query) ||
       mod.id.toLowerCase().includes(query) ||
-      mod.category?.toLowerCase().includes(query) ||
-      mod.description?.toLowerCase().includes(query)
+      mod.author?.toLowerCase().includes(query)
     );
   });
 
+  // Group files by folder for a nested view
+  const groupedFiles = useMemo(() => {
+    const groups: Record<string, { root: ConfigFile[]; folders: Record<string, ConfigFile[]> }> = {};
+    
+    Object.entries(configFiles).forEach(([modId, files]) => {
+      const modGroup: { root: ConfigFile[]; folders: Record<string, ConfigFile[]> } = {
+        root: [],
+        folders: {}
+      };
+
+      files.forEach(file => {
+        // Handle both / and \ separators
+        const parts = file.fileName.split(/[\\/]/);
+        if (parts.length === 1) {
+          modGroup.root.push(file);
+        } else {
+          const folderName = parts[0];
+          if (!modGroup.folders[folderName]) {
+            modGroup.folders[folderName] = [];
+          }
+          modGroup.folders[folderName].push(file);
+        }
+      });
+      
+      groups[modId] = modGroup;
+    });
+    
+    return groups;
+  }, [configFiles]);
+
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      <div className="p-3 border-b border-border shrink-0">
+    <div className="flex flex-col h-full overflow-hidden bg-background">
+      <div className="p-4 border-b border-border shrink-0">
         <Input
           ref={searchInputRef}
           placeholder="Search mods... (Ctrl+F)"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-input border-border h-8"
+          className="bg-muted/50 border-border h-10 text-sm focus-visible:ring-primary/30"
         />
       </div>
 
-      <ScrollArea className="flex-1 w-full">
-          <div
-            className="flex flex-col gap-2 px-2 py-3 w-full"
-          >
-            {filteredMods.map((mod) => {
-              const modConfigs = configFiles[mod.id] || [];
-              const lastEditTime = getModEditTime(mod.id);
-              const hasBeenEdited = lastEditTime !== null;
-              const lastEditDate = lastEditTime ? new Date(lastEditTime) : null;
+      <ScrollArea className="flex-1 no-scrollbar">
+        <div className="flex flex-col gap-2.5 py-4 px-4">
+          {filteredMods.map((mod) => {
+            const lastEditTime = getModEditTime(mod.id);
+            const isSelectedMod = selectedModId === mod.id;
+            const isExpanded = !!expandedMods[mod.id];
+            const isFavorited = favoritedModIds.has(mod.id);
+            const modGroup = groupedFiles[mod.id] || { root: [], folders: {} };
 
-              return (
-                <ContextMenu key={mod.id}>
-                  <ContextMenuTrigger className="w-full">
-                    <Card className="w-full max-w-[310px] mx-auto overflow-hidden border-border bg-card/50">
-                      <Collapsible
-                        open={!!expandedMods[mod.id]}
-                        onOpenChange={() => toggleMod(mod.id)}
+            return (
+              <ContextMenu key={mod.id}>
+                <div className="relative group w-full max-w-full">
+                  <ContextMenuTrigger>
+                    <Card 
+                      className={cn(
+                        "relative transition-all duration-200 border-border overflow-hidden w-full max-w-full",
+                        "mx-0",
+                        isSelectedMod 
+                          ? "ring-2 ring-primary bg-accent/30 shadow-md" 
+                          : "bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm",
+                        isExpanded && "pb-2"
+                      )}
+                    >
+                      {/* Mod Header Row */}
+                      <div 
+                        className="flex items-center gap-2 p-2 cursor-pointer select-none min-w-0"
+                        onClick={() => toggleMod(mod.id)}
                       >
-                        <div className="flex items-center w-full p-2.5 gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
+                        <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onToggleFavorite(mod.id);
                           }}
-                          className="h-7 w-7 shrink-0"
+                          className="shrink-0 transition-transform active:scale-125 focus:outline-none self-start mt-1"
                         >
                           <Star
-                            className={`h-4 w-4 ${
-                              favoritedModIds.has(mod.id)
+                            className={cn(
+                              "h-4 w-4 transition-colors",
+                              isFavorited
                                 ? "fill-yellow-400 text-yellow-400"
-                                : "text-muted-foreground"
-                            }`}
+                                : "text-muted-foreground/30 group-hover:text-muted-foreground/60"
+                            )}
                           />
-                        </Button>
+                        </button>
 
-                        <CollapsibleTrigger className="flex items-center flex-1 min-w-0 gap-2 hover:opacity-80 transition-opacity">
-                          <ChevronRight
-                            className={`h-3.5 w-3.5 shrink-0 transition-transform ${
-                              expandedMods[mod.id] ? "rotate-90" : ""
-                            }`}
-                          />
-
-                          <div className="text-left flex-1 min-w-0">
-                            <div className="flex items-start gap-1.5 mb-1 flex-wrap">
-                              <h3 className="font-semibold text-sm break-words leading-tight">
-                                {splitCamelCase(mod.name)}
-                              </h3>
-
-                              {/* CATEGORY BADGE */}
-                              {modCategories[mod.id] && (
-                                <Badge
-                                  className={`${getCategoryBgColor(
-                                    modCategories[mod.id]
-                                  )} text-white border-0 text-[10px] px-1.5 py-0 h-4 shrink-0`}
-                                >
-                                  {modCategories[mod.id]}
-                                </Badge>
-                              )}
-
-                              {/* EDITED BADGE */}
-                              {hasBeenEdited && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-[10px] px-1.5 py-0 h-4 bg-success/20 text-success border-success/30 shrink-0"
-                                >
-                                  Edited
-                                </Badge>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
-                              <span>v{mod.version}</span>
-                              <span>•</span>
-                              <span>{mod.configCount} config{mod.configCount !== 1 ? "s" : ""}</span>
-
-                              {hasBeenEdited && (
-                                <>
-                                  <span>•</span>
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <Clock className="h-3 w-3" />
-                                    <span className="whitespace-nowrap">
-                                      {formatDistanceToNow(lastEditDate!, { addSuffix: true })}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                            </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-1.5 mb-0.5">
+                            <span className="font-bold text-sm text-foreground whitespace-normal break-all leading-tight">
+                              {splitCamelCase(mod.name)}
+                            </span>
+                            {modCategories[mod.id] && (
+                              <Badge
+                                className={cn(
+                                  getCategoryBgColor(modCategories[mod.id]),
+                                  "text-white border-0 text-[9px] px-1 py-0 h-3.5 uppercase tracking-wider font-black shrink-0 mt-0.5"
+                                )}
+                              >
+                                {modCategories[mod.id]}
+                              </Badge>
+                            )}
                           </div>
+                          
+                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                            <span className="font-mono opacity-80 shrink-0">v{mod.version}</span>
+                            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30 shrink-0" />
+                            <span className="block truncate">by {mod.author || "Unknown"}</span>
+                          </div>
+                        </div>
 
+                        <div className="flex items-center gap-0.5 shrink-0 self-center">
+                          {lastEditTime && (
+                            <Clock className="h-3 w-3 text-primary/60" />
+                          )}
                           {mod.metadata && (
                             <ModMetadataViewer metadata={mod.metadata} modName={mod.name} />
                           )}
-                        </CollapsibleTrigger>
+                          <ChevronRight 
+                            className={cn(
+                              "h-3.5 w-3.5 text-muted-foreground/40 transition-transform duration-300",
+                              isExpanded && "rotate-90 text-primary"
+                            )} 
+                          />
+                        </div>
                       </div>
 
-                      <CollapsibleContent>
-                        <div className="px-2 pb-2 pt-0 space-y-0.5">
-                          {modConfigs.map((cfg) => (
-                            <button
+                      {/* Nested Content */}
+                      {isExpanded && (
+                        <div className="px-1.5 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <div className="mx-2 h-px bg-border/50 mb-1.5" />
+                          
+                          {/* Files in the mod root */}
+                          {modGroup.root.map((cfg) => (
+                            <ConfigButton 
                               key={cfg.index}
-                              onClick={() => onSelectMod(mod.id, cfg.index)}
-                              className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors truncate ${
-                                selectedModId === mod.id && selectedConfigIndex === cfg.index
-                                  ? "bg-primary/20 text-primary font-medium"
-                                  : "hover:bg-accent/50 text-muted-foreground"
-                              }`}
-                            >
-                              {cfg.fileName}
-                            </button>
+                              cfg={cfg} 
+                              isSelected={isSelectedMod && selectedConfigIndex === cfg.index} 
+                              onClick={() => onSelectMod(mod.id, cfg.index)} 
+                            />
                           ))}
+
+                          {/* Subfolders */}
+                          {Object.entries(modGroup.folders).map(([folderName, files]) => {
+                            const folderKey = `${mod.id}:${folderName}`;
+                            const isFolderExpanded = !!expandedFolders[folderKey];
+                            
+                            return (
+                              <div key={folderName} className="space-y-0.5">
+                                <button
+                                  onClick={() => toggleFolder(mod.id, folderName)}
+                                  className="flex items-center gap-2 w-full text-left px-2 py-1 rounded-md text-[11px] hover:bg-accent/30 text-muted-foreground/80 transition-colors"
+                                >
+                                  <ChevronRight className={cn(
+                                    "h-3 w-3 transition-transform",
+                                    isFolderExpanded && "rotate-90"
+                                  )} />
+                                  <Folder className="h-3 w-3 text-primary/40" />
+                                  <span className="font-medium truncate">{folderName}</span>
+                                  <Badge variant="outline" className="ml-auto text-[9px] h-3.5 px-1 opacity-50">{files.length}</Badge>
+                                </button>
+                                
+                                {isFolderExpanded && (
+                                  <div className="pl-4 space-y-0.5">
+                                    {files.map((cfg) => (
+                                      <ConfigButton 
+                                        key={cfg.index}
+                                        cfg={cfg} 
+                                        isSelected={isSelectedMod && selectedConfigIndex === cfg.index} 
+                                        onClick={() => onSelectMod(mod.id, cfg.index)} 
+                                      />
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      </CollapsibleContent>
-                    </Collapsible>
-                  </Card>
-                </ContextMenuTrigger>
+                      )}
+                    </Card>
+                  </ContextMenuTrigger>
 
-                {/* ✅ CONTEXT MENU */}
-                <ContextMenuContent className="w-48">
-                  <ContextMenuItem onClick={() => onSelectMod(mod.id, 0)}>
-                    📄 Open Config
-                  </ContextMenuItem>
-
-                  <ContextMenuItem onClick={() => onCategoryAssign?.(mod.id)}>
-                    ➕ Add to Category
-                  </ContextMenuItem>
-
-                  <ContextMenuSeparator />
-
-                  <ContextMenuItem onClick={() => onToggleFavorite(mod.id)}>
-                    ⭐ {favoritedModIds.has(mod.id) ? "Unfavorite" : "Favorite"}
-                  </ContextMenuItem>
-                </ContextMenuContent>
+                  <ContextMenuContent className="w-56">
+                    <ContextMenuItem onClick={() => onSelectMod(mod.id, 0)} className="gap-2">
+                      <FileJson className="w-4 h-4" /> Open Primary Config
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => onCategoryAssign?.(mod.id)} className="gap-2">
+                      <Badge className="w-4 h-4 p-0 rounded-full bg-primary" /> Assign Category
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => onToggleFavorite(mod.id)} className="gap-2">
+                      <Star className={cn("w-4 h-4", isFavorited && "fill-yellow-400 text-yellow-400")} />
+                      {isFavorited ? "Remove from Favorites" : "Add to Favorites"}
+                    </ContextMenuItem>
+                  </ContextMenuContent>
+                </div>
               </ContextMenu>
             );
           })}
@@ -240,3 +293,24 @@ export const ModList = ({
     </div>
   );
 };
+
+/**
+ * Sub-component for individual config file buttons to maintain styling
+ */
+const ConfigButton = ({ cfg, isSelected, onClick }: { cfg: ConfigFile; isSelected: boolean; onClick: () => void }) => (
+  <button
+    onClick={onClick}
+    className={cn(
+      "flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-[11px] transition-colors",
+      isSelected
+        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+        : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+    )}
+  >
+    <FileJson className={cn(
+      "h-3 w-3 shrink-0",
+      isSelected ? "text-primary-foreground" : "text-muted-foreground/50"
+    )} />
+    <span className="block truncate">{cfg.fileName.split(/[\\/]/).pop()}</span>
+  </button>
+);

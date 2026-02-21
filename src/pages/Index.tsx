@@ -21,6 +21,7 @@ import {
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Loader2, Package, Download, Upload, Trash2, FolderOpen } from "lucide-react";
+import { SPTControlPanel } from "@/components/SPTControlPanel";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -557,7 +558,7 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
   return (
     <>
       <div className="flex w-full h-screen overflow-hidden relative">
-        <div className="w-72 border-r border-border bg-card flex flex-col h-full">
+        <div className="w-72 border-r border-border bg-card flex flex-col h-full overflow-hidden">
           <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
             <div className="flex gap-1 mb-1.5">
               <Button
@@ -680,6 +681,10 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
               />
             )}
 
+          {/* SPT Control Panel */}
+          {sptPath && (
+            <SPTControlPanel sptPath={localStorage.getItem("lastSPTFolder") || sptPath} />
+          )}
 
         </div>
          {selectedMod && selectedModId && selectedConfig ? (

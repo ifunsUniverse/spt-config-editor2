@@ -1,39 +1,39 @@
-const { contextBridge, ipcRenderer } = require('electron');
+import { contextBridge, ipcRenderer } from 'electron';
 
-export interface ElectronAPI {
-  selectFolder: () => Promise<{ canceled: boolean; path?: string }>;
-  readdir: (path: string) => Promise<any[]>;
-  readFile: (path: string) => Promise<string>;
-  writeFile: (path: string, content: string) => Promise<void>;
-  exists: (path: string) => Promise<boolean>;
-  stat: (path: string) => Promise<any>;
-  getDocumentsPath: () => Promise<string>;
-  writeHistoryBackup: (modName: string, configFile: string, timestamp: number, content: string) => Promise<void>;
-  readHistoryBackups: (modName: string, configFile: string) => Promise<Array<{ filename: string; timestamp: number; content: any; size: number }>>;
-  deleteHistoryBackup: (modName: string, filename: string) => Promise<void>;
-  clearHistoryBackups: (modName: string, configFile: string) => Promise<void>;
-  readCategoryFile: () => Promise<string>;
-  writeCategoryFile: (content: string) => Promise<void>;
-}
-
-const electronAPI: ElectronAPI = {
-  selectFolder: () => ipcRenderer.invoke('dialog:selectFolder'),
-  readdir: (path: string) => ipcRenderer.invoke('fs:readdir', path),
-  readFile: (path: string) => ipcRenderer.invoke('fs:readFile', path),
-  writeFile: (path: string, content: string) => ipcRenderer.invoke('fs:writeFile', path, content),
-  exists: (path: string) => ipcRenderer.invoke('fs:exists', path),
-  stat: (path: string) => ipcRenderer.invoke('fs:stat', path),
-  getDocumentsPath: () => ipcRenderer.invoke('app:getDocumentsPath'),
+const electronAPI = {
+  selectFolder: () => ipcRenderer.invoke("dialog:selectFolder"),
+  selectExe: (options: { title?: string; defaultPath?: string }) => ipcRenderer.invoke("dialog:selectExe", options),
+  readdir: (path: string) => ipcRenderer.invoke("fs:readdir", path),
+  readFile: (path: string) => ipcRenderer.invoke("fs:readFile", path),
+  writeFile: (path: string, content: any) => ipcRenderer.invoke("fs:writeFile", path, content),
+  exists: (path: string) => ipcRenderer.invoke("fs:exists", path),
+  stat: (path: string) => ipcRenderer.invoke("fs:stat", path),
+  writeCategoryFile: (content: string) => ipcRenderer.invoke("fs:writeCategoryFile", content),
+  readCategoryFile: () => ipcRenderer.invoke("fs:readCategoryFile"),
   writeHistoryBackup: (modName: string, configFile: string, timestamp: number, content: string) => 
-    ipcRenderer.invoke('fs:writeHistoryBackup', modName, configFile, timestamp, content),
+    ipcRenderer.invoke("fs:writeHistoryBackup", modName, configFile, timestamp, content),
   readHistoryBackups: (modName: string, configFile: string) => 
-    ipcRenderer.invoke('fs:readHistoryBackups', modName, configFile),
+    ipcRenderer.invoke("fs:readHistoryBackups", modName, configFile),
   deleteHistoryBackup: (modName: string, filename: string) => 
-    ipcRenderer.invoke('fs:deleteHistoryBackup', modName, filename),
+    ipcRenderer.invoke("fs:deleteHistoryBackup", modName, filename),
   clearHistoryBackups: (modName: string, configFile: string) => 
-    ipcRenderer.invoke('fs:clearHistoryBackups', modName, configFile),
-  readCategoryFile: () => ipcRenderer.invoke('fs:readCategoryFile'),
-  writeCategoryFile: (content: string) => ipcRenderer.invoke('fs:writeCategoryFile', content),
+    ipcRenderer.invoke("fs:clearHistoryBackups", modName, configFile),
+  saveFile: (options: any) => ipcRenderer.invoke("dialog:saveFile", options),
+  // Launching SPT
+  launchSPT: (exePath: string) => ipcRenderer.invoke("spt:launch", { exePath }),
+  getSPTStatus: (exePath: string) => ipcRenderer.invoke("spt:getStatus", exePath),
+  // Item Database (Bypassing CORS)
+  fetchTarkovItems: () => ipcRenderer.invoke("spt:fetch-items"),
+  onSPTStatusChange: (exePath: string, callback: (running: boolean) => void) => {
+    const listener = (_event: any, status: boolean) => callback(status);
+    ipcRenderer.on(`spt:status:${exePath}`, listener);
+    return () => ipcRenderer.removeListener(`spt:status:${exePath}`, listener);
+  },
+  onSPTConsoleLog: (exePath: string, callback: (log: string) => void) => {
+    const listener = (_event: any, log: string) => callback(log);
+    ipcRenderer.on(`spt:console:${exePath}`, listener);
+    return () => ipcRenderer.removeListener(`spt:console:${exePath}`, listener);
+  }
 };
 
-contextBridge.exposeInMainWorld('electronAPI', electronAPI);
+contextBridge.exposeInMainWorld("electronBridge", electronAPI);

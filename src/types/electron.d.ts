@@ -2,6 +2,7 @@ declare global {
   interface Window {
     electronBridge: {
       selectFolder: () => Promise<{ canceled: boolean; path?: string }>;
+      selectExe: (options: { title?: string; defaultPath?: string }) => Promise<{ canceled: boolean; path?: string }>;
       readdir: (path: string) => Promise<any>;
       readFile: (path: string) => Promise<string>;
       writeFile: (path: string, content: string) => Promise<any>;
@@ -13,6 +14,12 @@ declare global {
       readHistoryBackups: (...args: any[]) => Promise<any>;
       deleteHistoryBackup: (...args: any[]) => Promise<any>;
       clearHistoryBackups: (...args: any[]) => Promise<any>;
+      launchSPT: (exePath: string) => Promise<{ success: boolean }>;
+      getSPTStatus: (exePath: string) => Promise<boolean>;
+      fetchTarkovItems: () => Promise<any>;
+      saveFile: (options: any) => Promise<any>;
+      onSPTStatusChange: (exePath: string, callback: (running: boolean) => void) => () => void;
+      onSPTConsoleLog: (exePath: string, callback: (log: string) => void) => () => void;
     };
   }
 }
