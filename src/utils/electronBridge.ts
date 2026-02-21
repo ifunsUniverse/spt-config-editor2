@@ -4,6 +4,14 @@ export const selectFolder = () => {
   }
   return window.electronBridge.selectFolder();
 };
+
+export const selectExe = (options: { title?: string; defaultPath?: string }) => {
+  if (!window.electronBridge?.selectExe) {
+    return Promise.resolve({ canceled: true, path: undefined });
+  }
+  return window.electronBridge.selectExe(options);
+};
+
 export const readdir = (path: string) => {
   if (!window.electronBridge?.readdir) {
     return Promise.resolve([]);
@@ -38,7 +46,8 @@ export const stat = (path: string) => {
   }
   return window.electronBridge.stat(path);
 };
-// ✅ Categories
+
+// Categories
 export const writeCategoryFile = (content: string) => {
   if (!window.electronBridge?.writeCategoryFile) {
     return Promise.reject(new Error("Electron bridge not available"));
@@ -57,7 +66,7 @@ export function selectModFolder() {
   return window.electronBridge?.selectFolder();
 }
 
-// ✅ History backups
+// History backups
 export const writeHistoryBackup = (modName: string, configFile: string, timestamp: number, content: string) => {
   if (!window.electronBridge?.writeHistoryBackup) {
     return Promise.reject(new Error("Electron bridge not available"));
@@ -84,4 +93,28 @@ export const clearHistoryBackups = (modName: string, configFile: string) => {
     return Promise.reject(new Error("Electron bridge not available"));
   }
   return window.electronBridge.clearHistoryBackups(modName, configFile);
+};
+
+// SPT Launch
+export const launchSPT = (exePath: string) => {
+  if (!window.electronBridge?.launchSPT) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.launchSPT(exePath);
+};
+
+// Tarkov Item Database
+export const fetchTarkovItems = () => {
+  if (!window.electronBridge?.fetchTarkovItems) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.fetchTarkovItems();
+};
+
+// Save File Dialog
+export const saveFile = (options: any) => {
+  if (!window.electronBridge?.saveFile) {
+    return Promise.reject(new Error("Electron bridge not available"));
+  }
+  return window.electronBridge.saveFile(options);
 };
