@@ -26,7 +26,6 @@ import Editor from "@monaco-editor/react";
 import { registerTransparentTheme } from "@/utils/monaco-theme";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { FormConfigEditor } from "@/components/FormConfigEditor";
-import { ItemDatabase } from "@/components/ItemDatabase";
 import { parseConfigWithMetadata, ConfigValue, jsonToConfigValues } from "@/utils/configHelpers";
 
 interface ConfigEditorProps {
@@ -410,8 +409,6 @@ return (
 
       {/* Right side controls (Tools + History + View Toggle) */}
       <div className="flex items-center gap-2">
-
-        <ItemDatabase />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

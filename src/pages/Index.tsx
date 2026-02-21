@@ -21,7 +21,6 @@ import {
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { toast } from "sonner";
 import { Loader2, Package, Download, Upload, Trash2, FolderOpen } from "lucide-react";
-import { SPTControlPanel } from "@/components/SPTControlPanel";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -681,10 +680,6 @@ if (selectedScannedMod && selectedScannedMod.configs && selectedScannedMod.confi
               />
             )}
 
-          {/* SPT Control Panel */}
-          {sptPath && (
-            <SPTControlPanel sptPath={localStorage.getItem("lastSPTFolder") || sptPath} />
-          )}
 
         </div>
          {selectedMod && selectedModId && selectedConfig ? (
