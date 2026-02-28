@@ -1,58 +1,45 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
-import electron from "vite-plugin-electron";
-import renderer from "vite-plugin-electron-renderer";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import electron from 'vite-plugin-electron';
+import renderer from 'vite-plugin-electron-renderer';
+import path from 'path';
 
-// https://vitejs.dev/config/
-export default defineConfig(({ mode }) => {
-  // Electron-only build configuration
-  const plugins: any[] = [
+export default defineConfig({
+  plugins: [
     react(),
-    mode === "development" && componentTagger(),
     electron([
       {
-        entry: "electron/main.ts",
+        entry: 'electron/main.ts',
         vite: {
           build: {
-            outDir: "electron",
+            outDir: 'dist-electron',
             rollupOptions: {
-              external: ["electron"],
+              external: ['electron'],
             },
           },
         },
       },
       {
-        entry: "electron/preload.ts",
-        onstart(options) {
-          options.reload();
+        entry: 'electron/preload.ts',
+        onstart(args) {
+          args.reload();
         },
         vite: {
           build: {
-            outDir: "electron",
+            outDir: 'dist-electron',
           },
         },
       },
     ]),
-    renderer()
-  ];
-
-  return {
-    server: {
-      host: "::",
-      port: 8080,
+    renderer(),
+  ],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
-    plugins: plugins.filter(Boolean),
-    resolve: {
-      alias: {
-        "@": path.resolve(__dirname, "./src"),
-        "path": "path-browserify",
-      },
-    },
-    build: {
-      outDir: "dist",
-      emptyOutDir: true,
-    },
-  };
+  },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+  },
 });

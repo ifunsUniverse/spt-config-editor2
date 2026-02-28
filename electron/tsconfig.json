@@ -4,11 +4,12 @@
     "moduleResolution": "Node",
     "target": "ES2022",
     "lib": ["ES2022"],
-    "outDir": ".",
+    "outDir": "../dist-electron",
     "sourceMap": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "rootDir": "."
   },
-  "include": ["*.ts"]
+  "include": ["**/*.ts"]
 }
