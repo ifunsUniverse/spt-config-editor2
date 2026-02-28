@@ -1,12 +1,5 @@
 import { useState } from "react";
-import { Settings, Moon, Sun, Monitor } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Moon, Sun, Monitor, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,61 +12,29 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { ThemeEditor } from "./ThemeEditor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-interface SettingsDialogProps {
-  devMode: boolean;
-  onDevModeChange: (enabled: boolean) => void;
-}
-
-export function SettingsDialog({ devMode, onDevModeChange }: SettingsDialogProps) {
+export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
   const [showThemeEditor, setShowThemeEditor] = useState(false);
-  // General tab state
-const [rememberSession, setRememberSession] = useState(
-  JSON.parse(localStorage.getItem("rememberSession") || "false")
-);
 
-const handleRememberSessionChange = (value: boolean) => {
-  setRememberSession(value);
-  localStorage.setItem("rememberLastSession", JSON.stringify(value));
-};
+  const handleBackup = () => {
+    // TODO: implement backup logic
+    console.log("Backup configs");
+  };
 
-// General tab handlers
-const handleExport = () => {
-  // TODO: implement export logic
-  console.log("Export settings");
-};
+  const handleRestore = () => {
+    // TODO: implement restore logic
+    console.log("Restore configs");
+  };
 
-const handleImport = () => {
-  // TODO: implement import logic
-  console.log("Import settings");
-};
-
-const handleBackup = () => {
-  // TODO: implement backup logic
-  console.log("Backup configs");
-};
-
-const handleRestore = () => {
-  // TODO: implement restore logic
-  console.log("Restore configs");
-};
-
-const handleCheckUpdates = () => {
-  window.open(
-    "https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions",
-    "_blank"
-  );
-};
-
-const [numberFormat, setNumberFormat] = useState(
-  () => localStorage.getItem("numberFormat") || "commas"
-);
-
-  
+  const handleCheckUpdates = () => {
+    window.open(
+      "https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions",
+      "_blank"
+    );
+  };
 
   return (
     <Dialog>
@@ -99,62 +60,60 @@ const [numberFormat, setNumberFormat] = useState(
           </TabsList>
 
           <TabsContent value="general" className="space-y-6 mt-4">
-  
-  {/* Data & Storage */}
-  <div className="space-y-2">
-    <h3 className="font-semibold text-lg">Data & Storage</h3>
-    <div className="flex gap-2">
-      <Button variant="outline" onClick={handleBackup}>Backup Configs</Button>
-      <Button variant="outline" onClick={handleRestore}>Restore Configs</Button>
-    </div>
-  </div>
+            {/* Data & Storage */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-lg">Data & Storage</h3>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleBackup}>Backup Configs</Button>
+                <Button variant="outline" onClick={handleRestore}>Restore Configs</Button>
+              </div>
+            </div>
 
-  {/* Updates */}
-  <div className="space-y-2">
-    <h3 className="font-semibold text-lg">Updates</h3>
-    <Button onClick={handleCheckUpdates}>Check for Updates</Button>
-  </div>
-</TabsContent>
+            {/* Updates */}
+            <div className="space-y-2">
+              <h3 className="font-semibold text-lg">Updates</h3>
+              <Button onClick={handleCheckUpdates}>Check for Updates</Button>
+            </div>
+          </TabsContent>
 
           <TabsContent value="appearance" className="space-y-4 mt-4">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label>Theme</Label>
                 <RadioGroup value={theme} onValueChange={setTheme}>
-  <div className="flex items-center space-x-2">
-  <RadioGroupItem value="light" id="light" />
-  <Label
-    htmlFor="light"
-    className="flex items-center gap-2 font-normal cursor-pointer"
-  >
-    <Sun className="h-4 w-4" />
-    Light
-  </Label>
-</div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="light" id="light" />
+                    <Label
+                      htmlFor="light"
+                      className="flex items-center gap-2 font-normal cursor-pointer"
+                    >
+                      <Sun className="h-4 w-4" />
+                      Light
+                    </Label>
+                  </div>
 
-<div className="flex items-center space-x-2">
-  <RadioGroupItem value="dark" id="dark" />
-  <Label
-    htmlFor="dark"
-    className="flex items-center gap-2 font-normal cursor-pointer"
-  >
-    <Moon className="h-4 w-4" />
-    Dark
-  </Label>
-</div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="dark" id="dark" />
+                    <Label
+                      htmlFor="dark"
+                      className="flex items-center gap-2 font-normal cursor-pointer"
+                    >
+                      <Moon className="h-4 w-4" />
+                      Dark
+                    </Label>
+                  </div>
 
-<div className="flex items-center space-x-2">
-  <RadioGroupItem value="system" id="system" />
-  <Label
-    htmlFor="system"
-    className="flex items-center gap-2 font-normal cursor-pointer"
-  >
-    <Monitor className="h-4 w-4" />
-    System
-  </Label>
-</div>
-
-</RadioGroup>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="system" id="system" />
+                    <Label
+                      htmlFor="system"
+                      className="flex items-center gap-2 font-normal cursor-pointer"
+                    >
+                      <Monitor className="h-4 w-4" />
+                      System
+                    </Label>
+                  </div>
+                </RadioGroup>
               </div>
 
               <div className="pt-4 border-t">
@@ -177,26 +136,6 @@ const [numberFormat, setNumberFormat] = useState(
 
           <TabsContent value="advanced" className="space-y-4 mt-4">
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="clear-history" className="flex flex-col gap-1">
-                  <span className="font-medium">Clear Edit History</span>
-                  <span className="text-sm text-muted-foreground">
-                    Remove all recently edited mod history
-                  </span>
-                </Label>
-                <Button
-                  id="clear-history"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    localStorage.removeItem('editHistory');
-                    window.location.reload();
-                  }}
-                >
-                  Clear
-                </Button>
-              </div>
-
               <div className="flex items-center justify-between">
                 <Label htmlFor="clear-categories" className="flex flex-col gap-1">
                   <span className="font-medium">Reset Categories</span>

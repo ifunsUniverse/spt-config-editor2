@@ -6,7 +6,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { splitCamelCase, cn } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
-import { ModMetadataViewer, ModMetadata } from "@/components/ModMetadataViewer";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import {
   ContextMenu,
@@ -15,6 +14,12 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from "@/components/ui/context-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export interface Mod {
   id: string;
@@ -25,7 +30,6 @@ export interface Mod {
   categories?: string[];
   author?: string;
   description?: string;
-  metadata?: ModMetadata;
 }
 
 export interface ConfigFile {
@@ -100,7 +104,6 @@ export const ModList = ({
       };
 
       files.forEach(file => {
-        // Handle both / and \ separators
         const parts = file.fileName.split(/[\\/]/);
         if (parts.length === 1) {
           modGroup.root.push(file);
@@ -192,20 +195,20 @@ export const ModList = ({
                               </Badge>
                             )}
                           </div>
-                          
-                          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                            <span className="font-mono opacity-80 shrink-0">v{mod.version}</span>
-                            <span className="w-0.5 h-0.5 rounded-full bg-muted-foreground/30 shrink-0" />
-                            <span className="block truncate">by {mod.author || "Unknown"}</span>
-                          </div>
                         </div>
 
                         <div className="flex items-center gap-0.5 shrink-0 self-center">
                           {lastEditTime && (
-                            <Clock className="h-3 w-3 text-primary/60" />
-                          )}
-                          {mod.metadata && (
-                            <ModMetadataViewer metadata={mod.metadata} modName={mod.name} />
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Clock className="h-3 w-3 text-primary/60 cursor-default" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p className="text-xs">Recently edited</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
                           )}
                           <ChevronRight 
                             className={cn(
@@ -221,7 +224,6 @@ export const ModList = ({
                         <div className="px-1.5 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
                           <div className="mx-2 h-px bg-border/50 mb-1.5" />
                           
-                          {/* Files in the mod root */}
                           {modGroup.root.map((cfg) => (
                             <ConfigButton 
                               key={cfg.index}
@@ -231,7 +233,6 @@ export const ModList = ({
                             />
                           ))}
 
-                          {/* Subfolders */}
                           {Object.entries(modGroup.folders).map(([folderName, files]) => {
                             const folderKey = `${mod.id}:${folderName}`;
                             const isFolderExpanded = !!expandedFolders[folderKey];
@@ -294,9 +295,6 @@ export const ModList = ({
   );
 };
 
-/**
- * Sub-component for individual config file buttons to maintain styling
- */
 const ConfigButton = ({ cfg, isSelected, onClick }: { cfg: ConfigFile; isSelected: boolean; onClick: () => void }) => (
   <button
     onClick={onClick}

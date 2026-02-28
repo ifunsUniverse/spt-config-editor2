@@ -2,9 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ──────────────────────────────── */
-/* Monaco Editor Overrides          */
-/* ──────────────────────────────── */
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
 
 /* Absolute Monaco background annihilation */
 .monaco-editor,
@@ -22,11 +29,9 @@
   background-color: transparent !important;
 }
 
-
 .monaco-editor .margin .line-numbers {
   color: hsl(var(--muted-foreground)) !important;
 }
-
 
 /* Style Monaco scrollbar thumb to match theme */
 .monaco-editor .scrollbar > .slider {
@@ -36,47 +41,37 @@
   background: hsl(var(--muted-foreground) / 0.5) !important;
 }
 
-/* ──────────────────────────────── */
-/* Design System Variables          */
-/* ──────────────────────────────── */
+/* Critical fix: Ensure Radix dialogs/sheets/popovers stay above Monaco */
+[data-radix-portal] {
+  z-index: 9999 !important;
+}
+
 @layer base {
   :root {
     --background: 220 26% 8%;
     --foreground: 210 40% 98%;
-
     --card: 220 24% 10%;
     --card-foreground: 210 40% 98%;
-
     --popover: 220 26% 12%;
     --popover-foreground: 210 40% 98%;
-
     --primary: 217 91% 60%;
     --primary-foreground: 220 26% 8%;
-
     --secondary: 220 20% 16%;
     --secondary-foreground: 210 40% 98%;
-
     --muted: 220 20% 16%;
     --muted-foreground: 215 20% 65%;
-
     --accent: 262 83% 58%;
     --accent-foreground: 210 40% 98%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-
     --success: 142 76% 36%;
     --success-foreground: 210 40% 98%;
-
     --warning: 38 92% 50%;
     --warning-foreground: 220 26% 8%;
-
     --border: 220 20% 20%;
     --input: 220 20% 18%;
     --ring: 217 91% 60%;
-
     --radius: 0.75rem;
-
     --sidebar-background: 220 24% 10%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 217 91% 60%;
@@ -90,38 +85,27 @@
   .light {
     --background: 0 0% 100%;
     --foreground: 222 47% 11%;
-
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
-
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
-
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-
     --secondary: 210 40% 96%;
     --secondary-foreground: 222 47% 11%;
-
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-
     --accent: 262 83% 58%;
     --accent-foreground: 0 0% 100%;
-
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;
-
     --warning: 38 92% 50%;
     --warning-foreground: 222 47% 11%;
-
     --border: 214 32% 91%;
     --input: 214 32% 91%;
     --ring: 217 91% 60%;
-
     --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 222 47% 11%;
     --sidebar-primary: 217 91% 60%;
@@ -137,69 +121,44 @@
   * {
     @apply border-border;
   }
-
   body {
     @apply bg-background text-foreground;
   }
-
-  /* Sleek Auto-Hiding Scrollbar Styles */
   * {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
-
   *::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
-
   *::-webkit-scrollbar-track {
     background: transparent;
   }
-
   *::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 4px;
     opacity: 0;
     transition: opacity 0.3s ease, background-color 0.2s ease;
   }
-
-  *:hover::-webkit-scrollbar-thumb,
-  *:focus::-webkit-scrollbar-thumb,
-  *:active::-webkit-scrollbar-thumb {
+  *:hover::-webkit-scrollbar-thumb {
     opacity: 1;
     background: hsl(var(--muted-foreground) / 0.3);
   }
-
-  *::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
-  }
-
-  *::-webkit-scrollbar-thumb:active {
-    background: hsl(var(--muted-foreground) / 0.7);
-  }
-
-  *::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
-
   * {
     scrollbar-gutter: stable;
   }
 }
 
-/* Theme Editor Variables */
 :root {
   --theme-font-family: Inter, system-ui, sans-serif;
   --theme-font-size: 16px;
 }
 
-/* App Container for Theme */
 #app-container {
   min-height: 100vh;
   width: 100%;

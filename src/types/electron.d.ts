@@ -14,10 +14,10 @@ declare global {
       readHistoryBackups: (...args: any[]) => Promise<any>;
       deleteHistoryBackup: (...args: any[]) => Promise<any>;
       clearHistoryBackups: (...args: any[]) => Promise<any>;
-      launchSPT: (exePath: string) => Promise<{ success: boolean }>;
+      saveFile: (options: any) => Promise<any>;
+      launchSPT: (exePath: string) => Promise<{ success: boolean; alreadyRunning?: boolean }>;
       getSPTStatus: (exePath: string) => Promise<boolean>;
       fetchTarkovItems: () => Promise<any>;
-      saveFile: (options: any) => Promise<any>;
       onSPTStatusChange: (exePath: string, callback: (running: boolean) => void) => () => void;
       onSPTConsoleLog: (exePath: string, callback: (log: string) => void) => () => void;
     };
