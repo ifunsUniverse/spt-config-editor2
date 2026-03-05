@@ -1,10 +1,4 @@
-import {
-  readdir,
-  stat,
-  exists,
-  readFile,
-} from "@/utils/electronBridge";
-
+import { readdir, readFile, exists } from "@/utils/electronBridge";
 import { ConfigValue } from "@/utils/configHelpers";
 import { Mod } from "@/components/ModList";
 import JSON5 from "json5";
@@ -13,13 +7,14 @@ export interface ScannedFileInfo {
   name: string;
   isFile: boolean;
   isDirectory: boolean;
-  fullPath: string;
+  handle: FileSystemHandle;
 }
 
 export interface ElectronScannedConfig {
   fileName: string;
   rawJson: any;
   filePath: string;
+  fileHandle?: FileSystemFileHandle;
   index: number;
 }
 
@@ -27,98 +22,79 @@ export interface ElectronScannedMod {
   mod: Mod;
   configs: ElectronScannedConfig[];
   folderPath: string;
+  dirHandle?: FileSystemDirectoryHandle;
 }
 
-export async function scanFolder(folderPath: string): Promise<ScannedFileInfo[]> {
+async function getSubDir(handle: FileSystemDirectoryHandle, name: string): Promise<FileSystemDirectoryHandle | null> {
   try {
-    const folderExists = await exists(folderPath);
-    if (!folderExists) return [];
-
-    const entries = await readdir(folderPath);
-    if (!entries || !Array.isArray(entries)) return [];
-
-    const scanned = await Promise.all(
-      entries.map(async (entry) => {
-        const separator = folderPath.includes("\\") ? "\\" : "/";
-        const fullPath = folderPath + separator + entry.name;
-        try {
-          const info = await stat(fullPath);
-          return {
-            name: entry.name,
-            fullPath,
-            isDirectory: info.isDirectory,
-            isFile: info.isFile,
-          };
-        } catch {
-          return null;
-        }
-      })
-    );
-
-    return scanned.filter((x): x is ScannedFileInfo => x !== null);
-  } catch (error) {
-    console.error(`❌ scanFolder() failed for: ${folderPath}`, error);
-    return [];
+    return await handle.getDirectoryHandle(name);
+  } catch {
+    return null;
   }
 }
 
-export async function scanSPTFolderElectron(sptPath: string): Promise<ElectronScannedMod[]> {
-  const separator = sptPath.includes("\\") ? "\\" : "/";
-  
+export async function scanSPTFolderElectron(rootHandle: FileSystemDirectoryHandle): Promise<ElectronScannedMod[]> {
   // Check standard SPT locations
-  const possibleModPaths = [
-    sptPath + separator + "SPT" + separator + "user" + separator + "mods",
-    sptPath + separator + "user" + separator + "mods",
-    sptPath // Fallback: maybe they selected the mods folder directly?
+  const paths = [
+    ["SPT", "user", "mods"],
+    ["user", "mods"],
   ];
 
-  for (const modPath of possibleModPaths) {
-    if (await exists(modPath)) {
-      const mods = await scanFolder(modPath);
-      // Ensure we are looking at a directory of folders, not just files
-      const validModFolders = mods.filter(m => m.isDirectory);
-      if (validModFolders.length > 0) {
-        return scanMods(validModFolders);
+  for (const segments of paths) {
+    let current: FileSystemDirectoryHandle | null = rootHandle;
+    for (const seg of segments) {
+      if (!current) break;
+      current = await getSubDir(current, seg);
+    }
+    if (current) {
+      const entries = await readdir(current);
+      const dirs = entries.filter(e => e.isDirectory);
+      if (dirs.length > 0) {
+        return scanMods(dirs, current);
       }
     }
+  }
+
+  // Fallback: maybe they selected the mods folder directly
+  const entries = await readdir(rootHandle);
+  const dirs = entries.filter(e => e.isDirectory);
+  if (dirs.length > 0) {
+    return scanMods(dirs, rootHandle);
   }
 
   return [];
 }
 
-async function scanMods(folderInfo: ScannedFileInfo[]) {
+async function scanMods(
+  folders: { name: string; handle: FileSystemHandle }[],
+  parentHandle: FileSystemDirectoryHandle
+): Promise<ElectronScannedMod[]> {
   const scannedMods: ElectronScannedMod[] = [];
-  for (const folder of folderInfo) {
-    if (!folder.isDirectory) continue;
-    const modData = await scanModFolderElectron(folder.fullPath);
-    // ✅ Fix: Load the mod even if it has 0 configs initially, so the user knows it's there
+  for (const folder of folders) {
+    const dirHandle = folder.handle as FileSystemDirectoryHandle;
+    const modData = await scanModFolder(dirHandle, folder.name);
     if (modData) scannedMods.push(modData);
   }
   return scannedMods;
 }
 
-export async function scanModFolderElectron(
-  modFolderPath: string
+async function scanModFolder(
+  dirHandle: FileSystemDirectoryHandle,
+  folderName: string
 ): Promise<ElectronScannedMod | null> {
   try {
     let packageJson: any = {};
-    const separator = modFolderPath.includes("\\") ? "\\" : "/";
-    const pkgPath = modFolderPath + separator + "package.json";
 
-    if (await exists(pkgPath)) {
-      try {
-        const pkgContent = await readFile(pkgPath);
-        packageJson = JSON5.parse(pkgContent);
-      } catch {
-        console.warn(`⚠️ Invalid package.json in ${modFolderPath}`);
-      }
+    try {
+      const pkgHandle = await dirHandle.getFileHandle("package.json");
+      const content = await readFile(pkgHandle);
+      packageJson = JSON5.parse(content);
+    } catch {
+      // No package.json, that's fine
     }
 
-    // ✅ Fix: Recursively scan for ALL files, not just JSON, but filter for editor compatibility
-    const configs = await scanConfigFilesRecursiveElectron(modFolderPath, modFolderPath);
-    
+    const configs = await scanConfigFilesRecursive(dirHandle, "");
     configs.forEach((cfg, idx) => (cfg.index = idx));
-    const folderName = modFolderPath.split(/[/\\]/).pop()!;
 
     const mod: Mod = {
       id: packageJson.name || folderName,
@@ -129,39 +105,38 @@ export async function scanModFolderElectron(
       configCount: configs.length,
     };
 
-    return { mod, configs, folderPath: modFolderPath };
+    return { mod, configs, folderPath: folderName, dirHandle };
   } catch (error) {
-    console.error(`❌ Error scanning mod folder ${modFolderPath}`, error);
+    console.error(`❌ Error scanning mod folder ${folderName}`, error);
     return null;
   }
 }
 
-async function scanConfigFilesRecursiveElectron(
-  currentPath: string,
+async function scanConfigFilesRecursive(
+  dirHandle: FileSystemDirectoryHandle,
   basePath: string
 ): Promise<ElectronScannedConfig[]> {
   const configs: ElectronScannedConfig[] = [];
   try {
-    const entries = await scanFolder(currentPath);
+    const entries = await readdir(dirHandle);
     for (const entry of entries) {
       if (entry.isDirectory) {
-        // Skip common heavy/non-mod folders to prevent hangs
-        if (entry.name === "node_modules" || entry.name === ".git" || entry.name === ".svn") continue;
-        const subConfigs = await scanConfigFilesRecursiveElectron(entry.fullPath, basePath);
+        if (["node_modules", ".git", ".svn"].includes(entry.name)) continue;
+        const subDir = entry.handle as FileSystemDirectoryHandle;
+        const prefix = basePath ? `${basePath}/${entry.name}` : entry.name;
+        const subConfigs = await scanConfigFilesRecursive(subDir, prefix);
         configs.push(...subConfigs);
       } else if (entry.isFile && /\.(json|jsonc|json5|txt|cfg|conf|log)$/i.test(entry.name)) {
-        // ✅ Fix: Expanded file extension support to catch more config-like files
         try {
-          const relative = entry.fullPath.replace(basePath, "").replace(/^[/\\]/, "");
-          
-          // For non-JSON files, we provide a null rawJson but the editor will load the string later
+          const relative = basePath ? `${basePath}/${entry.name}` : entry.name;
+          const fileHandle = entry.handle as FileSystemFileHandle;
+
           let parsed = null;
           if (/\.json[c5]?$/i.test(entry.name)) {
-            const rawText = await readFile(entry.fullPath);
+            const rawText = await readFile(fileHandle);
             try {
               parsed = JSON5.parse(rawText);
-            } catch (e) {
-              // It's a JSON file but maybe broken? Keep it anyway so user can fix it
+            } catch {
               parsed = {};
             }
           }
@@ -169,28 +144,35 @@ async function scanConfigFilesRecursiveElectron(
           configs.push({
             fileName: relative,
             rawJson: parsed,
-            filePath: entry.fullPath,
+            filePath: relative,
+            fileHandle,
             index: -1,
           });
         } catch (error) {
-          console.warn(`❌ Failed scanning: ${entry.fullPath}`, error);
+          console.warn(`❌ Failed scanning: ${entry.name}`, error);
         }
       }
     }
   } catch (error) {
-    console.error(`❌ scanConfigFilesRecursiveElectron failed in: ${currentPath}`, error);
+    console.error(`❌ scanConfigFilesRecursive failed`, error);
   }
   return configs;
 }
 
 export async function saveConfigToFileElectron(
-  filePath: string,
+  config: ElectronScannedConfig,
   values: ConfigValue[],
   originalJson: any
 ): Promise<void> {
+  if (!config.fileHandle) {
+    throw new Error("No file handle available for saving");
+  }
+
   try {
     if (values.length === 1 && values[0].key === "__RAW_JSON__" && values[0].type === "raw") {
-      await window.electronBridge.writeFile(filePath, values[0].value as string);
+      const writable = await (config.fileHandle as any).createWritable();
+      await writable.write(values[0].value as string);
+      await writable.close();
       return;
     }
 
@@ -204,7 +186,9 @@ export async function saveConfigToFileElectron(
       }
       current[keys[keys.length - 1]] = val.value;
     }
-    await window.electronBridge.writeFile(filePath, JSON.stringify(updatedJson, null, 2));
+    const writable = await (config.fileHandle as any).createWritable();
+    await writable.write(JSON.stringify(updatedJson, null, 2));
+    await writable.close();
   } catch (error) {
     console.error("❌ Failed saving config:", error);
     throw error;

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor } from "@/components/ConfigEditor";
-import { SPTControlPanel } from "@/components/SPTControlPanel";
 import { ConfigValue } from "@/utils/configHelpers";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
@@ -40,7 +39,6 @@ import {
 
 const Index = () => {
   const [sptPath, setSptPath] = useState<string | null>(null);
-  const [rawSptPath, setRawSptPath] = useState<string | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [scannedMods, setScannedMods] = useState<ElectronScannedMod[]>([]);
   const [isScanning, setIsScanning] = useState(false);
@@ -150,12 +148,10 @@ const Index = () => {
       return bTime - aTime;
     });
 
-  const handleFolderSelected = async (folderPath: string) => {
+  const handleFolderSelected = async (handle: FileSystemDirectoryHandle, name: string) => {
     setIsScanning(true);
     try {
-      localStorage.setItem('lastSPTFolder', folderPath);
-      const mods = await scanSPTFolderElectron(folderPath);
-      const pathName = folderPath.split(/[/\\]/).pop() || folderPath;
+      const mods = await scanSPTFolderElectron(handle);
       
       if (mods.length === 0) {
         toast.warning("No mods found", {
@@ -165,8 +161,7 @@ const Index = () => {
       }
 
       setScannedMods(mods);
-      setSptPath(pathName);
-      setRawSptPath(folderPath);
+      setSptPath(name);
       
       if (mods.length > 0) {
         setSelectedModId(mods[0].mod.id);
@@ -198,11 +193,9 @@ const Index = () => {
     } else {
       setSelectedModId(modId);
       if (selectedModId !== modId) {
-        // Switching mod: reset tabs to the selected file
         setOpenConfigIndices([safeConfigIndex]);
         setActiveConfigIndex(safeConfigIndex);
       } else {
-        // Same mod: add to tabs if not present
         setOpenConfigIndices(prev => 
           prev.includes(safeConfigIndex) ? prev : [...prev, safeConfigIndex]
         );
@@ -260,11 +253,7 @@ const Index = () => {
     if (!config) return;
 
     try {
-      await saveConfigToFileElectron(
-        (config as any).filePath,
-        values,
-        config.rawJson
-      );
+      await saveConfigToFileElectron(config, values, config.rawJson);
 
       setHasUnsavedChanges(false);
       if (selectedModId) {
@@ -361,7 +350,6 @@ const Index = () => {
 
   const handleGoHome = () => {
     setSptPath(null);
-    setRawSptPath(null);
     setScannedMods([]);
     setSelectedModId(null);
     setOpenConfigIndices([0]);
@@ -414,12 +402,11 @@ const Index = () => {
   };
 
   const handleLoadLastFolder = async () => {
-    const lastFolder = localStorage.getItem("lastSPTFolder");
-    if (!lastFolder) {
-      toast.error("No previous folder found");
-      return;
-    }
-    await handleFolderSelected(lastFolder);
+    // In browser mode, we can't persist folder handles across sessions
+    // User needs to re-select the folder
+    toast.info("Please select your folder again", {
+      description: "Browser security requires re-selecting the folder each session"
+    });
   };
 
   const handleCategoryChange = async (category: string | null) => {
@@ -468,12 +455,6 @@ const Index = () => {
 
   const sidebarContent = (
     <div className="flex flex-col h-full">
-      {rawSptPath && (
-        <SPTControlPanel 
-          sptPath={rawSptPath} 
-        />
-      )}
-
       <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
         <div className="flex gap-1 mb-1.5">
           <Button
@@ -587,7 +568,7 @@ const Index = () => {
           </div>
         )}
 
-        {/* Mobile Sidebar Trigger (Floating) */}
+        {/* Mobile Sidebar Trigger */}
         {isMobile && (
           <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
             <SheetTrigger asChild>
@@ -613,7 +594,7 @@ const Index = () => {
               configFile={selectedConfig?.filePath || ""}
               activeConfigIndex={activeConfigIndex}
               openConfigIndices={openConfigIndices}
-              allConfigs={selectedScannedMod.configs}
+              allConfigs={selectedScannedMod!.configs}
               onSelectTab={(idx) => { setActiveConfigIndex(idx); }}
               onCloseTab={handleCloseTab}
               rawJson={selectedConfig?.rawJson}
@@ -768,14 +749,14 @@ const Index = () => {
           <div className="flex flex-col gap-3 py-2">
             <Button
               onClick={() => handleExportVersion(false)}
-              className="w-full h-14 text-base sm:text-lg bg-blue-600 hover:bg-blue-700 text-white flex flex-col h-auto py-2"
+              className="w-full text-base sm:text-lg gap-3 bg-primary hover:bg-primary/90 text-primary-foreground flex flex-col h-auto py-2"
             >
               <span>Export for SPT 3.11.X</span>
               <span className="text-[10px] opacity-80">(user/mods)</span>
             </Button>
             <Button
               onClick={() => handleExportVersion(true)}
-              className="w-full h-14 text-base sm:text-lg bg-purple-600 hover:bg-purple-700 text-white flex flex-col h-auto py-2"
+              className="w-full text-base sm:text-lg gap-3 bg-secondary hover:bg-secondary/90 text-secondary-foreground flex flex-col h-auto py-2"
             >
               <span>Export for SPT 4.0.X</span>
               <span className="text-[10px] opacity-80">(SPT/user/mods)</span>
