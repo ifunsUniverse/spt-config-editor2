@@ -5,14 +5,13 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, Settings, MoreVertical, FileJson, Terminal, Trash2, Database } from "lucide-react";
+import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, Settings, MoreVertical, FileJson } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ConfigHistory } from "@/components/ConfigHistory";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { CategoryDialog } from "@/components/CategoryDialog";
-import { ItemDatabase } from "./ItemDatabase";
 import { saveConfigHistory } from "@/utils/configHistory";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
@@ -23,13 +22,15 @@ import { registerTransparentTheme } from "@/utils/monaco-theme";
 import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { readFile } from "@/utils/electronBridge";
+import { ElectronScannedConfig } from "@/utils/electronFolderScanner";
 
 interface ConfigEditorProps {
   modName: string;
   configFile: string;
   activeConfigIndex: number;
   openConfigIndices: number[];
-  allConfigs: any[];
+  allConfigs: ElectronScannedConfig[];
   onSelectTab: (index: number) => void;
   onCloseTab: (index: number) => void;
   rawJson: any;
@@ -72,21 +73,30 @@ export const ConfigEditor = ({
   const [error, setError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const configPath = configFile || null;
   const isMobile = useIsMobile();
 
   const viewStatesRef = useRef<Record<string, any>>({});
   const editorRef = useRef<any>(null);
 
+  // Get the active config's file handle
+  const activeConfig = allConfigs[activeConfigIndex];
+
   useEffect(() => {
     let isMounted = true;
 
     const loadFileContent = async () => {
-      if (!configPath) return;
+      if (!activeConfig?.fileHandle) {
+        // Fall back to rawJson if no file handle
+        if (rawJson !== null && rawJson !== undefined) {
+          setRawText(JSON.stringify(rawJson, null, 2));
+          setLoading(false);
+        }
+        return;
+      }
       
       try {
         setLoading(true);
-        const content = await window.electronBridge.readFile(configPath);
+        const content = await readFile(activeConfig.fileHandle);
         if (isMounted) {
           setRawText(content);
           setHasChanges(false);
@@ -105,23 +115,25 @@ export const ConfigEditor = ({
 
     loadFileContent();
     return () => { isMounted = false; };
-  }, [configPath, onChangesDetected]);
+  }, [activeConfig, onChangesDetected]);
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
-    if (configPath && viewStatesRef.current[configPath]) {
-      editor.restoreViewState(viewStatesRef.current[configPath]);
+    const key = configFile || String(activeConfigIndex);
+    if (viewStatesRef.current[key]) {
+      editor.restoreViewState(viewStatesRef.current[key]);
       editor.focus();
     }
   };
 
   useEffect(() => {
     return () => {
-      if (editorRef.current && configPath) {
-        viewStatesRef.current[configPath] = editorRef.current.saveViewState();
+      const key = configFile || String(activeConfigIndex);
+      if (editorRef.current && key) {
+        viewStatesRef.current[key] = editorRef.current.saveViewState();
       }
     };
-  }, [configPath]);
+  }, [configFile, activeConfigIndex]);
 
   const handleRawTextChange = (text: string | undefined) => {
     const newText = text || "";
@@ -152,9 +164,7 @@ export const ConfigEditor = ({
 
   const displayPath = React.useMemo(() => {
     if (!configFile) return "";
-    const normalized = configFile.replace(/\\/g, "/");
-    const match = normalized.match(/SPT\/user\/mods\/[^/]+/i);
-    return match ? match[0] : normalized;
+    return configFile.replace(/\\/g, "/");
   }, [configFile]);
 
   useEffect(() => {
@@ -175,9 +185,9 @@ export const ConfigEditor = ({
   }, []);
 
   const handleReset = async () => {
-    if (!configPath) return;
+    if (!activeConfig?.fileHandle) return;
     try {
-      const content = await window.electronBridge.readFile(configPath);
+      const content = await readFile(activeConfig.fileHandle);
       setRawText(content);
       setHasChanges(false);
       setJsonError(null);
@@ -220,7 +230,7 @@ export const ConfigEditor = ({
                     onClick={() => onCategoryChange?.(null)}
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[10px] sm:text-xs gap-1 sm:gap-2 hover:bg-red-900 hover:text-white px-2"
+                    className="h-7 text-[10px] sm:text-xs gap-1 sm:gap-2 hover:bg-destructive hover:text-destructive-foreground px-2"
                   >
                     ➖ Remove from{" "}
                     <Badge
@@ -247,7 +257,6 @@ export const ConfigEditor = ({
 
             {/* Desktop Actions */}
             <div className="hidden md:flex gap-2 items-center">
-              <ItemDatabase />
               {onHome && (
                 <Button variant="outline" size="sm" onClick={onHome} className="gap-2">
                   <Home className="w-4 h-4" /> Home
@@ -280,7 +289,6 @@ export const ConfigEditor = ({
 
             {/* Mobile/Tablet Overflow Menu */}
             <div className="md:hidden flex items-center gap-1">
-              <ItemDatabase />
               <Button 
                 size="sm" 
                 variant={hasChanges ? "default" : "outline"}
@@ -358,7 +366,7 @@ export const ConfigEditor = ({
                         e.stopPropagation();
                         onCloseTab(idx);
                       }}
-                      className="ml-1 hover:bg-black/10 rounded-full p-0.5"
+                      className="ml-1 hover:bg-foreground/10 rounded-full p-0.5"
                     >
                       <X className="w-3 h-3" />
                     </button>
@@ -371,7 +379,7 @@ export const ConfigEditor = ({
         </ScrollArea>
       </div>
 
-      {/* Toolbar Section (Only for Editor) */}
+      {/* Toolbar Section */}
       <div className="flex items-center justify-between px-3 sm:px-6 py-2 border-b border-border bg-card/10">
         <div className="flex-1">
           {showSearch ? (

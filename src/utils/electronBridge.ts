@@ -1,83 +1,122 @@
 /**
- * This bridge utility connects the React frontend to the Electron main process via window.electronBridge.
+ * Browser-compatible bridge utility.
+ * Replaces Electron IPC with browser APIs (File System Access API, localStorage, etc.)
  */
 
-const getBridge = () => (window as any).electronBridge;
-
-export const selectFolder = async () => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.selectFolder();
+export const selectFolder = async (): Promise<{ canceled: boolean; path?: string; handle?: FileSystemDirectoryHandle }> => {
+  if (!('showDirectoryPicker' in window)) {
+    throw new Error("Your browser doesn't support folder selection. Please use Chrome or Edge.");
+  }
+  try {
+    const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+    return { canceled: false, path: handle.name, handle };
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      return { canceled: true };
+    }
+    throw err;
+  }
 };
 
-export const readdir = async (path: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.readdir(path);
+// Store the directory handle globally so other utils can access it
+let _rootHandle: FileSystemDirectoryHandle | null = null;
+
+export const setRootHandle = (handle: FileSystemDirectoryHandle) => {
+  _rootHandle = handle;
 };
 
-export const readFile = async (path: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.readFile(path);
+export const getRootHandle = (): FileSystemDirectoryHandle | null => _rootHandle;
+
+export const readdir = async (dirHandle: FileSystemDirectoryHandle): Promise<{ name: string; isFile: boolean; isDirectory: boolean; handle: FileSystemHandle }[]> => {
+  const entries: { name: string; isFile: boolean; isDirectory: boolean; handle: FileSystemHandle }[] = [];
+  for await (const [name, handle] of (dirHandle as any).entries()) {
+    entries.push({
+      name,
+      isFile: handle.kind === 'file',
+      isDirectory: handle.kind === 'directory',
+      handle,
+    });
+  }
+  return entries;
 };
 
-export const writeFile = async (path: string, content: any) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.writeFile(path, content);
+export const readFile = async (fileHandle: FileSystemFileHandle): Promise<string> => {
+  const file = await fileHandle.getFile();
+  return await file.text();
 };
 
-export const exists = async (path: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.exists(path);
+export const writeFile = async (fileHandle: FileSystemFileHandle, content: string): Promise<void> => {
+  const writable = await (fileHandle as any).createWritable();
+  await writable.write(content);
+  await writable.close();
 };
 
-export const stat = async (path: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.stat(path);
+export const exists = async (dirHandle: FileSystemDirectoryHandle, name: string): Promise<FileSystemHandle | null> => {
+  try {
+    try {
+      return await dirHandle.getDirectoryHandle(name);
+    } catch {
+      return await dirHandle.getFileHandle(name);
+    }
+  } catch {
+    return null;
+  }
 };
 
+// Category storage - use localStorage
 export const writeCategoryFile = async (content: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.writeCategoryFile(content);
+  localStorage.setItem("spt-categories", content);
 };
 
-export const readCategoryFile = async () => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.readCategoryFile();
+export const readCategoryFile = async (): Promise<string | null> => {
+  return localStorage.getItem("spt-categories");
 };
 
+// History storage - use localStorage
 export const writeHistoryBackup = async (modName: string, configFile: string, timestamp: number, content: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.writeHistoryBackup(modName, configFile, timestamp, content);
+  const key = `spt-history:${modName}:${configFile}`;
+  const existing = JSON.parse(localStorage.getItem(key) || "[]");
+  existing.unshift({ timestamp, content, filename: `${timestamp}.json` });
+  localStorage.setItem(key, JSON.stringify(existing.slice(0, 10)));
 };
 
-export const readHistoryBackups = async (modName: string, configFile: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.readHistoryBackups(modName, configFile);
+export const readHistoryBackups = async (modName: string, configFile: string): Promise<{ timestamp: number; content: string; filename: string }[]> => {
+  const key = `spt-history:${modName}:${configFile}`;
+  return JSON.parse(localStorage.getItem(key) || "[]");
 };
 
 export const deleteHistoryBackup = async (modName: string, filename: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.deleteHistoryBackup(modName, filename);
+  // Find and remove from all history keys
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key?.startsWith(`spt-history:${modName}:`)) {
+      const entries = JSON.parse(localStorage.getItem(key) || "[]");
+      const filtered = entries.filter((e: any) => e.filename !== filename);
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+  }
 };
 
 export const clearHistoryBackups = async (modName: string, configFile: string) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.clearHistoryBackups(modName, configFile);
+  const key = `spt-history:${modName}:${configFile}`;
+  localStorage.removeItem(key);
 };
 
-export const saveFile = async (options: any) => {
-  const bridge = getBridge();
-  if (!bridge) throw new Error("Electron bridge not available");
-  return await bridge.saveFile(options);
+export const saveFile = async (options: { defaultPath?: string; filters?: any[] }): Promise<{ canceled: boolean; filePath?: string; handle?: FileSystemFileHandle }> => {
+  if (!('showSaveFilePicker' in window)) {
+    throw new Error("Your browser doesn't support save dialog. Please use Chrome or Edge.");
+  }
+  try {
+    const handle = await (window as any).showSaveFilePicker({
+      suggestedName: options.defaultPath || 'file.json',
+      types: options.filters?.map((f: any) => ({
+        description: f.name,
+        accept: { 'application/octet-stream': f.extensions.map((e: string) => `.${e}`) }
+      })) || []
+    });
+    return { canceled: false, filePath: handle.name, handle };
+  } catch (err: any) {
+    if (err.name === 'AbortError') return { canceled: true };
+    throw err;
+  }
 };
