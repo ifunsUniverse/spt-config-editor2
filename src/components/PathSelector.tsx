@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, Upload, Loader2, RefreshCw, Info } from "lucide-react";
+import { FolderOpen, Upload, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface PathSelectorProps {
-  onFolderSelected: (handle: string) => void;
+  onFolderSelected: (handle: FileSystemDirectoryHandle) => void;
   onLoadLastFolder: () => void;
 }
 
@@ -25,7 +25,6 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
   const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [tip, setTip] = useState("");
-  const [showLoadConfirm, setShowLoadConfirm] = useState(false);
   const [hoveredLine, setHoveredLine] = useState<string | null>(null);
   const [seenFeatures, setSeenFeatures] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("seen_new_features");
@@ -50,16 +49,16 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
       setIsScanning(true);
       const result = await selectFolder();
 
-      if (result.canceled || !result.path) {
+      if (result.canceled || !result.handle) {
         setIsScanning(false);
         return;
       }
 
-      setPath(result.path);
-      localStorage.setItem("lastSPTFolder", result.path);
+      setPath(result.handle.name);
+      localStorage.setItem("lastSPTFolder", result.handle.name);
       toast.success("Folder selected", { description: "Scanning for mods..." });
 
-      onFolderSelected(result.path);
+      onFolderSelected(result.handle);
     } catch (error: any) {
       console.error("Error selecting folder:", error);
       toast.error("Failed to select folder", {
@@ -122,12 +121,11 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
             <div className="flex flex-col gap-2 sm:gap-3 pt-2">
               <Button
-                onClick={() => setShowLoadConfirm(true)}
+                onClick={handleSelectFolder}
                 variant="outline"
                 className="w-full h-12 sm:h-16 text-base sm:text-lg gap-3"
-                disabled={!localStorage.getItem("lastSPTFolder")}
               >
-                Load Last Folder
+                Load Last Folder (Re-select)
               </Button>
 
               <Button
@@ -138,29 +136,6 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
                 <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
                 Check for Updates
               </Button>
-
-              <AlertDialog open={showLoadConfirm} onOpenChange={setShowLoadConfirm}>
-                <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Load Last Folder</AlertDialogTitle>
-                    <AlertDialogDescription className="break-all">
-                      Are you sure you want to load&nbsp;
-                      <span className="font-mono">{localStorage.getItem("lastSPTFolder")}</span>?
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                    <AlertDialogCancel className="mt-0">No</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() => {
-                        setShowLoadConfirm(false);
-                        onLoadLastFolder();
-                      }}
-                    >
-                      Yes
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
             </div>
           </div>
 
@@ -168,20 +143,20 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
             className="text-[10px] sm:text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md relative group z-10"
           >
             <p className="flex items-center gap-2 cursor-default">
-              • The app will scan for mods in: <span className="text-foreground font-mono">{path || "[path]"}/SPT/user/mods/</span> or <span className="text-foreground font-mono">{path || "[path]"}/user/mods/</span>
+              • The app will scan for mods in: <span className="text-foreground font-mono">{path || "[folder]"}/SPT/user/mods/</span> or <span className="text-foreground font-mono">{path || "[folder]"}/user/mods/</span>
             </p>
             <p>• Only compatible JSON config files will be loaded</p>
-            <p>• You can change this path later in settings</p>
+            <p>• Uses the browser File System Access API — your files stay local</p>
             <p 
               className="flex items-center gap-2 transition-opacity cursor-default"
               onMouseEnter={() => {
-                setHoveredLine("test");
-                markAsSeen("test");
+                setHoveredLine("web");
+                markAsSeen("web");
               }}
               onMouseLeave={() => setHoveredLine(null)}
             >
-              • Easy SPT Server and Launcher startup.
-              {!seenFeatures.has("test") && hoveredLine !== "test" && (
+              • Now runs as a web app — no desktop install required!
+              {!seenFeatures.has("web") && hoveredLine !== "web" && (
                 <span className="text-yellow-400 font-black text-[9px] animate-pulse shrink-0">NEW!</span>
               )}
             </p>

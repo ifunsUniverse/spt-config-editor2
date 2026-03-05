@@ -36,10 +36,23 @@ export const ItemDatabase = () => {
     const fetchItems = async () => {
       setIsLoading(true);
       try {
-        // Use the Electron bridge to fetch items via the main process
-        // This bypasses CORS restrictions in the renderer process
-        const result = await window.electronBridge.fetchTarkovItems();
-        
+        const response = await fetch("https://api.tarkov.dev/graphql", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query: `{
+              items(lang: en) {
+                id
+                name
+                shortName
+                types
+              }
+            }`
+          }),
+        });
+
+        const result = await response.json();
+
         if (result.errors) {
           throw new Error(result.errors[0]?.message || "GraphQL Error");
         }
@@ -73,8 +86,7 @@ export const ItemDatabase = () => {
   }, [isOpen, items.length]);
 
   const categories = useMemo(() => {
-    const cats = Array.from(new Set(items.map(i => i.category))).sort();
-    return cats;
+    return Array.from(new Set(items.map(i => i.category))).sort();
   }, [items]);
 
   const filteredItems = useMemo(() => {

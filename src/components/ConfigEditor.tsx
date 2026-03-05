@@ -23,13 +23,14 @@ import { registerTransparentTheme } from "@/utils/monaco-theme";
 import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { ElectronScannedConfig } from "@/utils/electronFolderScanner";
 
 interface ConfigEditorProps {
   modName: string;
   configFile: string;
   activeConfigIndex: number;
   openConfigIndices: number[];
-  allConfigs: any[];
+  allConfigs: ElectronScannedConfig[];
   onSelectTab: (index: number) => void;
   onCloseTab: (index: number) => void;
   rawJson: any;
@@ -72,21 +73,24 @@ export const ConfigEditor = ({
   const [error, setError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const configPath = configFile || null;
   const isMobile = useIsMobile();
 
   const viewStatesRef = useRef<Record<string, any>>({});
   const editorRef = useRef<any>(null);
 
+  // Get the active config object to read its fileHandle
+  const activeConfig = allConfigs[activeConfigIndex];
+
   useEffect(() => {
     let isMounted = true;
 
     const loadFileContent = async () => {
-      if (!configPath) return;
+      if (!activeConfig?.fileHandle) return;
       
       try {
         setLoading(true);
-        const content = await window.electronBridge.readFile(configPath);
+        const file = await activeConfig.fileHandle.getFile();
+        const content = await file.text();
         if (isMounted) {
           setRawText(content);
           setHasChanges(false);
@@ -105,23 +109,24 @@ export const ConfigEditor = ({
 
     loadFileContent();
     return () => { isMounted = false; };
-  }, [configPath, onChangesDetected]);
+  }, [activeConfig, onChangesDetected]);
 
   const handleEditorDidMount = (editor: any) => {
     editorRef.current = editor;
-    if (configPath && viewStatesRef.current[configPath]) {
-      editor.restoreViewState(viewStatesRef.current[configPath]);
+    const key = activeConfig?.fileName || "";
+    if (key && viewStatesRef.current[key]) {
+      editor.restoreViewState(viewStatesRef.current[key]);
       editor.focus();
     }
   };
 
   useEffect(() => {
     return () => {
-      if (editorRef.current && configPath) {
-        viewStatesRef.current[configPath] = editorRef.current.saveViewState();
+      if (editorRef.current && activeConfig?.fileName) {
+        viewStatesRef.current[activeConfig.fileName] = editorRef.current.saveViewState();
       }
     };
-  }, [configPath]);
+  }, [activeConfig?.fileName]);
 
   const handleRawTextChange = (text: string | undefined) => {
     const newText = text || "";
@@ -152,9 +157,7 @@ export const ConfigEditor = ({
 
   const displayPath = React.useMemo(() => {
     if (!configFile) return "";
-    const normalized = configFile.replace(/\\/g, "/");
-    const match = normalized.match(/SPT\/user\/mods\/[^/]+/i);
-    return match ? match[0] : normalized;
+    return configFile;
   }, [configFile]);
 
   useEffect(() => {
@@ -175,9 +178,10 @@ export const ConfigEditor = ({
   }, []);
 
   const handleReset = async () => {
-    if (!configPath) return;
+    if (!activeConfig?.fileHandle) return;
     try {
-      const content = await window.electronBridge.readFile(configPath);
+      const file = await activeConfig.fileHandle.getFile();
+      const content = await file.text();
       setRawText(content);
       setHasChanges(false);
       setJsonError(null);
@@ -371,7 +375,7 @@ export const ConfigEditor = ({
         </ScrollArea>
       </div>
 
-      {/* Toolbar Section (Only for Editor) */}
+      {/* Toolbar Section */}
       <div className="flex items-center justify-between px-3 sm:px-6 py-2 border-b border-border bg-card/10">
         <div className="flex-1">
           {showSearch ? (
