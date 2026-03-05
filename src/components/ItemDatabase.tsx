@@ -3,13 +3,13 @@ import { Database, Search, Copy, Check, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -112,26 +112,26 @@ export const ItemDatabase = () => {
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
         <Button variant="outline" size="sm" className="gap-2 border-primary/20 hover:bg-primary/10">
           <Database className="w-4 h-4 text-primary" />
           <span className="hidden sm:inline">Item DB</span>
         </Button>
-      </SheetTrigger>
-      <SheetContent side="right" className="w-full sm:w-[450px] p-0 flex flex-col">
-        <SheetHeader className="p-6 border-b border-border">
-          <SheetTitle className="flex items-center gap-2">
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl w-[calc(100vw-2rem)] h-[80vh] max-h-[700px] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="p-6 pb-4 border-b border-border shrink-0">
+          <DialogTitle className="flex items-center gap-2">
             <Database className="w-5 h-5 text-primary" />
             Tarkov Item Database
-          </SheetTitle>
-          <SheetDescription>
+          </DialogTitle>
+          <DialogDescription>
             Live database sync from Tarkov-Dev. Copy IDs formatted for mod configurations.
-          </SheetDescription>
-        </SheetHeader>
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="p-4 space-y-4 flex-1 flex flex-col min-h-0">
-          <div className="relative text-foreground">
+        <div className="p-4 pt-3 flex flex-col flex-1 min-h-0 gap-3">
+          <div className="relative text-foreground shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search items or IDs..."
@@ -141,7 +141,7 @@ export const ItemDatabase = () => {
             />
           </div>
 
-          <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-2 pb-2">
+          <div className="flex flex-wrap gap-1.5 max-h-[100px] overflow-y-auto pr-2 pb-1 shrink-0">
             <Badge 
               variant={selectedCategory === null ? "default" : "outline"}
               className={cn(
@@ -167,8 +167,8 @@ export const ItemDatabase = () => {
             ))}
           </div>
 
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-2 pb-6">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="space-y-2 pr-4 pb-4">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -219,7 +219,7 @@ export const ItemDatabase = () => {
             </div>
           </ScrollArea>
         </div>
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 };
