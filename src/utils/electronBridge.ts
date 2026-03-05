@@ -81,3 +81,21 @@ export const saveFile = async (options: any) => {
   if (!bridge) throw new Error("Electron bridge not available");
   return await bridge.saveFile(options);
 };
+
+export const selectExe = async (options: { title?: string; defaultPath?: string }) => {
+  const bridge = getBridge();
+  if (!bridge) throw new Error("Electron bridge not available");
+  return await bridge.selectExe(options);
+};
+
+export const launchSPT = async (exePath: string) => {
+  const bridge = getBridge();
+  if (!bridge) throw new Error("Electron bridge not available");
+  return await bridge.launchSPT(exePath);
+};
+
+export const fetchTarkovItems = async () => {
+  const bridge = getBridge();
+  if (!bridge) throw new Error("Electron bridge not available");
+  return await bridge.fetchTarkovItems();
+};

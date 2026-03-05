@@ -26,14 +26,24 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
   const [isScanning, setIsScanning] = useState(false);
   const [tip, setTip] = useState("");
   const [showLoadConfirm, setShowLoadConfirm] = useState(false);
-  const [showNewLabel, setShowNewLabel] = useState(() => {
-    return localStorage.getItem("hasSeenUpdateInfo") !== "true";
+  const [hoveredLine, setHoveredLine] = useState<string | null>(null);
+  const [seenFeatures, setSeenFeatures] = useState<Set<string>>(() => {
+    const saved = localStorage.getItem("seen_new_features");
+    return new Set(saved ? JSON.parse(saved) : []);
   });
 
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * tips.length);
     setTip(tips[randomIndex]);
   }, []);
+
+  const markAsSeen = (featureId: string) => {
+    if (seenFeatures.has(featureId)) return;
+    const next = new Set(seenFeatures);
+    next.add(featureId);
+    setSeenFeatures(next);
+    localStorage.setItem("seen_new_features", JSON.stringify(Array.from(next)));
+  };
 
   const handleSelectFolder = async () => {
     try {
@@ -65,13 +75,6 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
       "https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions",
       "_blank"
     );
-  };
-
-  const handleInfoHover = () => {
-    if (showNewLabel) {
-      setShowNewLabel(false);
-      localStorage.setItem("hasSeenUpdateInfo", "true");
-    }
   };
 
   return (
@@ -163,16 +166,25 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
 
           <div 
             className="text-[10px] sm:text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md relative group z-10"
-            onMouseEnter={handleInfoHover}
           >
-            {showNewLabel && (
-              <div className="absolute -top-3 -right-2 bg-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded shadow-lg animate-bounce border border-black/10 z-20 pointer-events-none">
-                NEW!
-              </div>
-            )}
-            <p>• The app will scan for mods in: <span className="text-foreground font-mono">{path || "[path]"}/SPT/user/mods/</span> or <span className="text-foreground font-mono">{path || "[path]"}/user/mods/</span></p>
+            <p className="flex items-center gap-2 cursor-default">
+              • The app will scan for mods in: <span className="text-foreground font-mono">{path || "[path]"}/SPT/user/mods/</span> or <span className="text-foreground font-mono">{path || "[path]"}/user/mods/</span>
+            </p>
             <p>• Only compatible JSON config files will be loaded</p>
             <p>• You can change this path later in settings</p>
+            <p 
+              className="flex items-center gap-2 transition-opacity cursor-default"
+              onMouseEnter={() => {
+                setHoveredLine("test");
+                markAsSeen("test");
+              }}
+              onMouseLeave={() => setHoveredLine(null)}
+            >
+              • Easy SPT Server and Launcher startup.
+              {!seenFeatures.has("test") && hoveredLine !== "test" && (
+                <span className="text-yellow-400 font-black text-[9px] animate-pulse shrink-0">NEW!</span>
+              )}
+            </p>
           </div>
         </div>
       </Card>
