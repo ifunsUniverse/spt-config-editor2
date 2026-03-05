@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { FolderOpen, Upload, Loader2, RefreshCw } from "lucide-react";
+import { FolderOpen, Upload, Loader2, RefreshCw, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { selectFolder, setRootHandle } from "@/utils/electronBridge";
+import { selectFolder } from "@/utils/electronBridge";
 import { tips } from "@/components/ui/tips";
 import {
   AlertDialog,
@@ -17,14 +17,18 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface PathSelectorProps {
-  onFolderSelected: (handle: FileSystemDirectoryHandle, name: string) => void;
+  onFolderSelected: (handle: string) => void;
   onLoadLastFolder: () => void;
 }
 
 export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelectorProps) => {
+  const [path, setPath] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [tip, setTip] = useState("");
   const [showLoadConfirm, setShowLoadConfirm] = useState(false);
+  const [showNewLabel, setShowNewLabel] = useState(() => {
+    return localStorage.getItem("hasSeenUpdateInfo") !== "true";
+  });
 
   useEffect(() => {
     const randomIndex = Math.floor(Math.random() * tips.length);
@@ -36,16 +40,16 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
       setIsScanning(true);
       const result = await selectFolder();
 
-      if (result.canceled || !result.handle) {
+      if (result.canceled || !result.path) {
         setIsScanning(false);
         return;
       }
 
-      setRootHandle(result.handle);
-      localStorage.setItem("lastSPTFolder", result.handle.name);
+      setPath(result.path);
+      localStorage.setItem("lastSPTFolder", result.path);
       toast.success("Folder selected", { description: "Scanning for mods..." });
 
-      onFolderSelected(result.handle, result.handle.name);
+      onFolderSelected(result.path);
     } catch (error: any) {
       console.error("Error selecting folder:", error);
       toast.error("Failed to select folder", {
@@ -63,6 +67,13 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
     );
   };
 
+  const handleInfoHover = () => {
+    if (showNewLabel) {
+      setShowNewLabel(false);
+      localStorage.setItem("hasSeenUpdateInfo", "true");
+    }
+  };
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-background p-4 sm:p-6">
       <Card className="w-full max-w-2xl p-4 sm:p-8 space-y-6 border-border overflow-hidden">
@@ -75,7 +86,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
           </div>
           <p className="text-sm sm:text-base text-muted-foreground">Select your SPT installation directory to begin</p>
 
-          <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border max-w-md mx-auto">
+          <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20 max-w-md mx-auto">
             <p className="text-[10px] sm:text-xs text-foreground">{tip}</p>
           </div>
         </div>
@@ -128,24 +139,40 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder }: PathSelecto
               <AlertDialog open={showLoadConfirm} onOpenChange={setShowLoadConfirm}>
                 <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Re-select Folder</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Browser security requires you to re-select the folder each session. 
-                      Please use the main button to select your SPT folder again.
+                    <AlertDialogTitle>Load Last Folder</AlertDialogTitle>
+                    <AlertDialogDescription className="break-all">
+                      Are you sure you want to load&nbsp;
+                      <span className="font-mono">{localStorage.getItem("lastSPTFolder")}</span>?
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-                    <AlertDialogCancel className="mt-0">OK</AlertDialogCancel>
+                    <AlertDialogCancel className="mt-0">No</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        setShowLoadConfirm(false);
+                        onLoadLastFolder();
+                      }}
+                    >
+                      Yes
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
             </div>
           </div>
 
-          <div className="text-[10px] sm:text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md">
-            <p>• The app will scan for mods in: <span className="text-foreground font-mono">[selected]/SPT/user/mods/</span> or <span className="text-foreground font-mono">[selected]/user/mods/</span></p>
+          <div 
+            className="text-[10px] sm:text-xs text-muted-foreground space-y-1 bg-muted/30 p-3 rounded-md relative group z-10"
+            onMouseEnter={handleInfoHover}
+          >
+            {showNewLabel && (
+              <div className="absolute -top-3 -right-2 bg-yellow-400 text-black text-[10px] font-black px-2 py-0.5 rounded shadow-lg animate-bounce border border-black/10 z-20 pointer-events-none">
+                NEW!
+              </div>
+            )}
+            <p>• The app will scan for mods in: <span className="text-foreground font-mono">{path || "[path]"}/SPT/user/mods/</span> or <span className="text-foreground font-mono">{path || "[path]"}/user/mods/</span></p>
             <p>• Only compatible JSON config files will be loaded</p>
-            <p>• Uses browser File System Access API — works in Chrome/Edge</p>
+            <p>• You can change this path later in settings</p>
           </div>
         </div>
       </Card>

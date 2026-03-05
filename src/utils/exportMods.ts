@@ -1,46 +1,53 @@
 import JSZip from "jszip";
 import { ElectronScannedMod } from "./electronFolderScanner";
 import { readdir, readFile } from "./electronBridge";
+import path from "path-browserify";
 
-async function addDirectoryToZipBrowser(
+/**
+ * Recursively adds all files from an Electron directory path to a JSZip instance
+ */
+async function addDirectoryToZipElectron(
   zip: JSZip,
-  dirHandle: FileSystemDirectoryHandle,
+  dirPath: string,
   basePath: string
 ): Promise<void> {
-  const entries = await readdir(dirHandle);
-
+  const entries = await readdir(dirPath);
+  
   for (const entry of entries) {
+    const fullPath = dirPath.includes("\\") 
+      ? `${dirPath}\\${entry.name}` 
+      : `${dirPath}/${entry.name}`;
     const entryPath = `${basePath}/${entry.name}`;
 
     if (entry.isFile) {
-      const fileHandle = entry.handle as FileSystemFileHandle;
-      const content = await readFile(fileHandle);
+      const content = await readFile(fullPath);
       zip.file(entryPath, content);
     } else if (entry.isDirectory) {
-      const subDir = entry.handle as FileSystemDirectoryHandle;
-      await addDirectoryToZipBrowser(zip, subDir, entryPath);
+      await addDirectoryToZipElectron(zip, fullPath, entryPath);
     }
   }
 }
 
+/**
+ * Exports all scanned mods as a ZIP file using Native Electron Save Dialog
+ */
 export async function exportModsAsZip(
   scannedMods: ElectronScannedMod[],
-  isFourOhStyle: boolean,
+  isFourOhStyle: boolean,                      
   onProgress?: (percent: number, currentFile?: string) => void
-): Promise<void> {
+): Promise<void> {                           
   const zip = new JSZip();
   const baseFolder = isFourOhStyle ? "SPT/user/mods" : "user/mods";
 
   for (const mod of scannedMods) {
-    if (!mod.dirHandle) continue;
     const modFolderName = mod.mod.id;
     const modZipPath = `${baseFolder}/${modFolderName}`;
-    await addDirectoryToZipBrowser(zip, mod.dirHandle, modZipPath);
+    await addDirectoryToZipElectron(zip, mod.folderPath, modZipPath);
   }
 
   const blob = await zip.generateAsync(
     {
-      type: "blob",
+      type: "uint8array",
       compression: "DEFLATE",
       compressionOptions: { level: 5 },
     },
@@ -49,13 +56,17 @@ export async function exportModsAsZip(
     }
   );
 
-  // Browser download
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "SPT_Mods_Backup.zip";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
+  // Use native save dialog
+  const saveResult = await (window as any).electronBridge.saveFile({
+    title: 'Export Mods ZIP',
+    defaultPath: 'SPT_Mods_Backup.zip',
+    filters: [{ name: 'ZIP Files', extensions: ['zip'] }]
+  });
+
+  if (!saveResult.canceled && saveResult.filePath) {
+    // Convert Uint8Array to Buffer-like string for the bridge
+    // Actually, Electron's fs.writeFile handles Buffers/Uint8Arrays directly if passed correctly
+    // But since our bridge expects string, we'll convert or ensure the bridge can handle binary
+    await (window as any).electronBridge.writeFile(saveResult.filePath, blob);
+  }
 }

@@ -18,6 +18,7 @@ export interface ConfigHistory {
 const MAX_HISTORY_PER_CONFIG = 10;
 const MAX_HISTORY_AGE_DAYS = 30;
 
+// ✅ SAVE HISTORY
 export const saveConfigHistory = async (
   modId: string,
   modName: string,
@@ -31,11 +32,13 @@ export const saveConfigHistory = async (
 
   try {
     await writeHistoryBackup(modName, safeConfigName, timestamp, content);
+    await cleanupOldBackups(modName, safeConfigName);
   } catch (error) {
-    console.error("History write failed:", error);
+    console.error("Electron history write failed:", error);
   }
 };
 
+// ✅ GET HISTORY
 export const getConfigHistory = async (
   modId: string,
   modName: string,
@@ -60,11 +63,12 @@ export const getConfigHistory = async (
       }))
       .slice(0, MAX_HISTORY_PER_CONFIG);
   } catch (error) {
-    console.error("History read failed:", error);
+    console.error("Electron read failed:", error);
     return [];
   }
 };
 
+// ✅ CLEAR HISTORY
 export const clearConfigHistory = async (
   modId: string,
   modName: string,
@@ -74,6 +78,22 @@ export const clearConfigHistory = async (
     const safeConfigName = configFile.replace(/[<>:"/\\|?*]/g, "_");
     await clearHistoryBackups(modName, safeConfigName);
   } catch (error) {
-    console.error("History clear failed:", error);
+    console.error("Electron clear failed:", error);
+  }
+};
+
+// ✅ CLEANUP OLD BACKUPS (Electron only)
+const cleanupOldBackups = async (modName: string, safeConfigName: string): Promise<void> => {
+  try {
+    const backups = await readHistoryBackups(modName, safeConfigName);
+
+    if (backups.length > MAX_HISTORY_PER_CONFIG) {
+      const toDelete = backups.slice(MAX_HISTORY_PER_CONFIG);
+      for (const b of toDelete) {
+        await deleteHistoryBackup(modName, b.filename);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to cleanup old backups:", error);
   }
 };
