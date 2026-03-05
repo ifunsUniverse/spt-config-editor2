@@ -18,7 +18,6 @@ export interface ConfigHistory {
 const MAX_HISTORY_PER_CONFIG = 10;
 const MAX_HISTORY_AGE_DAYS = 30;
 
-// ✅ SAVE HISTORY
 export const saveConfigHistory = async (
   modId: string,
   modName: string,
@@ -34,11 +33,10 @@ export const saveConfigHistory = async (
     await writeHistoryBackup(modName, safeConfigName, timestamp, content);
     await cleanupOldBackups(modName, safeConfigName);
   } catch (error) {
-    console.error("Electron history write failed:", error);
+    console.error("History write failed:", error);
   }
 };
 
-// ✅ GET HISTORY
 export const getConfigHistory = async (
   modId: string,
   modName: string,
@@ -51,24 +49,26 @@ export const getConfigHistory = async (
     const maxAge = Date.now() - MAX_HISTORY_AGE_DAYS * 24 * 60 * 60 * 1000;
 
     return backups
-      .filter(b => b.timestamp > maxAge)
-      .map(b => ({
-        modId,
-        modName,
-        configFile,
-        timestamp: b.timestamp,
-        rawJson: JSON.parse(b.content).rawJson,
-        label: JSON.parse(b.content).label || `Backup from ${new Date(b.timestamp).toLocaleString()}`,
-        filename: b.filename,
-      }))
+      .filter((b: any) => b.timestamp > maxAge)
+      .map((b: any) => {
+        const parsed = JSON.parse(b.content);
+        return {
+          modId,
+          modName,
+          configFile,
+          timestamp: b.timestamp,
+          rawJson: parsed.rawJson,
+          label: parsed.label || `Backup from ${new Date(b.timestamp).toLocaleString()}`,
+          filename: b.filename,
+        };
+      })
       .slice(0, MAX_HISTORY_PER_CONFIG);
   } catch (error) {
-    console.error("Electron read failed:", error);
+    console.error("History read failed:", error);
     return [];
   }
 };
 
-// ✅ CLEAR HISTORY
 export const clearConfigHistory = async (
   modId: string,
   modName: string,
@@ -78,11 +78,10 @@ export const clearConfigHistory = async (
     const safeConfigName = configFile.replace(/[<>:"/\\|?*]/g, "_");
     await clearHistoryBackups(modName, safeConfigName);
   } catch (error) {
-    console.error("Electron clear failed:", error);
+    console.error("History clear failed:", error);
   }
 };
 
-// ✅ CLEANUP OLD BACKUPS (Electron only)
 const cleanupOldBackups = async (modName: string, safeConfigName: string): Promise<void> => {
   try {
     const backups = await readHistoryBackups(modName, safeConfigName);
