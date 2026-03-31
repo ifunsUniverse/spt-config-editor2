@@ -350,6 +350,7 @@ const Index = () => {
   };
 
   const handleGoHome = () => {
+    setView("pathSelect");
     setSptPath(null);
     setRootDirHandle(null);
     setScannedMods([]);
