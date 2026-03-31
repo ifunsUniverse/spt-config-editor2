@@ -345,7 +345,7 @@ const Index = () => {
     if (hasUnsavedChanges) {
       setShowHomeConfirm(true);
     } else {
-      handleGoHome();
+      setView("featureSelect");
     }
   };
 
