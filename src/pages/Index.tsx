@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { PathSelector } from "@/components/PathSelector";
+import { FeatureSelect } from "@/components/FeatureSelect";
+import { ModBrowser } from "@/components/ModBrowser";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { SPTControlPanel } from "@/components/SPTControlPanel";
