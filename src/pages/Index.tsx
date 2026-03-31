@@ -434,13 +434,40 @@ const Index = () => {
     }
   }, [selectedModId]);
 
-  if (!sptPath) {
+  const handleFeatureSelect = (feature: "configEditor" | "modBrowser") => {
+    if (feature === "configEditor") {
+      if (scannedMods.length > 0) {
+        setSelectedModId(scannedMods[0].mod.id);
+        setOpenConfigIndices([0]);
+        setActiveConfigIndex(0);
+      }
+      setView("configEditor");
+    } else {
+      setView("modBrowser");
+    }
+  };
+
+  if (view === "pathSelect") {
     return (
       <PathSelector 
         onFolderSelected={handleFolderSelected}
         onLoadLastFolder={handleLoadLastFolder}
       />
     );
+  }
+
+  if (view === "featureSelect") {
+    return (
+      <FeatureSelect
+        onSelectFeature={handleFeatureSelect}
+        onBack={handleGoHome}
+        modCount={scannedMods.length}
+      />
+    );
+  }
+
+  if (view === "modBrowser") {
+    return <ModBrowser onBack={() => setView("featureSelect")} />;
   }
 
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
