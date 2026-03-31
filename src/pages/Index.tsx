@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/sheet";
 
 const Index = () => {
+  const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser">("pathSelect");
   const [sptPath, setSptPath] = useState<string | null>(null);
   const [rootDirHandle, setRootDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
