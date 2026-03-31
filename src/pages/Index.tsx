@@ -170,12 +170,7 @@ const Index = () => {
 
       setScannedMods(mods);
       setSptPath(folderName);
-      
-      if (mods.length > 0) {
-        setSelectedModId(mods[0].mod.id);
-        setOpenConfigIndices([0]);
-        setActiveConfigIndex(0);
-      }
+      setView("featureSelect");
 
       toast.success(`Found ${mods.length} mod(s)`, {
         description: `${mods.reduce((sum, m) => sum + m.configs.length, 0)} config files detected`
