@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { PathSelector } from "@/components/PathSelector";
+import { FeatureSelect } from "@/components/FeatureSelect";
+import { ModBrowser } from "@/components/ModBrowser";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { SPTControlPanel } from "@/components/SPTControlPanel";
@@ -39,6 +41,7 @@ import {
 } from "@/components/ui/sheet";
 
 const Index = () => {
+  const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser">("pathSelect");
   const [sptPath, setSptPath] = useState<string | null>(null);
   const [rootDirHandle, setRootDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
@@ -167,12 +170,7 @@ const Index = () => {
 
       setScannedMods(mods);
       setSptPath(folderName);
-      
-      if (mods.length > 0) {
-        setSelectedModId(mods[0].mod.id);
-        setOpenConfigIndices([0]);
-        setActiveConfigIndex(0);
-      }
+      setView("featureSelect");
 
       toast.success(`Found ${mods.length} mod(s)`, {
         description: `${mods.reduce((sum, m) => sum + m.configs.length, 0)} config files detected`
@@ -347,11 +345,12 @@ const Index = () => {
     if (hasUnsavedChanges) {
       setShowHomeConfirm(true);
     } else {
-      handleGoHome();
+      setView("featureSelect");
     }
   };
 
   const handleGoHome = () => {
+    setView("pathSelect");
     setSptPath(null);
     setRootDirHandle(null);
     setScannedMods([]);
@@ -435,13 +434,40 @@ const Index = () => {
     }
   }, [selectedModId]);
 
-  if (!sptPath) {
+  const handleFeatureSelect = (feature: "configEditor" | "modBrowser") => {
+    if (feature === "configEditor") {
+      if (scannedMods.length > 0) {
+        setSelectedModId(scannedMods[0].mod.id);
+        setOpenConfigIndices([0]);
+        setActiveConfigIndex(0);
+      }
+      setView("configEditor");
+    } else {
+      setView("modBrowser");
+    }
+  };
+
+  if (view === "pathSelect") {
     return (
       <PathSelector 
         onFolderSelected={handleFolderSelected}
         onLoadLastFolder={handleLoadLastFolder}
       />
     );
+  }
+
+  if (view === "featureSelect") {
+    return (
+      <FeatureSelect
+        onSelectFeature={handleFeatureSelect}
+        onBack={handleGoHome}
+        modCount={scannedMods.length}
+      />
+    );
+  }
+
+  if (view === "modBrowser") {
+    return <ModBrowser onBack={() => setView("featureSelect")} />;
   }
 
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
