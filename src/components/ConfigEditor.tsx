@@ -13,6 +13,8 @@ import { ConfigHistory } from "@/components/ConfigHistory";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { CategoryDialog } from "@/components/CategoryDialog";
 import { ItemDatabase } from "./ItemDatabase";
+import { InstalledMods } from "./InstalledMods";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { saveConfigHistory } from "@/utils/configHistory";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
