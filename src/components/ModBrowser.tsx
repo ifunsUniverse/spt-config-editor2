@@ -58,6 +58,7 @@ function useMods(apiKey: string | null) {
 
 interface ModBrowserProps {
   onBack: () => void;
+  rootDirHandle?: FileSystemDirectoryHandle | null;
 }
 
 export const ModBrowser = ({ onBack }: ModBrowserProps) => {
