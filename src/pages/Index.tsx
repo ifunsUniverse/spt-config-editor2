@@ -467,7 +467,7 @@ const Index = () => {
   }
 
   if (view === "modBrowser") {
-    return <ModBrowser onBack={() => setView("featureSelect")} />;
+    return <ModBrowser onBack={() => setView("featureSelect")} rootDirHandle={rootDirHandle} />;
   }
 
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
