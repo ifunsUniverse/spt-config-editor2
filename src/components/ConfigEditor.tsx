@@ -13,6 +13,8 @@ import { ConfigHistory } from "@/components/ConfigHistory";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { CategoryDialog } from "@/components/CategoryDialog";
 import { ItemDatabase } from "./ItemDatabase";
+import { InstalledMods } from "./InstalledMods";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { saveConfigHistory } from "@/utils/configHistory";
 import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
@@ -69,6 +71,7 @@ export const ConfigEditor = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showInstalledMods, setShowInstalledMods] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -252,6 +255,9 @@ export const ConfigEditor = ({
             {/* Desktop Actions */}
             <div className="hidden md:flex gap-2 items-center">
               <ItemDatabase />
+              <Button variant="outline" size="sm" onClick={() => setShowInstalledMods(true)} className="gap-2">
+                <Package className="w-4 h-4" /> Installed Mods
+              </Button>
               {onHome && (
                 <Button variant="outline" size="sm" onClick={onHome} className="gap-2">
                   <Home className="w-4 h-4" /> Home
@@ -459,6 +465,20 @@ export const ConfigEditor = ({
             onCategoryAssigned={(category) => onCategoryChange?.(category)}
           />
         )}
+
+        <Dialog open={showInstalledMods} onOpenChange={setShowInstalledMods}>
+          <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Installed Mods
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 min-h-0">
+              <InstalledMods pluginsPath={null} />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
