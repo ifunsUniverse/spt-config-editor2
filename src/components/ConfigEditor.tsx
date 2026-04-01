@@ -465,6 +465,20 @@ export const ConfigEditor = ({
             onCategoryAssigned={(category) => onCategoryChange?.(category)}
           />
         )}
+
+        <Dialog open={showInstalledMods} onOpenChange={setShowInstalledMods}>
+          <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
+              <DialogTitle className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Installed Mods
+              </DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 min-h-0">
+              <InstalledMods pluginsPath={null} />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
