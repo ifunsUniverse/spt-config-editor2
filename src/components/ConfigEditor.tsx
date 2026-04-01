@@ -42,6 +42,7 @@ interface ConfigEditorProps {
   saveConfigRef?: React.MutableRefObject<(() => void) | null>;
   currentCategory?: string | null;
   sptPath?: string | null;
+  rootDirHandle?: FileSystemDirectoryHandle | null;
   onCategoryChange?: (category: string | null) => void;
   onHome?: () => void;
   onExportMods?: () => void;
