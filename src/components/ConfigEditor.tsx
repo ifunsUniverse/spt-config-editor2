@@ -258,6 +258,7 @@ export const ConfigEditor = ({
               <Button variant="outline" size="sm" onClick={() => setShowInstalledMods(true)} className="gap-2">
                 <Package className="w-4 h-4" /> Installed Mods
               </Button>
+              {onHome && (
                 <Button variant="outline" size="sm" onClick={onHome} className="gap-2">
                   <Home className="w-4 h-4" /> Home
                 </Button>
