@@ -467,7 +467,7 @@ const Index = () => {
   }
 
   if (view === "modBrowser") {
-    return <ModBrowser onBack={() => setView("featureSelect")} />;
+    return <ModBrowser onBack={() => setView("featureSelect")} rootDirHandle={rootDirHandle} />;
   }
 
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
@@ -637,6 +637,7 @@ const Index = () => {
               modId={selectedModId}
               onSave={handleSaveConfig}
               sptPath={sptPath}
+              rootDirHandle={rootDirHandle}
               onChangesDetected={handleChangesDetected}
               onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
               onHome={handleHome}

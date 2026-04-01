@@ -58,9 +58,10 @@ function useMods(apiKey: string | null) {
 
 interface ModBrowserProps {
   onBack: () => void;
+  rootDirHandle?: FileSystemDirectoryHandle | null;
 }
 
-export const ModBrowser = ({ onBack }: ModBrowserProps) => {
+export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<string>("browse");
   const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem("spt-mod-browser-api-key"));
@@ -276,7 +277,7 @@ export const ModBrowser = ({ onBack }: ModBrowserProps) => {
 
         {/* Installed Mods Tab */}
         <TabsContent value="installed" className="flex-1 flex flex-col min-h-0 mt-0">
-          <InstalledMods pluginsPath={pluginsPath} />
+          <InstalledMods pluginsPath={pluginsPath} rootDirHandle={rootDirHandle} />
         </TabsContent>
       </Tabs>
 

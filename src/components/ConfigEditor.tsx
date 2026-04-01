@@ -42,6 +42,7 @@ interface ConfigEditorProps {
   saveConfigRef?: React.MutableRefObject<(() => void) | null>;
   currentCategory?: string | null;
   sptPath?: string | null;
+  rootDirHandle?: FileSystemDirectoryHandle | null;
   onCategoryChange?: (category: string | null) => void;
   onHome?: () => void;
   onExportMods?: () => void;
@@ -66,6 +67,7 @@ export const ConfigEditor = ({
   onHome,
   onExportMods,
   sptPath,
+  rootDirHandle,
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>("");
   const [hasChanges, setHasChanges] = useState(false);
@@ -475,7 +477,7 @@ export const ConfigEditor = ({
               </DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0">
-              <InstalledMods pluginsPath={null} />
+              <InstalledMods pluginsPath={null} rootDirHandle={rootDirHandle} />
             </div>
           </DialogContent>
         </Dialog>
