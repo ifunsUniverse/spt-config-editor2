@@ -71,6 +71,7 @@ export const ConfigEditor = ({
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [showCategoryDialog, setShowCategoryDialog] = useState(false);
+  const [showInstalledMods, setShowInstalledMods] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
