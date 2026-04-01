@@ -255,7 +255,9 @@ export const ConfigEditor = ({
             {/* Desktop Actions */}
             <div className="hidden md:flex gap-2 items-center">
               <ItemDatabase />
-              {onHome && (
+              <Button variant="outline" size="sm" onClick={() => setShowInstalledMods(true)} className="gap-2">
+                <Package className="w-4 h-4" /> Installed Mods
+              </Button>
                 <Button variant="outline" size="sm" onClick={onHome} className="gap-2">
                   <Home className="w-4 h-4" /> Home
                 </Button>
