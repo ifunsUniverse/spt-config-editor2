@@ -637,6 +637,7 @@ const Index = () => {
               modId={selectedModId}
               onSave={handleSaveConfig}
               sptPath={sptPath}
+              rootDirHandle={rootDirHandle}
               onChangesDetected={handleChangesDetected}
               onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
               onHome={handleHome}
