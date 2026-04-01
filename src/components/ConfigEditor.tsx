@@ -67,6 +67,7 @@ export const ConfigEditor = ({
   onHome,
   onExportMods,
   sptPath,
+  rootDirHandle,
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>("");
   const [hasChanges, setHasChanges] = useState(false);
