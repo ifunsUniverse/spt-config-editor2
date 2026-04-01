@@ -61,7 +61,7 @@ interface ModBrowserProps {
   rootDirHandle?: FileSystemDirectoryHandle | null;
 }
 
-export const ModBrowser = ({ onBack }: ModBrowserProps) => {
+export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<string>("browse");
   const [apiKey, setApiKey] = useState<string | null>(() => localStorage.getItem("spt-mod-browser-api-key"));
