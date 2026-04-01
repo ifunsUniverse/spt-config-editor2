@@ -277,7 +277,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
 
         {/* Installed Mods Tab */}
         <TabsContent value="installed" className="flex-1 flex flex-col min-h-0 mt-0">
-          <InstalledMods pluginsPath={pluginsPath} />
+          <InstalledMods pluginsPath={pluginsPath} rootDirHandle={rootDirHandle} />
         </TabsContent>
       </Tabs>
 
