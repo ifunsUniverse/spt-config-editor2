@@ -477,7 +477,7 @@ export const ConfigEditor = ({
               </DialogTitle>
             </DialogHeader>
             <div className="flex-1 min-h-0">
-              <InstalledMods pluginsPath={null} />
+              <InstalledMods pluginsPath={null} rootDirHandle={rootDirHandle} />
             </div>
           </DialogContent>
         </Dialog>
