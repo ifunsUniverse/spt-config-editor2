@@ -26,6 +26,7 @@ import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ElectronScannedConfig } from "@/utils/electronFolderScanner";
+import { loadEditorSettings, type EditorSettings } from "@/utils/editorSettings";
 
 interface ConfigEditorProps {
   modName: string;
