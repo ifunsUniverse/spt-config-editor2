@@ -22,6 +22,15 @@ import { loadEditorSettings, saveEditorSettings, FONT_OPTIONS, type EditorSettin
 export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
   const [showThemeEditor, setShowThemeEditor] = useState(false);
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+
+  const updateEditorSetting = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => {
+    const updated = { ...editorSettings, [key]: value };
+    setEditorSettings(updated);
+    saveEditorSettings(updated);
+    // Dispatch event so ConfigEditor can react
+    window.dispatchEvent(new CustomEvent("editor-settings-changed", { detail: updated }));
+  };
 
   const handleBackup = () => {
     // TODO: implement backup logic
