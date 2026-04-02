@@ -252,15 +252,24 @@ async function getEntryHandle(
 }
 
 const buildDependencyMap = (mods: InstalledMod[]) => {
+  // Maps a mod identifier (normalized) → list of mod folderNames that depend on it
   const map: Record<string, string[]> = {};
+  const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   for (const mod of mods) {
     for (const dep of mod.dependencies || []) {
-      const key = dep.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-      if (!map[key]) map[key] = [];
-
-      map[key].push(mod.folderName);
+      // Store under multiple keys for fuzzy matching:
+      // 1. Raw dependency string (lowercased)
+      const rawKey = dep.toLowerCase();
+      if (!map[rawKey]) map[rawKey] = [];
+      map[rawKey].push(mod.folderName);
+      
+      // 2. Normalized (alphanumeric only)
+      const normKey = normalize(dep);
+      if (normKey !== rawKey) {
+        if (!map[normKey]) map[normKey] = [];
+        map[normKey].push(mod.folderName);
+      }
     }
   }
 
