@@ -129,6 +129,57 @@ export function SettingsDialog() {
                 </RadioGroup>
               </div>
 
+              {/* Editor Customization */}
+              <div className="pt-4 border-t space-y-4">
+                <h4 className="font-semibold text-sm">Code Editor</h4>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs">Font Family</Label>
+                  <Select value={editorSettings.fontFamily} onValueChange={(v) => updateEditorSetting("fontFamily", v)}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_OPTIONS.map((f) => (
+                        <SelectItem key={f.value} value={f.value} className="text-xs">
+                          <span style={{ fontFamily: f.value }}>{f.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Font Size: {editorSettings.fontSize}px</Label>
+                  <Slider
+                    min={10}
+                    max={24}
+                    step={1}
+                    value={[editorSettings.fontSize]}
+                    onValueChange={([v]) => updateEditorSetting("fontSize", v)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Line Height: {editorSettings.lineHeight.toFixed(1)}</Label>
+                  <Slider
+                    min={1.0}
+                    max={2.5}
+                    step={0.1}
+                    value={[editorSettings.lineHeight]}
+                    onValueChange={([v]) => updateEditorSetting("lineHeight", v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Word Wrap</Label>
+                  <Switch
+                    checked={editorSettings.wordWrap === "on"}
+                    onCheckedChange={(v) => updateEditorSetting("wordWrap", v ? "on" : "off")}
+                  />
+                </div>
+              </div>
+
               <div className="pt-4 border-t">
                 <Button
                   onClick={() => setShowThemeEditor(!showThemeEditor)}

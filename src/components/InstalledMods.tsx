@@ -121,7 +121,7 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
   try {
     for await (const entry of (dirHandle as any).values()) {
       // =========================
-      // 🧱 MODS
+      // 🧱 MODS (user/mods - JS/TS server mods)
       // =========================
       if (source === "mods") {
         if (entry.kind !== "directory") continue;
@@ -142,20 +142,9 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
             data = JSON.parse(await file.text());
           } catch {}
 
-          // C# dependencies
-          let csDeps: string[] = [];
-          try {
-            csDeps = await extractDependenciesFromCs(entry);
-          } catch {}
-
-          // JSON dependencies
+          // Extract dependencies from package.json
           const jsonDeps = data?.dependencies ? Object.keys(data.dependencies) : [];
-
-          // merge
-          mod.dependencies = [...csDeps, ...jsonDeps];
-
-          // normalize
-          mod.dependencies = mod.dependencies.map((d) => d.toLowerCase().replace(/[^a-z0-9]/g, ""));
+          mod.dependencies = jsonDeps;
 
           // metadata
           if (data) {
@@ -173,23 +162,37 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
       }
 
       // =========================
-      // 🔌 PLUGINS
+      // 🔌 PLUGINS (BepInEx - compiled .NET DLLs)
       // =========================
       if (source === "plugins") {
         if (entry.kind === "file" && entry.name.endsWith(".dll")) {
+          const dllDeps = await extractDependenciesFromDll(entry as FileSystemFileHandle);
           items.push({
             name: entry.name.replace(".dll", ""),
             folderName: entry.name,
             source,
+            dependencies: dllDeps,
           });
           continue;
         }
 
         if (entry.kind === "directory") {
+          // Scan directory for DLLs to extract dependencies
+          const dirDeps: string[] = [];
+          try {
+            for await (const sub of (entry as any).values()) {
+              if (sub.kind === "file" && sub.name.endsWith(".dll")) {
+                const deps = await extractDependenciesFromDll(sub as FileSystemFileHandle);
+                dirDeps.push(...deps);
+              }
+            }
+          } catch {}
+          
           items.push({
             name: entry.name,
             folderName: entry.name,
             source,
+            dependencies: dirDeps,
           });
         }
       }
