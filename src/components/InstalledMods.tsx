@@ -6,13 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
@@ -23,6 +17,7 @@ export interface InstalledMod {
   author?: string;
   description?: string;
   source: "plugins" | "mods";
+  dependencies?: string[];
 }
 
 interface InstalledModsProps {
@@ -32,6 +27,41 @@ interface InstalledModsProps {
 }
 
 // --- File system helpers ---
+
+async function extractDependenciesFromCs(dirHandle: FileSystemDirectoryHandle): Promise<string[]> {
+  const deps: string[] = [];
+
+  for await (const entry of (dirHandle as any).values()) {
+    if (entry.kind === "file" && entry.name.endsWith(".cs")) {
+      try {
+        const file = await entry.getFile();
+        const text = await file.text();
+
+        // 🔍 Look for ModDependencies block
+        if (text.includes("ModDependencies")) {
+          // Match: "com.something.name"
+          const matches = text.match(/"com\.[^"]+"/g);
+
+          if (matches) {
+            for (const m of matches) {
+              deps.push(m.replace(/"/g, ""));
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("Failed reading .cs file:", entry.name);
+      }
+    }
+
+    // 🔁 recurse into subfolders
+    if (entry.kind === "directory") {
+      const subDeps = await extractDependenciesFromCs(entry);
+      deps.push(...subDeps);
+    }
+  }
+
+  return deps;
+}
 
 async function getSubDir(parent: FileSystemDirectoryHandle, path: string): Promise<FileSystemDirectoryHandle | null> {
   const parts = path.split("/").filter(Boolean);
@@ -57,36 +87,94 @@ async function getOrCreateSubDir(parent: FileSystemDirectoryHandle, path: string
 
 async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins" | "mods"): Promise<InstalledMod[]> {
   const items: InstalledMod[] = [];
+
   try {
     for await (const entry of (dirHandle as any).values()) {
-      if (entry.kind === "directory") {
-        const mod: InstalledMod = { name: entry.name, folderName: entry.name, source };
+      // =========================
+      // 🧱 MODS
+      // =========================
+      if (source === "mods") {
+        if (entry.kind !== "directory") continue;
+
+        const mod: InstalledMod = {
+          name: entry.name,
+          folderName: entry.name,
+          source,
+        };
+
         try {
-          const manifestHandle = await entry.getFileHandle("package.json");
-          const file = await manifestHandle.getFile();
-          const data = JSON.parse(await file.text());
-          mod.name = data.name || entry.name;
-          mod.version = data.version;
-          mod.author = data.author;
-          mod.description = data.description;
-        } catch {
-          // no manifest
+          let data: any = null;
+
+          // package.json
+          try {
+            const manifestHandle = await entry.getFileHandle("package.json");
+            const file = await manifestHandle.getFile();
+            data = JSON.parse(await file.text());
+          } catch {}
+
+          // C# dependencies
+          let csDeps: string[] = [];
+          try {
+            csDeps = await extractDependenciesFromCs(entry);
+          } catch {}
+
+          // JSON dependencies
+          const jsonDeps = data?.dependencies ? Object.keys(data.dependencies) : [];
+
+          // merge
+          mod.dependencies = [...csDeps, ...jsonDeps];
+
+          // normalize
+          mod.dependencies = mod.dependencies.map((d) => d.toLowerCase().replace(/[^a-z0-9]/g, ""));
+
+          // metadata
+          if (data) {
+            mod.name = data.name || entry.name;
+            mod.version = data.version;
+            mod.author = data.author;
+            mod.description = data.description;
+          }
+        } catch (err) {
+          console.warn("Failed to parse mod:", entry.name, err);
         }
+
         items.push(mod);
-      } else if (entry.kind === "file" && entry.name.endsWith(".dll")) {
-        items.push({ name: entry.name.replace(".dll", ""), folderName: entry.name, source });
+        continue;
+      }
+
+      // =========================
+      // 🔌 PLUGINS
+      // =========================
+      if (source === "plugins") {
+        if (entry.kind === "file" && entry.name.endsWith(".dll")) {
+          items.push({
+            name: entry.name.replace(".dll", ""),
+            folderName: entry.name,
+            source,
+          });
+          continue;
+        }
+
+        if (entry.kind === "directory") {
+          items.push({
+            name: entry.name,
+            folderName: entry.name,
+            source,
+          });
+        }
       }
     }
   } catch (err) {
     console.error("Failed to scan folder:", err);
   }
+
   return items.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function copyEntry(
   srcHandle: FileSystemDirectoryHandle | FileSystemFileHandle,
   destParent: FileSystemDirectoryHandle,
-  name: string
+  name: string,
 ) {
   if ((srcHandle as any).kind === "file") {
     const fileHandle = srcHandle as FileSystemFileHandle;
@@ -108,11 +196,7 @@ async function removeEntry(parent: FileSystemDirectoryHandle, name: string) {
   await (parent as any).removeEntry(name, { recursive: true });
 }
 
-async function moveEntry(
-  srcParent: FileSystemDirectoryHandle,
-  destParent: FileSystemDirectoryHandle,
-  name: string
-) {
+async function moveEntry(srcParent: FileSystemDirectoryHandle, destParent: FileSystemDirectoryHandle, name: string) {
   const entry = await getEntryHandle(srcParent, name);
   if (!entry) throw new Error(`Entry "${name}" not found`);
   await copyEntry(entry, destParent, name);
@@ -121,7 +205,7 @@ async function moveEntry(
 
 async function getEntryHandle(
   parent: FileSystemDirectoryHandle,
-  name: string
+  name: string,
 ): Promise<FileSystemDirectoryHandle | FileSystemFileHandle | null> {
   try {
     return await parent.getDirectoryHandle(name);
@@ -134,6 +218,22 @@ async function getEntryHandle(
   }
 }
 
+const buildDependencyMap = (mods: InstalledMod[]) => {
+  const map: Record<string, string[]> = {};
+
+  for (const mod of mods) {
+    for (const dep of mod.dependencies || []) {
+      const key = dep.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+      if (!map[key]) map[key] = [];
+
+      map[key].push(mod.folderName);
+    }
+  }
+
+  return map;
+};
+
 // --- Component ---
 
 export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: InstalledModsProps) => {
@@ -141,9 +241,13 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
   const [activeTab, setActiveTab] = useState<"plugins" | "mods" | "disabled">("plugins");
   const [pluginsMods, setPluginsMods] = useState<InstalledMod[]>([]);
   const [userMods, setUserMods] = useState<InstalledMod[]>([]);
+  const dependencyMap = useMemo(() => {
+    return buildDependencyMap([...pluginsMods, ...userMods]);
+  }, [pluginsMods, userMods]);
   const [disabledMods, setDisabledMods] = useState<InstalledMod[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [hasScanned, setHasScanned] = useState(false);
+  const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   // Manual folder handles (fallback if no rootDirHandle)
   const [manualPluginsHandle, setManualPluginsHandle] = useState<FileSystemDirectoryHandle | null>(null);
@@ -152,29 +256,62 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
   // Disabled mods storage folder
   const [storageHandle, setStorageHandle] = useState<FileSystemDirectoryHandle | null>(null);
   const [showStorageSettings, setShowStorageSettings] = useState(false);
-  const [storageFolderName, setStorageFolderName] = useState<string | null>(
-    () => localStorage.getItem("spt-disabled-storage-name")
+  const [storageFolderName, setStorageFolderName] = useState<string | null>(() =>
+    localStorage.getItem("spt-disabled-storage-name"),
   );
 
+  const [pendingDisable, setPendingDisable] = useState<InstalledMod | null>(null);
+  const [dependentMods, setDependentMods] = useState<string[]>([]);
+
   // Resolved handles
-  const getPluginsDir = useCallback(async (): Promise<FileSystemDirectoryHandle | null> => {
+  const getPluginsDir = useCallback(async () => {
     if (manualPluginsHandle) return manualPluginsHandle;
-    if (rootDirHandle) return getSubDir(rootDirHandle, "BepInEx/plugins");
+
+    if (!rootDirHandle) return null;
+
+    let dir = await getSubDir(rootDirHandle, "BepInEx/plugins");
+    if (dir) return dir;
+
+    const nestedSPT = await getSubDir(rootDirHandle, "SPT");
+    if (nestedSPT) {
+      dir = await getSubDir(nestedSPT, "BepInEx/plugins");
+      if (dir) return dir;
+    }
+
+    console.warn("❌ BepInEx/plugins not found anywhere");
     return null;
   }, [rootDirHandle, manualPluginsHandle]);
 
-  const getModsDir = useCallback(async (): Promise<FileSystemDirectoryHandle | null> => {
+  const getModsDir = useCallback(async () => {
     if (manualModsHandle) return manualModsHandle;
-    if (rootDirHandle) return getSubDir(rootDirHandle, "user/mods");
+
+    if (!rootDirHandle) return null;
+
+    // Try standard path
+    let dir = await getSubDir(rootDirHandle, "user/mods");
+    if (dir) return dir;
+
+    // Try nested SPT folder
+    const nestedSPT = await getSubDir(rootDirHandle, "SPT");
+    if (nestedSPT) {
+      dir = await getSubDir(nestedSPT, "user/mods");
+      if (dir) return dir;
+    }
+
+    console.warn("❌ user/mods not found anywhere");
     return null;
   }, [rootDirHandle, manualModsHandle]);
 
   const doScan = useCallback(async () => {
     setIsScanning(true);
     try {
+      console.log("ROOT:", rootDirHandle?.name);
+
       const pluginsDir = await getPluginsDir();
       const modsDir = await getModsDir();
 
+      console.log("PluginsDir:", pluginsDir?.name);
+      console.log("ModsDir:", modsDir?.name);
       const [plugins, mods] = await Promise.all([
         pluginsDir ? scanFolder(pluginsDir, "plugins") : Promise.resolve([]),
         modsDir ? scanFolder(modsDir, "mods") : Promise.resolve([]),
@@ -253,42 +390,71 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
 
   const handleDisable = async (mod: InstalledMod) => {
     if (!storageHandle) {
-      toast.error("No storage folder set", { description: "Set a disabled mods storage folder first." });
+      toast.error("No storage folder set", {
+        description: "Set a disabled mods storage folder first.",
+      });
       setShowStorageSettings(true);
       return;
     }
 
+    const dependents = dependencyMap[normalize(mod.folderName)] || dependencyMap[normalize(mod.name)] || [];
+
+    if (dependents.length > 0) {
+      setPendingDisable(mod);
+      setDependentMods(dependents);
+      return;
+    }
+
+    await actuallyDisable(mod);
+  };
+
+  const actuallyDisable = async (mod: InstalledMod) => {
     try {
       const srcDir = mod.source === "plugins" ? await getPluginsDir() : await getModsDir();
+
       if (!srcDir) throw new Error("Source folder not available");
 
       const destPath = mod.source === "plugins" ? "BepInEx/plugins" : "user/mods";
-      const destDir = await getOrCreateSubDir(storageHandle, destPath);
+
+      const destDir = await getOrCreateSubDir(storageHandle!, destPath);
 
       await moveEntry(srcDir, destDir, mod.folderName);
+
       toast.success(`Disabled "${mod.name}"`);
       await doScan();
     } catch (err: any) {
-      toast.error("Failed to disable mod", { description: err.message });
+      toast.error("Failed to disable mod", {
+        description: err.message,
+      });
     }
   };
 
   const handleEnable = async (mod: InstalledMod) => {
-    if (!storageHandle) return;
+    if (!storageHandle) {
+      toast.error("No storage folder set");
+      return;
+    }
 
     try {
-      const storagePath = mod.source === "plugins" ? "BepInEx/plugins" : "user/mods";
-      const storageDir = await getSubDir(storageHandle, storagePath);
-      if (!storageDir) throw new Error("Storage sub-folder not found");
+      // Where the mod currently is (disabled storage)
+      const srcPath = mod.source === "plugins" ? "BepInEx/plugins" : "user/mods";
 
+      const srcDir = await getSubDir(storageHandle, srcPath);
+      if (!srcDir) throw new Error("Disabled mod source not found");
+
+      // Where it should go (active install)
       const destDir = mod.source === "plugins" ? await getPluginsDir() : await getModsDir();
+
       if (!destDir) throw new Error("Destination folder not available");
 
-      await moveEntry(storageDir, destDir, mod.folderName);
-      toast.success(`Re-enabled "${mod.name}"`);
+      await moveEntry(srcDir, destDir, mod.folderName);
+
+      toast.success(`Enabled "${mod.name}"`);
       await doScan();
     } catch (err: any) {
-      toast.error("Failed to enable mod", { description: err.message });
+      toast.error("Failed to enable mod", {
+        description: err.message,
+      });
     }
   };
 
@@ -299,7 +465,7 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
       (m) =>
         m.name.toLowerCase().includes(q) ||
         m.folderName.toLowerCase().includes(q) ||
-        m.author?.toLowerCase().includes(q)
+        m.author?.toLowerCase().includes(q),
     );
   };
 
@@ -317,7 +483,9 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
           </div>
           <div className="flex items-center gap-1 shrink-0">
             {mod.version && (
-              <Badge variant="secondary" className="text-[10px]">v{mod.version}</Badge>
+              <Badge variant="secondary" className="text-[10px]">
+                v{mod.version}
+              </Badge>
             )}
             <Badge variant={mod.source === "plugins" ? "outline" : "secondary"} className="text-[10px]">
               {mod.source === "plugins" ? "Plugin" : "Mod"}
@@ -398,7 +566,8 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
           <div>
             <h3 className="text-lg font-semibold text-foreground">No Folders Selected</h3>
             <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-              Select your BepInEx/plugins and user/mods folders to view installed mods, or go back and select your SPT root folder.
+              Select your BepInEx/plugins and user/mods folders to view installed mods, or go back and select your SPT
+              root folder.
             </p>
           </div>
           <div className="flex gap-2">
@@ -419,19 +588,25 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
               <TabsTrigger value="plugins">
                 BepInEx Plugins
                 {pluginsMods.length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1">{pluginsMods.length}</Badge>
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1">
+                    {pluginsMods.length}
+                  </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="mods">
                 User Mods
                 {userMods.length > 0 && (
-                  <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1">{userMods.length}</Badge>
+                  <Badge variant="secondary" className="ml-1.5 text-[10px] h-4 px-1">
+                    {userMods.length}
+                  </Badge>
                 )}
               </TabsTrigger>
               <TabsTrigger value="disabled">
                 Disabled
                 {disabledMods.length > 0 && (
-                  <Badge variant="destructive" className="ml-1.5 text-[10px] h-4 px-1">{disabledMods.length}</Badge>
+                  <Badge variant="destructive" className="ml-1.5 text-[10px] h-4 px-1">
+                    {disabledMods.length}
+                  </Badge>
                 )}
               </TabsTrigger>
             </TabsList>
@@ -496,18 +671,15 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
               Disabled Mods Storage
             </DialogTitle>
             <DialogDescription>
-              Choose a folder to store disabled mods. The app will create <code>BepInEx/plugins</code> and <code>user/mods</code> subfolders inside it to preserve structure.
+              Choose a folder to store disabled mods. The app will create <code>BepInEx/plugins</code> and{" "}
+              <code>user/mods</code> subfolders inside it to preserve structure.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-xs">Storage Folder</Label>
               <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={storageFolderName || "Not set"}
-                  className="text-xs bg-muted/30"
-                />
+                <Input readOnly value={storageFolderName || "Not set"} className="text-xs bg-muted/30" />
                 <Button variant="outline" size="sm" onClick={handleSetStorageFolder} className="gap-1.5 shrink-0">
                   <FolderOpen className="w-3.5 h-3.5" />
                   Browse
@@ -521,17 +693,60 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
               <div className="space-y-2 border-t border-border pt-3">
                 <Label className="text-xs">Manual Folder Selection</Label>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleSelectPluginsFolder} className="flex-1 gap-1.5 text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectPluginsFolder}
+                    className="flex-1 gap-1.5 text-xs"
+                  >
                     <FolderOpen className="w-3.5 h-3.5" />
                     BepInEx/plugins
                   </Button>
-                  <Button variant="outline" size="sm" onClick={handleSelectModsFolder} className="flex-1 gap-1.5 text-xs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectModsFolder}
+                    className="flex-1 gap-1.5 text-xs"
+                  >
                     <FolderOpen className="w-3.5 h-3.5" />
                     user/mods
                   </Button>
                 </div>
               </div>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!pendingDisable} onOpenChange={() => setPendingDisable(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Dependency Warning</DialogTitle>
+            <DialogDescription>
+              The mod <b>{pendingDisable?.name}</b> is required by:
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="text-sm space-y-1 max-h-40 overflow-auto">
+            {dependentMods.map((mod) => (
+              <div key={mod}>• {mod}</div>
+            ))}
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setPendingDisable(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                if (pendingDisable) {
+                  await actuallyDisable(pendingDisable);
+                  setPendingDisable(null);
+                }
+              }}
+            >
+              Disable Anyway
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
