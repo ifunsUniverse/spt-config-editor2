@@ -26,6 +26,7 @@ import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ElectronScannedConfig } from "@/utils/electronFolderScanner";
+import { loadEditorSettings, type EditorSettings } from "@/utils/editorSettings";
 
 interface ConfigEditorProps {
   modName: string;
@@ -79,6 +80,16 @@ export const ConfigEditor = ({
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+
+  // Listen for settings changes from SettingsDialog
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setEditorSettings((e as CustomEvent).detail);
+    };
+    window.addEventListener("editor-settings-changed", handler);
+    return () => window.removeEventListener("editor-settings-changed", handler);
+  }, []);
 
   const viewStatesRef = useRef<Record<string, any>>({});
   const editorRef = useRef<any>(null);
@@ -438,7 +449,10 @@ export const ConfigEditor = ({
                   automaticLayout: true,
                   formatOnPaste: true,
                   formatOnType: true,
-                  fontSize: isMobile ? 12 : 14,
+                  fontSize: isMobile ? 12 : editorSettings.fontSize,
+                  fontFamily: editorSettings.fontFamily,
+                  lineHeight: Math.round(editorSettings.fontSize * editorSettings.lineHeight),
+                  wordWrap: editorSettings.wordWrap,
                   lineNumbers: isMobile ? 'off' : 'on',
                   folding: !isMobile,
                   scrollBeyondLastLine: false,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Moon, Sun, Monitor, Settings } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,23 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { ThemeEditor } from "./ThemeEditor";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { loadEditorSettings, saveEditorSettings, FONT_OPTIONS, type EditorSettings } from "@/utils/editorSettings";
 
 export function SettingsDialog() {
   const { theme, setTheme } = useTheme();
   const [showThemeEditor, setShowThemeEditor] = useState(false);
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+
+  const updateEditorSetting = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => {
+    const updated = { ...editorSettings, [key]: value };
+    setEditorSettings(updated);
+    saveEditorSettings(updated);
+    // Dispatch event so ConfigEditor can react
+    window.dispatchEvent(new CustomEvent("editor-settings-changed", { detail: updated }));
+  };
 
   const handleBackup = () => {
     // TODO: implement backup logic
@@ -114,6 +127,57 @@ export function SettingsDialog() {
                     </Label>
                   </div>
                 </RadioGroup>
+              </div>
+
+              {/* Editor Customization */}
+              <div className="pt-4 border-t space-y-4">
+                <h4 className="font-semibold text-sm">Code Editor</h4>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs">Font Family</Label>
+                  <Select value={editorSettings.fontFamily} onValueChange={(v) => updateEditorSetting("fontFamily", v)}>
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FONT_OPTIONS.map((f) => (
+                        <SelectItem key={f.value} value={f.value} className="text-xs">
+                          <span style={{ fontFamily: f.value }}>{f.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Font Size: {editorSettings.fontSize}px</Label>
+                  <Slider
+                    min={10}
+                    max={24}
+                    step={1}
+                    value={[editorSettings.fontSize]}
+                    onValueChange={([v]) => updateEditorSetting("fontSize", v)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Line Height: {editorSettings.lineHeight.toFixed(1)}</Label>
+                  <Slider
+                    min={1.0}
+                    max={2.5}
+                    step={0.1}
+                    value={[editorSettings.lineHeight]}
+                    onValueChange={([v]) => updateEditorSetting("lineHeight", v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Word Wrap</Label>
+                  <Switch
+                    checked={editorSettings.wordWrap === "on"}
+                    onCheckedChange={(v) => updateEditorSetting("wordWrap", v ? "on" : "off")}
+                  />
+                </div>
               </div>
 
               <div className="pt-4 border-t">

@@ -28,39 +28,69 @@ interface InstalledModsProps {
 
 // --- File system helpers ---
 
-async function extractDependenciesFromCs(dirHandle: FileSystemDirectoryHandle): Promise<string[]> {
+/**
+ * Scan a compiled .NET DLL for BepInDependency attribute strings.
+ * .NET assemblies store attribute string parameters as readable UTF-8/ASCII,
+ * so we can find dependency GUIDs like "com.author.modname" in the binary.
+ */
+async function extractDependenciesFromDll(fileHandle: FileSystemFileHandle): Promise<string[]> {
   const deps: string[] = [];
-
-  for await (const entry of (dirHandle as any).values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".cs")) {
-      try {
-        const file = await entry.getFile();
-        const text = await file.text();
-
-        // 🔍 Look for ModDependencies block
-        if (text.includes("ModDependencies")) {
-          // Match: "com.something.name"
-          const matches = text.match(/"com\.[^"]+"/g);
-
-          if (matches) {
-            for (const m of matches) {
-              deps.push(m.replace(/"/g, ""));
+  try {
+    const file = await fileHandle.getFile();
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    // Convert to string to search for patterns (works for ASCII-range strings in .NET metadata)
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    
+    // BepInDependency attributes store GUIDs like "com.author.modname"
+    const guidPattern = /com\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*/g;
+    const matches = text.match(guidPattern);
+    if (matches) {
+      for (const m of matches) {
+        if (!deps.includes(m)) deps.push(m);
+      }
+    }
+    
+    // Also look for SPT-style mod IDs like "author-ModName" patterns near "BepInDependency"
+    const sptPattern = /[a-zA-Z0-9_]+-[a-zA-Z0-9_]+(?:-[a-zA-Z0-9_]+)*/g;
+    const idx = text.indexOf("BepInDependency");
+    if (idx !== -1) {
+      // Search in a window around each BepInDependency occurrence
+      let searchStart = 0;
+      let pos = text.indexOf("BepInDependency", searchStart);
+      while (pos !== -1) {
+        const window = text.substring(Math.max(0, pos - 100), Math.min(text.length, pos + 200));
+        const sptMatches = window.match(sptPattern);
+        if (sptMatches) {
+          for (const m of sptMatches) {
+            if (m.length > 5 && !m.startsWith("BepIn") && !deps.includes(m)) {
+              deps.push(m);
             }
           }
         }
-      } catch (err) {
-        console.warn("Failed reading .cs file:", entry.name);
+        searchStart = pos + 1;
+        pos = text.indexOf("BepInDependency", searchStart);
       }
     }
-
-    // 🔁 recurse into subfolders
-    if (entry.kind === "directory") {
-      const subDeps = await extractDependenciesFromCs(entry);
-      deps.push(...subDeps);
-    }
+  } catch (err) {
+    console.warn("Failed to scan DLL:", err);
   }
-
   return deps;
+}
+
+/**
+ * Extract dependencies from package.json (for user/mods JS/TS server mods)
+ */
+async function extractDependenciesFromPackageJson(dirHandle: FileSystemDirectoryHandle): Promise<string[]> {
+  try {
+    const fileHandle = await dirHandle.getFileHandle("package.json");
+    const file = await fileHandle.getFile();
+    const data = JSON.parse(await file.text());
+    if (data.dependencies && typeof data.dependencies === "object") {
+      return Object.keys(data.dependencies);
+    }
+  } catch {}
+  return [];
 }
 
 async function getSubDir(parent: FileSystemDirectoryHandle, path: string): Promise<FileSystemDirectoryHandle | null> {
@@ -91,7 +121,7 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
   try {
     for await (const entry of (dirHandle as any).values()) {
       // =========================
-      // 🧱 MODS
+      // 🧱 MODS (user/mods - JS/TS server mods)
       // =========================
       if (source === "mods") {
         if (entry.kind !== "directory") continue;
@@ -112,20 +142,9 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
             data = JSON.parse(await file.text());
           } catch {}
 
-          // C# dependencies
-          let csDeps: string[] = [];
-          try {
-            csDeps = await extractDependenciesFromCs(entry);
-          } catch {}
-
-          // JSON dependencies
+          // Extract dependencies from package.json
           const jsonDeps = data?.dependencies ? Object.keys(data.dependencies) : [];
-
-          // merge
-          mod.dependencies = [...csDeps, ...jsonDeps];
-
-          // normalize
-          mod.dependencies = mod.dependencies.map((d) => d.toLowerCase().replace(/[^a-z0-9]/g, ""));
+          mod.dependencies = jsonDeps;
 
           // metadata
           if (data) {
@@ -143,23 +162,37 @@ async function scanFolder(dirHandle: FileSystemDirectoryHandle, source: "plugins
       }
 
       // =========================
-      // 🔌 PLUGINS
+      // 🔌 PLUGINS (BepInEx - compiled .NET DLLs)
       // =========================
       if (source === "plugins") {
         if (entry.kind === "file" && entry.name.endsWith(".dll")) {
+          const dllDeps = await extractDependenciesFromDll(entry as FileSystemFileHandle);
           items.push({
             name: entry.name.replace(".dll", ""),
             folderName: entry.name,
             source,
+            dependencies: dllDeps,
           });
           continue;
         }
 
         if (entry.kind === "directory") {
+          // Scan directory for DLLs to extract dependencies
+          const dirDeps: string[] = [];
+          try {
+            for await (const sub of (entry as any).values()) {
+              if (sub.kind === "file" && sub.name.endsWith(".dll")) {
+                const deps = await extractDependenciesFromDll(sub as FileSystemFileHandle);
+                dirDeps.push(...deps);
+              }
+            }
+          } catch {}
+          
           items.push({
             name: entry.name,
             folderName: entry.name,
             source,
+            dependencies: dirDeps,
           });
         }
       }
@@ -219,15 +252,24 @@ async function getEntryHandle(
 }
 
 const buildDependencyMap = (mods: InstalledMod[]) => {
+  // Maps a mod identifier (normalized) → list of mod folderNames that depend on it
   const map: Record<string, string[]> = {};
+  const normalize = (str: string) => str.toLowerCase().replace(/[^a-z0-9]/g, "");
 
   for (const mod of mods) {
     for (const dep of mod.dependencies || []) {
-      const key = dep.toLowerCase().replace(/[^a-z0-9]/g, "");
-
-      if (!map[key]) map[key] = [];
-
-      map[key].push(mod.folderName);
+      // Store under multiple keys for fuzzy matching:
+      // 1. Raw dependency string (lowercased)
+      const rawKey = dep.toLowerCase();
+      if (!map[rawKey]) map[rawKey] = [];
+      map[rawKey].push(mod.folderName);
+      
+      // 2. Normalized (alphanumeric only)
+      const normKey = normalize(dep);
+      if (normKey !== rawKey) {
+        if (!map[normKey]) map[normKey] = [];
+        map[normKey].push(mod.folderName);
+      }
     }
   }
 
@@ -473,54 +515,75 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
   const filteredMods = useMemo(() => filterItems(userMods), [userMods, search]);
   const filteredDisabled = useMemo(() => filterItems(disabledMods), [disabledMods, search]);
 
-  const renderModCard = (mod: InstalledMod, mode: "active" | "disabled") => (
-    <Card key={`${mod.source}-${mod.folderName}`} className="border-border">
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Package className="w-4 h-4 text-primary shrink-0" />
-            <h3 className="font-semibold text-sm text-foreground leading-tight truncate">{mod.name}</h3>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {mod.version && (
-              <Badge variant="secondary" className="text-[10px]">
-                v{mod.version}
+  const renderModCard = (mod: InstalledMod, mode: "active" | "disabled") => {
+    const depCount = mod.dependencies?.length || 0;
+    // Check if other mods depend on this one
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const dependents = dependencyMap[norm(mod.folderName)] || dependencyMap[norm(mod.name)] || dependencyMap[mod.folderName.toLowerCase()] || [];
+    
+    return (
+      <Card key={`${mod.source}-${mod.folderName}`} className="border-border">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="w-4 h-4 text-primary shrink-0" />
+              <h3 className="font-semibold text-sm text-foreground leading-tight truncate">{mod.name}</h3>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {mod.version && (
+                <Badge variant="secondary" className="text-[10px]">
+                  v{mod.version}
+                </Badge>
+              )}
+              <Badge variant={mod.source === "plugins" ? "outline" : "secondary"} className="text-[10px]">
+                {mod.source === "plugins" ? "Plugin" : "Mod"}
               </Badge>
-            )}
-            <Badge variant={mod.source === "plugins" ? "outline" : "secondary"} className="text-[10px]">
-              {mod.source === "plugins" ? "Plugin" : "Mod"}
-            </Badge>
+            </div>
           </div>
-        </div>
-        {mod.author && <p className="text-xs text-muted-foreground">by {mod.author}</p>}
-        {mod.description && (
-          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{mod.description}</p>
-        )}
-        <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{mod.folderName}</p>
-        {mode === "active" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs text-destructive hover:text-destructive"
-            onClick={() => handleDisable(mod)}
-          >
-            <PowerOff className="w-3.5 h-3.5" />
-            Disable
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs text-primary hover:text-primary"
-            onClick={() => handleEnable(mod)}
-          >
-            <Power className="w-3.5 h-3.5" />
-            Enable
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
+          {mod.author && <p className="text-xs text-muted-foreground">by {mod.author}</p>}
+          {mod.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{mod.description}</p>
+          )}
+          <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{mod.folderName}</p>
+          
+          {/* Dependency info */}
+          {depCount > 0 && (
+            <div className="text-[10px] text-muted-foreground/80">
+              <span className="font-medium">Requires:</span> {mod.dependencies!.slice(0, 3).join(", ")}
+              {depCount > 3 && ` +${depCount - 3} more`}
+            </div>
+          )}
+          {dependents.length > 0 && mode === "active" && (
+            <div className="text-[10px] text-amber-500">
+              ⚠️ Required by {dependents.length} mod(s)
+            </div>
+          )}
+          
+          {mode === "active" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs text-destructive hover:text-destructive"
+              onClick={() => handleDisable(mod)}
+            >
+              <PowerOff className="w-3.5 h-3.5" />
+              Disable
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs text-primary hover:text-primary"
+              onClick={() => handleEnable(mod)}
+            >
+              <Power className="w-3.5 h-3.5" />
+              Enable
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderEmpty = (message: string) => (
     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
