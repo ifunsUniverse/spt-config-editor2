@@ -80,6 +80,16 @@ export const ConfigEditor = ({
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
+  const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+
+  // Listen for settings changes from SettingsDialog
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setEditorSettings((e as CustomEvent).detail);
+    };
+    window.addEventListener("editor-settings-changed", handler);
+    return () => window.removeEventListener("editor-settings-changed", handler);
+  }, []);
 
   const viewStatesRef = useRef<Record<string, any>>({});
   const editorRef = useRef<any>(null);
