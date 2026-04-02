@@ -515,54 +515,75 @@ export const InstalledMods = ({ pluginsPath, rootDirHandle, onClose }: Installed
   const filteredMods = useMemo(() => filterItems(userMods), [userMods, search]);
   const filteredDisabled = useMemo(() => filterItems(disabledMods), [disabledMods, search]);
 
-  const renderModCard = (mod: InstalledMod, mode: "active" | "disabled") => (
-    <Card key={`${mod.source}-${mod.folderName}`} className="border-border">
-      <CardContent className="p-4 space-y-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Package className="w-4 h-4 text-primary shrink-0" />
-            <h3 className="font-semibold text-sm text-foreground leading-tight truncate">{mod.name}</h3>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {mod.version && (
-              <Badge variant="secondary" className="text-[10px]">
-                v{mod.version}
+  const renderModCard = (mod: InstalledMod, mode: "active" | "disabled") => {
+    const depCount = mod.dependencies?.length || 0;
+    // Check if other mods depend on this one
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const dependents = dependencyMap[norm(mod.folderName)] || dependencyMap[norm(mod.name)] || dependencyMap[mod.folderName.toLowerCase()] || [];
+    
+    return (
+      <Card key={`${mod.source}-${mod.folderName}`} className="border-border">
+        <CardContent className="p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <Package className="w-4 h-4 text-primary shrink-0" />
+              <h3 className="font-semibold text-sm text-foreground leading-tight truncate">{mod.name}</h3>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {mod.version && (
+                <Badge variant="secondary" className="text-[10px]">
+                  v{mod.version}
+                </Badge>
+              )}
+              <Badge variant={mod.source === "plugins" ? "outline" : "secondary"} className="text-[10px]">
+                {mod.source === "plugins" ? "Plugin" : "Mod"}
               </Badge>
-            )}
-            <Badge variant={mod.source === "plugins" ? "outline" : "secondary"} className="text-[10px]">
-              {mod.source === "plugins" ? "Plugin" : "Mod"}
-            </Badge>
+            </div>
           </div>
-        </div>
-        {mod.author && <p className="text-xs text-muted-foreground">by {mod.author}</p>}
-        {mod.description && (
-          <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{mod.description}</p>
-        )}
-        <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{mod.folderName}</p>
-        {mode === "active" ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs text-destructive hover:text-destructive"
-            onClick={() => handleDisable(mod)}
-          >
-            <PowerOff className="w-3.5 h-3.5" />
-            Disable
-          </Button>
-        ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full gap-2 text-xs text-primary hover:text-primary"
-            onClick={() => handleEnable(mod)}
-          >
-            <Power className="w-3.5 h-3.5" />
-            Enable
-          </Button>
-        )}
-      </CardContent>
-    </Card>
-  );
+          {mod.author && <p className="text-xs text-muted-foreground">by {mod.author}</p>}
+          {mod.description && (
+            <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{mod.description}</p>
+          )}
+          <p className="text-[10px] text-muted-foreground/60 font-mono truncate">{mod.folderName}</p>
+          
+          {/* Dependency info */}
+          {depCount > 0 && (
+            <div className="text-[10px] text-muted-foreground/80">
+              <span className="font-medium">Requires:</span> {mod.dependencies!.slice(0, 3).join(", ")}
+              {depCount > 3 && ` +${depCount - 3} more`}
+            </div>
+          )}
+          {dependents.length > 0 && mode === "active" && (
+            <div className="text-[10px] text-amber-500">
+              ⚠️ Required by {dependents.length} mod(s)
+            </div>
+          )}
+          
+          {mode === "active" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs text-destructive hover:text-destructive"
+              onClick={() => handleDisable(mod)}
+            >
+              <PowerOff className="w-3.5 h-3.5" />
+              Disable
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs text-primary hover:text-primary"
+              onClick={() => handleEnable(mod)}
+            >
+              <Power className="w-3.5 h-3.5" />
+              Enable
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+    );
+  };
 
   const renderEmpty = (message: string) => (
     <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
