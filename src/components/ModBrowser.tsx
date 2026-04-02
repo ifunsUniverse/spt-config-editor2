@@ -280,7 +280,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
               variant={needsUpdate ? "default" : "outline"}
               className={`gap-1.5 text-xs shrink-0 h-7 px-3 transition-colors ${
                 needsUpdate
-                  ? "bg-[hsl(var(--success))] text-[hsl(var(--success-foreground))] hover:bg-[hsl(var(--success))]/90"
+                  ? "bg-success text-success-foreground hover:bg-success/90"
                   : "hover:bg-primary hover:text-primary-foreground"
               }`}
               disabled={isDownloading}
