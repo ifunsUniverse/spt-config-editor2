@@ -28,39 +28,69 @@ interface InstalledModsProps {
 
 // --- File system helpers ---
 
-async function extractDependenciesFromCs(dirHandle: FileSystemDirectoryHandle): Promise<string[]> {
+/**
+ * Scan a compiled .NET DLL for BepInDependency attribute strings.
+ * .NET assemblies store attribute string parameters as readable UTF-8/ASCII,
+ * so we can find dependency GUIDs like "com.author.modname" in the binary.
+ */
+async function extractDependenciesFromDll(fileHandle: FileSystemFileHandle): Promise<string[]> {
   const deps: string[] = [];
-
-  for await (const entry of (dirHandle as any).values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".cs")) {
-      try {
-        const file = await entry.getFile();
-        const text = await file.text();
-
-        // 🔍 Look for ModDependencies block
-        if (text.includes("ModDependencies")) {
-          // Match: "com.something.name"
-          const matches = text.match(/"com\.[^"]+"/g);
-
-          if (matches) {
-            for (const m of matches) {
-              deps.push(m.replace(/"/g, ""));
+  try {
+    const file = await fileHandle.getFile();
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    // Convert to string to search for patterns (works for ASCII-range strings in .NET metadata)
+    const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+    
+    // BepInDependency attributes store GUIDs like "com.author.modname"
+    const guidPattern = /com\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*/g;
+    const matches = text.match(guidPattern);
+    if (matches) {
+      for (const m of matches) {
+        if (!deps.includes(m)) deps.push(m);
+      }
+    }
+    
+    // Also look for SPT-style mod IDs like "author-ModName" patterns near "BepInDependency"
+    const sptPattern = /[a-zA-Z0-9_]+-[a-zA-Z0-9_]+(?:-[a-zA-Z0-9_]+)*/g;
+    const idx = text.indexOf("BepInDependency");
+    if (idx !== -1) {
+      // Search in a window around each BepInDependency occurrence
+      let searchStart = 0;
+      let pos = text.indexOf("BepInDependency", searchStart);
+      while (pos !== -1) {
+        const window = text.substring(Math.max(0, pos - 100), Math.min(text.length, pos + 200));
+        const sptMatches = window.match(sptPattern);
+        if (sptMatches) {
+          for (const m of sptMatches) {
+            if (m.length > 5 && !m.startsWith("BepIn") && !deps.includes(m)) {
+              deps.push(m);
             }
           }
         }
-      } catch (err) {
-        console.warn("Failed reading .cs file:", entry.name);
+        searchStart = pos + 1;
+        pos = text.indexOf("BepInDependency", searchStart);
       }
     }
-
-    // 🔁 recurse into subfolders
-    if (entry.kind === "directory") {
-      const subDeps = await extractDependenciesFromCs(entry);
-      deps.push(...subDeps);
-    }
+  } catch (err) {
+    console.warn("Failed to scan DLL:", err);
   }
-
   return deps;
+}
+
+/**
+ * Extract dependencies from package.json (for user/mods JS/TS server mods)
+ */
+async function extractDependenciesFromPackageJson(dirHandle: FileSystemDirectoryHandle): Promise<string[]> {
+  try {
+    const fileHandle = await dirHandle.getFileHandle("package.json");
+    const file = await fileHandle.getFile();
+    const data = JSON.parse(await file.text());
+    if (data.dependencies && typeof data.dependencies === "object") {
+      return Object.keys(data.dependencies);
+    }
+  } catch {}
+  return [];
 }
 
 async function getSubDir(parent: FileSystemDirectoryHandle, path: string): Promise<FileSystemDirectoryHandle | null> {
