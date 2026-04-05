@@ -237,25 +237,28 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   };
 
   const handleDownload = async (mod: BrowsableMod) => {
-    if (!pluginsPath && !localStorage.getItem("spt-plugins-folder-name")) {
-      toast.error("No plugins folder set", {
-        description: "Open Settings and set your BepInEx/plugins folder first.",
-      });
-      setShowSettingsDialog(true);
+    const latestVersion = mod.versions[0];
+    if (!latestVersion?.downloadUrl) {
+      toast.error("No download link available for this mod.");
       return;
     }
 
     setDownloadingIds((prev) => new Set(prev).add(mod.id));
-    toast.info(`Download "${mod.name}" v${mod.versions[0]?.version}`, {
-      description: "Download functionality will be connected once the API is integrated.",
-    });
-    setTimeout(() => {
-      setDownloadingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(mod.id);
-        return next;
-      });
-    }, 1500);
+    try {
+      // Open the download URL in a new tab (the Forge API returns a direct download link)
+      window.open(latestVersion.downloadUrl, "_blank");
+      toast.success(`Downloading "${mod.name}" v${latestVersion.version}`);
+    } catch (err: any) {
+      toast.error("Download failed", { description: err.message });
+    } finally {
+      setTimeout(() => {
+        setDownloadingIds((prev) => {
+          const next = new Set(prev);
+          next.delete(mod.id);
+          return next;
+        });
+      }, 1500);
+    }
   };
 
   const handleSelectPluginsFolder = async () => {
