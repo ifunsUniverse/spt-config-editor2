@@ -204,39 +204,17 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState<string>("recent");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const { mods, isLoading, error } = useMods(apiKey);
+  // Debounce search input for API calls
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-  const sortedMods = useMemo(() => {
-    const sorted = [...mods];
-    switch (sortBy) {
-      case "recent":
-        sorted.sort((a, b) => new Date(b.versions[0]?.releasedAt || 0).getTime() - new Date(a.versions[0]?.releasedAt || 0).getTime());
-        break;
-      case "downloads":
-        sorted.sort((a, b) => (b.totalDownloads || 0) - (a.totalDownloads || 0));
-        break;
-      case "name":
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-    }
-    return sorted;
-  }, [mods, sortBy]);
+  const { mods, isLoading, error, totalPages } = useMods(apiKey, currentPage, debouncedSearch, sortBy);
 
-  const filteredMods = useMemo(() => {
-    if (!search.trim()) return sortedMods;
-    const q = search.toLowerCase();
-    return sortedMods.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.author.toLowerCase().includes(q) ||
-        m.description.toLowerCase().includes(q) ||
-        m.tags?.some((t) => t.toLowerCase().includes(q))
-    );
-  }, [sortedMods, search]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredMods.length / MODS_PER_PAGE));
-  const paginatedMods = filteredMods.slice((currentPage - 1) * MODS_PER_PAGE, currentPage * MODS_PER_PAGE);
+  const paginatedMods = mods;
 
   const handleSaveApiKey = () => {
     if (!apiKeyInput.trim()) return;
