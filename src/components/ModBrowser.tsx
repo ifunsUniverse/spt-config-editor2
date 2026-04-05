@@ -163,7 +163,7 @@ interface ModBrowserProps {
   rootDirHandle?: FileSystemDirectoryHandle | null;
 }
 
-const MODS_PER_PAGE = 6;
+const MODS_PER_PAGE = 15;
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
