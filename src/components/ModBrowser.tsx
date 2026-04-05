@@ -450,7 +450,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
                   <p className="text-destructive font-medium">{error}</p>
                   <Button variant="outline" onClick={handleClearApiKey}>Re-enter API Key</Button>
                 </div>
-              ) : filteredMods.length === 0 ? (
+              ) : mods.length === 0 && !isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                   <p>No mods found matching "{search}"</p>
                 </div>
