@@ -53,29 +53,109 @@ interface ApiKeyPermissions {
   delete: boolean;
 }
 
-// Placeholder hook — will be replaced with real API integration
-function useMods(apiKey: string | null) {
-  const [isLoading] = useState(false);
-  const [error] = useState<string | null>(null);
+const FORGE_API_BASE = "https://forge.sp-tarkov.com/api/v0";
 
-  const mods: BrowsableMod[] = apiKey
-    ? [
-        { id: "1", name: "Realism Mod", author: "AssAssIn", description: "Overhauls ballistics, health, and economics for a more realistic experience. Includes extensive tweaking options for all aspects of gameplay.", thumbnail: "", versions: [{ version: "2.4.1", releasedAt: "2026-03-28T14:30:00Z", downloads: 13900, fileSize: "5.49 MB" }, { version: "2.4.0", releasedAt: "2026-03-20T10:00:00Z", downloads: 8200 }], tags: ["Gameplay", "Hardcore"], sptVersion: "4.0.13", totalDownloads: 22100, category: "Overhauls" },
-        { id: "2", name: "Algorithmic Level Progression", author: "DrakiaXYZ", description: "Adjusts AI difficulty and spawn rates based on player level progression.", versions: [{ version: "1.8.0", releasedAt: "2026-03-25T09:00:00Z", downloads: 4500 }], tags: ["AI", "Progression"], sptVersion: "4.0.13", totalDownloads: 4500, category: "AI" },
-        { id: "3", name: "Looting Bots", author: "Skwizzy", description: "Allows AI bots to loot containers and dead bodies dynamically.", versions: [{ version: "1.3.2", releasedAt: "2026-03-22T16:00:00Z", downloads: 8700 }], tags: ["AI", "Immersion"], sptVersion: "4.0.13", totalDownloads: 8700, category: "AI" },
-        { id: "4", name: "SWAG + DONUTS", author: "nooky", description: "Advanced spawn management and AI patrol patterns for all maps.", versions: [{ version: "3.1.0", releasedAt: "2026-03-30T12:00:00Z", downloads: 11200 }], tags: ["Spawns", "AI"], sptVersion: "4.0.13", totalDownloads: 11200, category: "Spawns" },
-        { id: "5", name: "Amands Graphics", author: "Amands", description: "Post-processing and graphics enhancement tweaks for better visuals.", versions: [{ version: "1.5.4", releasedAt: "2026-03-18T08:00:00Z", downloads: 6300 }], tags: ["Graphics", "Visual"], sptVersion: "4.0.13", totalDownloads: 6300, category: "Graphics" },
-        { id: "6", name: "SAIN - AI Overhaul", author: "Solarint", description: "Complete AI behavior overhaul with advanced combat tactics and awareness.", versions: [{ version: "3.0.1", releasedAt: "2026-03-29T15:14:00Z", downloads: 15600 }], tags: ["AI", "Combat"], sptVersion: "4.0.13", totalDownloads: 15600, category: "AI" },
-        { id: "7", name: "Holster Everything", author: "yung_", description: "HolsterEverything is a server-side SPT mod that expands what can be equipped in the PMC holster slot.", versions: [{ version: "1.0.0", releasedAt: "2026-04-01T06:55:00Z", downloads: 131 }], tags: ["Equipment"], sptVersion: "4.0.13", totalDownloads: 131, category: "Equipment" },
-        { id: "8", name: "Climbable Ladders", author: "tarkin", description: "Adds functional ladder climbing mechanics throughout all maps.", versions: [{ version: "1.0.0", releasedAt: "2026-04-01T12:27:00Z", downloads: 287 }], tags: ["Gameplay"], sptVersion: "4.0.13", totalDownloads: 287, category: "Gameplay" },
-        { id: "9", name: "AllGoodsTrader", author: "Suntion", description: "This mod adds four bilingual traders. Traders buy most items; equipment trader offers repair & insur...", versions: [{ version: "0.5.0", releasedAt: "2026-03-31T11:08:00Z", downloads: 120 }], tags: ["Traders"], sptVersion: "4.0.13", totalDownloads: 120, category: "Traders" },
-        { id: "10", name: "UI Scaling", author: "Dr.Braun", description: "BepInEx client plugin that unlocks UI scaling to properly fill the screen at higher resolutions.", versions: [{ version: "1.0.0", releasedAt: "2026-03-31T12:06:00Z", downloads: 241 }], tags: ["UI", "Client"], sptVersion: "4.0.13", totalDownloads: 241, category: "UI" },
-        { id: "11", name: "Fika Multiplayer", author: "Fika Team", description: "Play SPT with friends. Full multiplayer co-op experience with seamless integration.", versions: [{ version: "2.1.0", releasedAt: "2026-03-09T13:55:00Z", downloads: 13900, fileSize: "5.49 MB" }, { version: "2.0.5", releasedAt: "2026-02-20T10:00:00Z" }], tags: ["Multiplayer", "Co-op"], sptVersion: "4.0.13", totalDownloads: 45000, category: "Multiplayer" },
-        { id: "12", name: "Visceral Bodies", author: "Visceral", description: "Enhanced dismemberment and gore effects for a more visceral combat experience.", versions: [{ version: "1.2.0", releasedAt: "2026-03-15T18:00:00Z", downloads: 3200 }], tags: ["Visual", "Combat"], sptVersion: "4.0.13", totalDownloads: 3200, category: "Visual" },
-      ]
-    : [];
+function useMods(apiKey: string | null, page: number, searchQuery: string, sortBy: string) {
+  const [mods, setMods] = useState<BrowsableMod[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
 
-  return { mods, isLoading, error, totalPages: Math.ceil(mods.length / 6) };
+  const fetchMods = useCallback(async () => {
+    if (!apiKey) {
+      setMods([]);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        include: "versions,category",
+      });
+
+      if (searchQuery.trim()) {
+        params.set("query", searchQuery.trim());
+      }
+
+      // Map sort UI values to API sort params
+      switch (sortBy) {
+        case "downloads":
+          params.set("sort", "-downloads");
+          break;
+        case "name":
+          params.set("sort", "name");
+          break;
+        case "recent":
+        default:
+          params.set("sort", "-updated");
+          break;
+      }
+
+      const res = await fetch(`${FORGE_API_BASE}/mods?${params.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          Accept: "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          throw new Error("Invalid or expired API key. Please re-enter your key.");
+        }
+        throw new Error(`API error: ${res.status} ${res.statusText}`);
+      }
+
+      const json = await res.json();
+
+      // The API returns { data: [...], meta: { current_page, last_page, ... } }
+      const rawMods = json.data || json;
+      const meta = json.meta;
+
+      const mapped: BrowsableMod[] = (Array.isArray(rawMods) ? rawMods : []).map((m: any) => {
+        const versions: ModVersion[] = (m.versions || []).map((v: any) => ({
+          version: v.version || v.spt_version || "unknown",
+          releasedAt: v.created_at || v.updated_at || "",
+          downloadUrl: v.link || v.download_url || "",
+          fileSize: v.file_size ? `${(v.file_size / 1024 / 1024).toFixed(2)} MB` : undefined,
+          downloads: v.downloads || 0,
+        }));
+
+        // Sort versions by date descending so [0] is latest
+        versions.sort((a, b) => new Date(b.releasedAt).getTime() - new Date(a.releasedAt).getTime());
+
+        return {
+          id: String(m.id),
+          name: m.name || "Unknown Mod",
+          author: m.user?.name || m.author || "Unknown",
+          description: m.description || m.summary || "",
+          thumbnail: m.thumbnail || m.banner || m.image || undefined,
+          versions,
+          tags: m.tags || [],
+          sptVersion: m.spt_version || versions[0]?.version || undefined,
+          totalDownloads: m.downloads || 0,
+          category: m.category?.name || m.category || undefined,
+        };
+      });
+
+      setMods(mapped);
+      setTotalPages(meta?.last_page || Math.max(1, Math.ceil((meta?.total || mapped.length) / 6)));
+    } catch (err: any) {
+      console.error("Forge API error:", err);
+      setError(err.message || "Failed to fetch mods");
+      setMods([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiKey, page, searchQuery, sortBy]);
+
+  useEffect(() => {
+    fetchMods();
+  }, [fetchMods]);
+
+  return { mods, isLoading, error, totalPages, refetch: fetchMods };
 }
 
 interface ModBrowserProps {
