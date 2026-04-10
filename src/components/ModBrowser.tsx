@@ -112,16 +112,16 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
 
       const json = await res.json();
 
-      // The API returns { data: [...], meta: { current_page, last_page, ... } }
-      const rawMods = json.data || json;
+      // The API returns { success: true, data: [...], meta: { ... } }
+      const rawMods = json.data || [];
       const meta = json.meta;
 
       const mapped: BrowsableMod[] = (Array.isArray(rawMods) ? rawMods : []).map((m: any) => {
         const versions: ModVersion[] = (m.versions || []).map((v: any) => ({
-          version: v.version || v.spt_version || "unknown",
-          releasedAt: v.created_at || v.updated_at || "",
-          downloadUrl: v.link || v.download_url || "",
-          fileSize: v.file_size ? `${(v.file_size / 1024 / 1024).toFixed(2)} MB` : undefined,
+          version: v.version || "unknown",
+          releasedAt: v.published_at || v.created_at || "",
+          downloadUrl: v.link || "",
+          fileSize: v.content_length ? `${(v.content_length / 1024 / 1024).toFixed(2)} MB` : undefined,
           downloads: v.downloads || 0,
         }));
 
@@ -131,14 +131,14 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
         return {
           id: String(m.id),
           name: m.name || "Unknown Mod",
-          author: m.user?.name || m.author || "Unknown",
-          description: m.description || m.summary || "",
-          thumbnail: m.thumbnail || m.banner || m.image || undefined,
+          author: m.owner?.name || "Unknown",
+          description: m.teaser || m.description || "",
+          thumbnail: m.thumbnail || undefined,
           versions,
           tags: m.tags || [],
-          sptVersion: m.spt_version || versions[0]?.version || undefined,
+          sptVersion: versions[0]?.version ? `${versions[0].version}` : undefined,
           totalDownloads: m.downloads || 0,
-          category: m.category?.name || m.category || undefined,
+          category: m.category?.name || undefined,
         };
       });
 
