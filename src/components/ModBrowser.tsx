@@ -81,16 +81,18 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
       }
 
       // Map sort UI values to API sort params
+      // API allows: name, featured, created_at, updated_at, published_at
       switch (sortBy) {
         case "downloads":
-          params.set("sort", "-downloads");
+          // API doesn't support sorting by downloads, fall back to featured + recent
+          params.set("sort", "-updated_at");
           break;
         case "name":
           params.set("sort", "name");
           break;
         case "recent":
         default:
-          params.set("sort", "-updated");
+          params.set("sort", "-updated_at");
           break;
       }
 
