@@ -136,7 +136,7 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
           thumbnail: m.thumbnail || undefined,
           versions,
           tags: m.tags || [],
-          sptVersion: versions[0]?.version ? `${versions[0].version}` : undefined,
+          sptVersion: (m.versions || []).length > 0 ? (m.versions[0]?.spt_version_constraint || undefined) : undefined,
           totalDownloads: m.downloads || 0,
           category: m.category?.name || undefined,
         };
