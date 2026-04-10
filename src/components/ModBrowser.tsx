@@ -239,17 +239,31 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   };
 
   const handleDownload = async (mod: BrowsableMod) => {
-    const latestVersion = mod.versions[0];
-    if (!latestVersion?.downloadUrl) {
-      toast.error("No download link available for this mod.");
-      return;
-    }
-
     setDownloadingIds((prev) => new Set(prev).add(mod.id));
     try {
-      // Open the download URL in a new tab (the Forge API returns a direct download link)
-      window.open(latestVersion.downloadUrl, "_blank");
-      toast.success(`Downloading "${mod.name}" v${latestVersion.version}`);
+      let downloadUrl = mod.versions[0]?.downloadUrl;
+
+      // If no download URL from included versions, fetch from the versions endpoint
+      if (!downloadUrl && apiKey) {
+        const versionsRes = await fetch(`${FORGE_API_BASE}/mod/${mod.id}/versions?fields=id,version,link&per_page=1&sort=-published_at`, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
+          },
+        });
+        if (versionsRes.ok) {
+          const versionsJson = await versionsRes.json();
+          downloadUrl = versionsJson.data?.[0]?.link || "";
+        }
+      }
+
+      if (!downloadUrl) {
+        toast.error("No download link available for this mod.");
+        return;
+      }
+
+      window.open(downloadUrl, "_blank");
+      toast.success(`Downloading "${mod.name}" v${mod.versions[0]?.version || "latest"}`);
     } catch (err: any) {
       toast.error("Download failed", { description: err.message });
     } finally {
