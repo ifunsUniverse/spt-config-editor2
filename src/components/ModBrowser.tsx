@@ -121,6 +121,9 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
           version: v.version || "unknown",
           releasedAt: v.published_at || v.created_at || "",
           downloadUrl: v.link || "",
+          sptVersionConstraint: v.spt_version_constraint || "",
+          fileSize: v.content_length ? `${(v.content_length / 1024 / 1024).toFixed(2)} MB` : undefined,
+          downloadUrl: v.link || "",
           fileSize: v.content_length ? `${(v.content_length / 1024 / 1024).toFixed(2)} MB` : undefined,
           downloads: v.downloads || 0,
         }));
