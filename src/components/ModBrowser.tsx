@@ -387,7 +387,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full max-h-screen bg-background overflow-hidden">
       {/* Header */}
       <div className="border-b border-border px-4 py-3 flex items-center gap-3 shrink-0">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
@@ -493,17 +493,41 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
                         Prev
                       </Button>
                       <div className="flex items-center gap-1">
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                          <Button
-                            key={page}
-                            variant={page === currentPage ? "default" : "ghost"}
-                            size="sm"
-                            className="w-8 h-8 p-0 text-xs"
-                            onClick={() => setCurrentPage(page)}
-                          >
-                            {page}
-                          </Button>
-                        ))}
+                        {(() => {
+                          const maxVisible = 7;
+                          let start = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                          let end = Math.min(totalPages, start + maxVisible - 1);
+                          if (end - start < maxVisible - 1) start = Math.max(1, end - maxVisible + 1);
+                          const pages: number[] = [];
+                          for (let i = start; i <= end; i++) pages.push(i);
+                          return (
+                            <>
+                              {start > 1 && (
+                                <>
+                                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0 text-xs" onClick={() => setCurrentPage(1)}>1</Button>
+                                  {start > 2 && <span className="text-xs text-muted-foreground px-1">…</span>}
+                                </>
+                              )}
+                              {pages.map((page) => (
+                                <Button
+                                  key={page}
+                                  variant={page === currentPage ? "default" : "ghost"}
+                                  size="sm"
+                                  className="w-8 h-8 p-0 text-xs"
+                                  onClick={() => setCurrentPage(page)}
+                                >
+                                  {page}
+                                </Button>
+                              ))}
+                              {end < totalPages && (
+                                <>
+                                  {end < totalPages - 1 && <span className="text-xs text-muted-foreground px-1">…</span>}
+                                  <Button variant="ghost" size="sm" className="w-8 h-8 p-0 text-xs" onClick={() => setCurrentPage(totalPages)}>{totalPages}</Button>
+                                </>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                       <Button
                         variant="outline"
