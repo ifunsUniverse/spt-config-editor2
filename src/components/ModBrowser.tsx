@@ -81,16 +81,18 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
       }
 
       // Map sort UI values to API sort params
+      // API allows: name, featured, created_at, updated_at, published_at
       switch (sortBy) {
         case "downloads":
-          params.set("sort", "-downloads");
+          // API doesn't support sorting by downloads, fall back to featured + recent
+          params.set("sort", "-updated_at");
           break;
         case "name":
           params.set("sort", "name");
           break;
         case "recent":
         default:
-          params.set("sort", "-updated");
+          params.set("sort", "-updated_at");
           break;
       }
 
@@ -110,16 +112,16 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
 
       const json = await res.json();
 
-      // The API returns { data: [...], meta: { current_page, last_page, ... } }
-      const rawMods = json.data || json;
+      // The API returns { success: true, data: [...], meta: { ... } }
+      const rawMods = json.data || [];
       const meta = json.meta;
 
       const mapped: BrowsableMod[] = (Array.isArray(rawMods) ? rawMods : []).map((m: any) => {
         const versions: ModVersion[] = (m.versions || []).map((v: any) => ({
-          version: v.version || v.spt_version || "unknown",
-          releasedAt: v.created_at || v.updated_at || "",
-          downloadUrl: v.link || v.download_url || "",
-          fileSize: v.file_size ? `${(v.file_size / 1024 / 1024).toFixed(2)} MB` : undefined,
+          version: v.version || "unknown",
+          releasedAt: v.published_at || v.created_at || "",
+          downloadUrl: v.link || "",
+          fileSize: v.content_length ? `${(v.content_length / 1024 / 1024).toFixed(2)} MB` : undefined,
           downloads: v.downloads || 0,
         }));
 
@@ -129,14 +131,14 @@ function useMods(apiKey: string | null, page: number, searchQuery: string, sortB
         return {
           id: String(m.id),
           name: m.name || "Unknown Mod",
-          author: m.user?.name || m.author || "Unknown",
-          description: m.description || m.summary || "",
-          thumbnail: m.thumbnail || m.banner || m.image || undefined,
+          author: m.owner?.name || "Unknown",
+          description: m.teaser || m.description || "",
+          thumbnail: m.thumbnail || undefined,
           versions,
           tags: m.tags || [],
-          sptVersion: m.spt_version || versions[0]?.version || undefined,
+          sptVersion: (m.versions || []).length > 0 ? (m.versions[0]?.spt_version_constraint || undefined) : undefined,
           totalDownloads: m.downloads || 0,
-          category: m.category?.name || m.category || undefined,
+          category: m.category?.name || undefined,
         };
       });
 
@@ -237,17 +239,31 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
   };
 
   const handleDownload = async (mod: BrowsableMod) => {
-    const latestVersion = mod.versions[0];
-    if (!latestVersion?.downloadUrl) {
-      toast.error("No download link available for this mod.");
-      return;
-    }
-
     setDownloadingIds((prev) => new Set(prev).add(mod.id));
     try {
-      // Open the download URL in a new tab (the Forge API returns a direct download link)
-      window.open(latestVersion.downloadUrl, "_blank");
-      toast.success(`Downloading "${mod.name}" v${latestVersion.version}`);
+      let downloadUrl = mod.versions[0]?.downloadUrl;
+
+      // If no download URL from included versions, fetch from the versions endpoint
+      if (!downloadUrl && apiKey) {
+        const versionsRes = await fetch(`${FORGE_API_BASE}/mod/${mod.id}/versions?fields=id,version,link&per_page=1&sort=-published_at`, {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: "application/json",
+          },
+        });
+        if (versionsRes.ok) {
+          const versionsJson = await versionsRes.json();
+          downloadUrl = versionsJson.data?.[0]?.link || "";
+        }
+      }
+
+      if (!downloadUrl) {
+        toast.error("No download link available for this mod.");
+        return;
+      }
+
+      window.open(downloadUrl, "_blank");
+      toast.success(`Downloading "${mod.name}" v${mod.versions[0]?.version || "latest"}`);
     } catch (err: any) {
       toast.error("Download failed", { description: err.message });
     } finally {
