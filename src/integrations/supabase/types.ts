@@ -14,64 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
-      suggestions: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          author_name: string;
-          votes: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          description: string;
-          author_name?: string;
-          votes?: number;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string;
-          author_name?: string;
-          votes?: number;
-          created_at?: string;
-        };
-      };
       bug_reports: {
         Row: {
-          id: string;
-          title: string;
-          description: string;
-          steps_to_reproduce: string | null;
-          severity: string;
-          author_name: string;
-          status: string;
-          created_at: string;
-        };
+          author_name: string
+          created_at: string
+          description: string
+          id: string
+          severity: string
+          status: string
+          steps_to_reproduce: string | null
+          title: string
+        }
         Insert: {
-          id?: string;
-          title: string;
-          description: string;
-          steps_to_reproduce?: string | null;
-          severity?: string;
-          author_name?: string;
-          status?: string;
-          created_at?: string;
-        };
+          author_name?: string
+          created_at?: string
+          description: string
+          id?: string
+          severity?: string
+          status?: string
+          steps_to_reproduce?: string | null
+          title: string
+        }
         Update: {
-          id?: string;
-          title?: string;
-          description?: string;
-          steps_to_reproduce?: string | null;
-          severity?: string;
-          author_name?: string;
-          status?: string;
-          created_at?: string;
-        };
-      };
+          author_name?: string
+          created_at?: string
+          description?: string
+          id?: string
+          severity?: string
+          status?: string
+          steps_to_reproduce?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      suggestions: {
+        Row: {
+          author_name: string
+          created_at: string
+          description: string
+          id: string
+          title: string
+          votes: number
+        }
+        Insert: {
+          author_name?: string
+          created_at?: string
+          description: string
+          id?: string
+          title: string
+          votes?: number
+        }
+        Update: {
+          author_name?: string
+          created_at?: string
+          description?: string
+          id?: string
+          title?: string
+          votes?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
