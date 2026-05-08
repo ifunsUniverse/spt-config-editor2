@@ -43,7 +43,7 @@ export class ElectronFileHandle {
   async getFile(): Promise<File> {
     const raw = await window.sptElectron!.invoke("fs:readBinary", { path: this.path });
     const bytes = decodeBytes(raw);
-    return new File([bytes], this.name);
+    return new File([bytes as BlobPart], this.name);
   }
 
   async createWritable() {
