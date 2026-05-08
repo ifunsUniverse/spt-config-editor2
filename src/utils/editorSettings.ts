@@ -5,6 +5,11 @@ export interface EditorSettings {
   fontFamily: string;
   lineHeight: number;
   wordWrap: "on" | "off";
+  theme: "vs-dark" | "vs" | "spt-dark" | "spt-light";
+  minimap: boolean;
+  stickyScroll: boolean;
+  renderWhitespace: "none" | "selection" | "boundary" | "all";
+  fontLigatures: boolean;
 }
 
 export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
@@ -12,6 +17,11 @@ export const DEFAULT_EDITOR_SETTINGS: EditorSettings = {
   fontFamily: "JetBrains Mono, Fira Code, Consolas, monospace",
   lineHeight: 1.6,
   wordWrap: "on",
+  theme: "spt-dark",
+  minimap: true,
+  stickyScroll: true,
+  renderWhitespace: "selection",
+  fontLigatures: true,
 };
 
 export const FONT_OPTIONS = [
@@ -22,6 +32,20 @@ export const FONT_OPTIONS = [
   { label: "Source Code Pro", value: "Source Code Pro, monospace" },
   { label: "Monaco", value: "Monaco, monospace" },
 ];
+
+export const EDITOR_THEME_OPTIONS = [
+  { label: "SPT Dark (Recommended)", value: "spt-dark" },
+  { label: "SPT Light", value: "spt-light" },
+  { label: "VS Code Dark", value: "vs-dark" },
+  { label: "VS Code Light", value: "vs" },
+] as const;
+
+export const WHITESPACE_OPTIONS = [
+  { label: "None", value: "none" },
+  { label: "Selection", value: "selection" },
+  { label: "Boundary", value: "boundary" },
+  { label: "All", value: "all" },
+] as const;
 
 export function loadEditorSettings(): EditorSettings {
   try {

@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ChevronRight, Star, Clock, FileJson, Folder } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { splitCamelCase, cn } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -37,6 +36,7 @@ export interface ConfigFile {
 interface ModListProps {
   mods: Mod[];
   configFiles: Record<string, ConfigFile[]>;
+  configErrorIndicesByMod?: Record<string, number[]>;
   selectedModId: string | null;
   selectedConfigIndex: number | null;
   onSelectMod: (modId: string, configIndex?: number) => void;
@@ -51,6 +51,7 @@ interface ModListProps {
 export const ModList = ({
   mods,
   configFiles,
+  configErrorIndicesByMod = {},
   selectedModId,
   selectedConfigIndex,
   onSelectMod,
@@ -120,7 +121,7 @@ export const ModList = ({
   }, [configFiles]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
+    <div className="flex flex-col flex-1 h-full min-h-0 min-w-0 overflow-hidden bg-background">
       <div className="p-4 border-b border-border shrink-0">
         <Input
           ref={searchInputRef}
@@ -131,13 +132,15 @@ export const ModList = ({
         />
       </div>
 
-      <ScrollArea className="flex-1 no-scrollbar">
-        <div className="flex flex-col gap-2.5 py-4 px-4">
+      <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden no-scrollbar">
+        <div className="flex w-full flex-col gap-2.5 py-4 px-4">
           {filteredMods.map((mod) => {
             const lastEditTime = getModEditTime(mod.id);
             const isSelectedMod = selectedModId === mod.id;
             const isExpanded = !!expandedMods[mod.id];
             const isFavorited = favoritedModIds.has(mod.id);
+            const errorIndices = new Set(configErrorIndicesByMod[mod.id] || []);
+            const hasErrorInMod = errorIndices.size > 0;
             const modGroup = groupedFiles[mod.id] || { root: [], folders: {} };
 
             return (
@@ -146,10 +149,12 @@ export const ModList = ({
                   <ContextMenuTrigger>
                     <Card 
                       className={cn(
-                        "relative transition-all duration-200 border-border overflow-hidden w-full max-w-full",
+                        "relative h-auto transition-all duration-200 border-border overflow-hidden w-full max-w-full",
                         "mx-0",
-                        isSelectedMod 
-                          ? "ring-2 ring-primary bg-accent/30 shadow-md" 
+                        hasErrorInMod
+                          ? "ring-2 ring-red-500/70 border-red-500/60 bg-red-500/15 shadow-md shadow-red-500/20"
+                          : isSelectedMod 
+                          ? "ring-2 ring-blue-400/70 border-blue-400/60 bg-blue-500/18 shadow-md shadow-blue-500/20" 
                           : "bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm",
                         isExpanded && "pb-2"
                       )}
@@ -178,7 +183,7 @@ export const ModList = ({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start gap-1.5 mb-0.5">
-                            <span className="font-bold text-sm text-foreground whitespace-normal break-all leading-tight">
+                            <span className="font-bold text-sm text-foreground whitespace-normal break-words leading-tight">
                               {splitCamelCase(mod.name)}
                             </span>
                             {modCategories[mod.id] && (
@@ -226,6 +231,7 @@ export const ModList = ({
                             <ConfigButton 
                               key={cfg.index}
                               cfg={cfg} 
+                              hasError={errorIndices.has(cfg.index)}
                               isSelected={isSelectedMod && selectedConfigIndex === cfg.index} 
                               onClick={() => onSelectMod(mod.id, cfg.index)} 
                             />
@@ -240,7 +246,7 @@ export const ModList = ({
                               <div key={folderName} className="space-y-0.5">
                                 <button
                                   onClick={() => toggleFolder(mod.id, folderName)}
-                                  className="flex items-center gap-2 w-full text-left px-2 py-1 rounded-md text-[11px] hover:bg-accent/30 text-muted-foreground/80 transition-colors"
+                                  className="flex items-center gap-2 w-full text-left px-2 py-1 rounded-md text-[11px] hover:bg-blue-500/10 text-foreground/80 hover:text-foreground transition-colors"
                                 >
                                   <ChevronRight className={cn(
                                     "h-3 w-3 transition-transform",
@@ -257,6 +263,7 @@ export const ModList = ({
                                       <ConfigButton 
                                         key={cfg.index}
                                         cfg={cfg} 
+                                        hasError={errorIndices.has(cfg.index)}
                                         isSelected={isSelectedMod && selectedConfigIndex === cfg.index} 
                                         onClick={() => onSelectMod(mod.id, cfg.index)} 
                                       />
@@ -289,7 +296,7 @@ export const ModList = ({
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
@@ -297,19 +304,23 @@ export const ModList = ({
 /**
  * Sub-component for individual config file buttons to maintain styling
  */
-const ConfigButton = ({ cfg, isSelected, onClick }: { cfg: ConfigFile; isSelected: boolean; onClick: () => void }) => (
+const ConfigButton = ({ cfg, isSelected, hasError, onClick }: { cfg: ConfigFile; isSelected: boolean; hasError?: boolean; onClick: () => void }) => (
   <button
     onClick={onClick}
     className={cn(
-      "flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-[11px] transition-colors",
-      isSelected
-        ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-        : "hover:bg-accent/50 text-muted-foreground hover:text-foreground"
+      "flex items-center gap-2 w-full text-left px-2.5 py-1.5 rounded-md text-[11px] transition-colors border",
+      hasError
+        ? isSelected
+          ? "bg-red-600 text-white font-semibold shadow-sm border-red-500"
+          : "bg-red-500/10 text-red-200 border-red-500/40 hover:bg-red-500/20"
+        : isSelected
+          ? "bg-blue-500/90 text-white font-semibold shadow-sm border-blue-500/70"
+          : "border-transparent hover:bg-blue-500/10 text-foreground/85 hover:text-foreground"
     )}
   >
     <FileJson className={cn(
       "h-3 w-3 shrink-0",
-      isSelected ? "text-primary-foreground" : "text-muted-foreground/50"
+      hasError ? "text-red-300" : isSelected ? "text-white" : "text-foreground/55"
     )} />
     <span className="block truncate">{cfg.fileName.split(/[\\/]/).pop()}</span>
   </button>

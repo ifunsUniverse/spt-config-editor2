@@ -5,28 +5,142 @@
 
 import { ConfigValue } from "@/utils/configHelpers";
 import { Mod } from "@/components/ModList";
+import { DirectoryHandleLike, ElectronDirectoryHandle, ElectronFileHandle } from "@/utils/electronBridge";
 import JSON5 from "json5";
+
+// ─── Scan Cache ──────────────────────────────────────────────────────────────
+const SCAN_CACHE_KEY = "spt_scan_cache_v1";
+
+interface ScanCache {
+  rootPath: string;
+  /** Sorted list of mod folder names — used as a quick staleness check. */
+  modFolderNames: string[];
+  mods: Array<{
+    mod: Mod;
+    folderPath: string;
+    absoluteFolderPath: string;
+    configs: Array<{
+      fileName: string;
+      rawJson: any;
+      filePath: string;
+      index: number;
+      absoluteFilePath: string;
+    }>;
+  }>;
+}
+
+const isElectronAvailable = () => Boolean((window as any).sptElectron?.invoke);
+
+/** Persist a scan result so it can be restored without re-scanning. */
+export async function saveScanCache(
+  rootHandle: DirectoryHandleLike,
+  mods: ElectronScannedMod[]
+): Promise<void> {
+  if (!isElectronAvailable() || !(rootHandle instanceof ElectronDirectoryHandle)) return;
+  try {
+    const cache: ScanCache = {
+      rootPath: rootHandle.path,
+      modFolderNames: mods.map((m) => m.folderPath).sort(),
+      mods: mods.map((m) => ({
+        mod: m.mod,
+        folderPath: m.folderPath,
+        absoluteFolderPath: (m.dirHandle as ElectronDirectoryHandle).path,
+        configs: m.configs.map((c) => ({
+          fileName: c.fileName,
+          rawJson: c.rawJson,
+          filePath: c.filePath,
+          index: c.index,
+          absoluteFilePath: (c.fileHandle as ElectronFileHandle).path,
+        })),
+      })),
+    };
+    await (window as any).sptElectron.invoke("store:write", {
+      key: SCAN_CACHE_KEY,
+      content: JSON.stringify(cache),
+    });
+  } catch (e) {
+    console.warn("[scanCache] Failed to save", e);
+  }
+}
+
+/**
+ * Try to restore a previous scan result.
+ * Returns null if nothing is cached, the cache is stale, or reconstruction fails.
+ * Staleness is checked with a single readdir against the mods directory.
+ */
+export async function loadScanCache(
+  rootHandle: DirectoryHandleLike
+): Promise<ElectronScannedMod[] | null> {
+  if (!isElectronAvailable() || !(rootHandle instanceof ElectronDirectoryHandle)) return null;
+  try {
+    const raw = await (window as any).sptElectron.invoke("store:read", { key: SCAN_CACHE_KEY });
+    if (!raw) return null;
+
+    const cache: ScanCache = JSON.parse(raw);
+    if (cache.rootPath !== rootHandle.path) return null;
+
+    // Find the mods directory with one existence check per candidate.
+    const candidates = [
+      rootHandle.path + "/SPT/user/mods",
+      rootHandle.path + "/user/mods",
+    ];
+    let modsDirPath: string | null = null;
+    for (const p of candidates) {
+      const exists = await (window as any).sptElectron.invoke("fs:exists", { path: p, kind: "directory" });
+      if (exists) { modsDirPath = p; break; }
+    }
+    if (!modsDirPath) return null;
+
+    // Single fast readdir to check for added/removed mod folders.
+    const entries: Array<{ name: string; kind: string }> = await (window as any).sptElectron.invoke(
+      "fs:readDir", { path: modsDirPath }
+    );
+    const currentFolders = entries
+      .filter((e) => e.kind === "directory")
+      .map((e) => e.name)
+      .sort()
+      .join(",");
+    if (currentFolders !== cache.modFolderNames.join(",")) return null;
+
+    // Cache is valid — reconstruct handles from stored paths.
+    return cache.mods.map((cm) => ({
+      mod: cm.mod,
+      folderPath: cm.folderPath,
+      dirHandle: new ElectronDirectoryHandle(cm.absoluteFolderPath),
+      configs: cm.configs.map((cc) => ({
+        fileName: cc.fileName,
+        rawJson: cc.rawJson,
+        filePath: cc.filePath,
+        index: cc.index,
+        fileHandle: new ElectronFileHandle(cc.absoluteFilePath),
+      })),
+    }));
+  } catch (e) {
+    console.warn("[scanCache] Failed to load", e);
+    return null;
+  }
+}
 
 export interface ElectronScannedConfig {
   fileName: string;
   rawJson: any;
   filePath: string;
   index: number;
-  fileHandle: FileSystemFileHandle;
+  fileHandle: FileSystemFileHandle | ElectronFileHandle;
 }
 
 export interface ElectronScannedMod {
   mod: Mod;
   configs: ElectronScannedConfig[];
   folderPath: string;
-  dirHandle: FileSystemDirectoryHandle;
+  dirHandle: DirectoryHandleLike;
 }
 
 /**
  * Scan an SPT installation directory for mods.
  * Accepts the root FileSystemDirectoryHandle from the picker.
  */
-export async function scanSPTFolderElectron(rootHandle: FileSystemDirectoryHandle): Promise<ElectronScannedMod[]> {
+export async function scanSPTFolderElectron(rootHandle: DirectoryHandleLike): Promise<ElectronScannedMod[]> {
   // Try standard SPT mod paths
   const paths = [
     ["SPT", "user", "mods"],
@@ -50,12 +164,12 @@ export async function scanSPTFolderElectron(rootHandle: FileSystemDirectoryHandl
   return [];
 }
 
-async function scanModsDirectory(modsDir: FileSystemDirectoryHandle): Promise<ElectronScannedMod[]> {
+async function scanModsDirectory(modsDir: DirectoryHandleLike): Promise<ElectronScannedMod[]> {
   const scannedMods: ElectronScannedMod[] = [];
 
   for await (const [name, handle] of (modsDir as any).entries()) {
     if (handle.kind !== "directory") continue;
-    const modData = await scanModFolder(handle as FileSystemDirectoryHandle, name);
+    const modData = await scanModFolder(handle as DirectoryHandleLike, name);
     if (modData) scannedMods.push(modData);
   }
 
@@ -63,7 +177,7 @@ async function scanModsDirectory(modsDir: FileSystemDirectoryHandle): Promise<El
 }
 
 async function scanModFolder(
-  dirHandle: FileSystemDirectoryHandle,
+  dirHandle: DirectoryHandleLike,
   folderName: string
 ): Promise<ElectronScannedMod | null> {
   try {
@@ -98,7 +212,7 @@ async function scanModFolder(
 }
 
 async function scanConfigFilesRecursive(
-  dirHandle: FileSystemDirectoryHandle,
+  dirHandle: DirectoryHandleLike,
   basePath: string
 ): Promise<ElectronScannedConfig[]> {
   const configs: ElectronScannedConfig[] = [];
@@ -106,13 +220,13 @@ async function scanConfigFilesRecursive(
   for await (const [name, handle] of (dirHandle as any).entries()) {
     if (handle.kind === "directory") {
       if (name === "node_modules" || name === ".git" || name === ".svn") continue;
-      const subDir = handle as FileSystemDirectoryHandle;
+      const subDir = handle as DirectoryHandleLike;
       const subPath = basePath ? `${basePath}/${name}` : name;
       const subConfigs = await scanConfigFilesRecursive(subDir, subPath);
       configs.push(...subConfigs);
     } else if (handle.kind === "file" && /\.(json|jsonc|json5|txt|cfg|conf|log)$/i.test(name)) {
       try {
-        const fileHandle = handle as FileSystemFileHandle;
+        const fileHandle = handle as FileSystemFileHandle | ElectronFileHandle;
         const relativePath = basePath ? `${basePath}/${name}` : name;
 
         let parsed = null;

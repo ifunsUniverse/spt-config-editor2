@@ -1,28 +1,34 @@
-import { useState, useEffect } from "react";
-import { Moon, Sun, Monitor, Settings } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useState } from "react";
+import { Settings, ShieldAlert, Sparkles, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { ThemeEditor } from "./ThemeEditor";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { loadEditorSettings, saveEditorSettings, FONT_OPTIONS, type EditorSettings } from "@/utils/editorSettings";
+import {
+  DEFAULT_EDITOR_SETTINGS,
+  loadEditorSettings,
+  saveEditorSettings,
+  FONT_OPTIONS,
+  WHITESPACE_OPTIONS,
+  type EditorSettings,
+} from "@/utils/editorSettings";
+import { clearEditHistory } from "@/utils/editTracking";
+import { DEFAULT_APP_SETTINGS, loadAppSettings, saveAppSettings, updateAppSettings, type AppSettings } from "@/utils/appSettings";
+import { openExternal } from "@/utils/electronBridge";
+import { toast } from "sonner";
 
 export function SettingsDialog() {
-  const { theme, setTheme } = useTheme();
-  const [showThemeEditor, setShowThemeEditor] = useState(false);
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
+  const [appSettings, setAppSettings] = useState<AppSettings>(loadAppSettings);
 
   const updateEditorSetting = <K extends keyof EditorSettings>(key: K, value: EditorSettings[K]) => {
     const updated = { ...editorSettings, [key]: value };
@@ -32,21 +38,70 @@ export function SettingsDialog() {
     window.dispatchEvent(new CustomEvent("editor-settings-changed", { detail: updated }));
   };
 
-  const handleBackup = () => {
-    // TODO: implement backup logic
-    console.log("Backup configs");
+  const updateAppSetting = <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
+    const updated = updateAppSettings(appSettings, key, value);
+    setAppSettings(updated);
   };
 
-  const handleRestore = () => {
-    // TODO: implement restore logic
-    console.log("Restore configs");
+  const resetEditorSettings = () => {
+    const defaults = { ...DEFAULT_EDITOR_SETTINGS };
+    setEditorSettings(defaults);
+    saveEditorSettings(defaults);
+    window.dispatchEvent(new CustomEvent("editor-settings-changed", { detail: defaults }));
+    toast.success("Editor settings reset to defaults");
+  };
+
+  const resetAppSettings = () => {
+    const defaults = { ...DEFAULT_APP_SETTINGS };
+    setAppSettings(defaults);
+    saveAppSettings(defaults);
+    window.dispatchEvent(new CustomEvent("app-settings-changed", { detail: defaults }));
+    toast.success("App settings reset to defaults");
   };
 
   const handleCheckUpdates = () => {
-    window.open(
-      "https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions",
-      "_blank"
-    );
+    void openExternal("https://forge.sp-tarkov.com/mod/2379/spt-mod-config-editor#versions");
+  };
+
+  const clearFavorites = () => {
+    localStorage.removeItem("spt-favorites");
+    toast.success("Favorites cleared", { description: "Restart or reload to refresh the list immediately." });
+  };
+
+  const clearRecentEdits = () => {
+    clearEditHistory();
+    toast.success("Recent edit history cleared");
+  };
+
+  const clearSavedSession = () => {
+    localStorage.removeItem("lastSession");
+    toast.success("Saved session cleared");
+  };
+
+  const clearSavedFolder = () => {
+    localStorage.removeItem("lastSPTFolder");
+    localStorage.removeItem("lastSPTFolderPath");
+    toast.success("Saved folder cleared");
+  };
+
+  const clearCategoryAssignments = () => {
+    localStorage.removeItem("spt_categories");
+    localStorage.removeItem("modCategories");
+    toast.success("Category assignments cleared", {
+      description: "Reload to fully refresh category badges and counts."
+    });
+  };
+
+  const clearScanCache = async () => {
+    localStorage.removeItem("spt_scan_cache_v1");
+    try {
+      if (window.sptElectron?.invoke) {
+        await window.sptElectron.invoke("store:write", { key: "spt_scan_cache_v1", content: "" });
+      }
+      toast.success("Scan cache cleared");
+    } catch {
+      toast.success("Local cache cleared", { description: "Electron cache could not be cleared in this mode." });
+    }
   };
 
   return (
@@ -57,82 +112,88 @@ export function SettingsDialog() {
           <span className="sr-only">Open settings</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[86vh] overflow-y-auto p-0 gap-0">
         <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>
-            Customize your SPT Config Editor experience
-          </DialogDescription>
+          <div className="px-6 pt-6 pb-3 border-b border-border bg-card/40">
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Settings className="h-5 w-5 text-primary" />
+              Settings
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">
+              Real controls for startup flow, editor behavior, and data maintenance.
+            </p>
+          </div>
         </DialogHeader>
 
-        <Tabs defaultValue="general" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
-            <TabsTrigger value="advanced">Advanced</TabsTrigger>
+        <Tabs defaultValue="app" className="w-full px-6 pb-6 pt-4">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="app" className="gap-1"><Sparkles className="h-3.5 w-3.5" /> App</TabsTrigger>
+            <TabsTrigger value="editor" className="gap-1"><Wrench className="h-3.5 w-3.5" /> Editor</TabsTrigger>
+            <TabsTrigger value="data" className="gap-1"><ShieldAlert className="h-3.5 w-3.5" /> Data</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="general" className="space-y-6 mt-4">
-            {/* Data & Storage */}
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">Data & Storage</h3>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleBackup}>Backup Configs</Button>
-                <Button variant="outline" onClick={handleRestore}>Restore Configs</Button>
+          <TabsContent value="app" className="space-y-4 mt-0">
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-4">
+              <h3 className="font-semibold text-sm">Startup & Workflow</h3>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex flex-col gap-1">
+                  <span className="font-medium">Remember Last Open File</span>
+                  <span className="text-muted-foreground">Reopens your last mod/config when available.</span>
+                </Label>
+                <Switch
+                  checked={appSettings.rememberLastSession}
+                  onCheckedChange={(value) => updateAppSetting("rememberLastSession", value)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex flex-col gap-1">
+                  <span className="font-medium">Auto-Load Last Folder on Launch</span>
+                  <span className="text-muted-foreground">Skips path picker and opens your previous SPT folder.</span>
+                </Label>
+                <Switch
+                  checked={appSettings.autoLoadLastFolderOnLaunch}
+                  onCheckedChange={(value) => updateAppSetting("autoLoadLastFolderOnLaunch", value)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex flex-col gap-1">
+                  <span className="font-medium">Use Cache When Loading Last Folder</span>
+                  <span className="text-muted-foreground">Faster startup when mod folders are unchanged.</span>
+                </Label>
+                <Switch
+                  checked={appSettings.useCacheWhenLoadingLastFolder}
+                  onCheckedChange={(value) => updateAppSetting("useCacheWhenLoadingLastFolder", value)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label className="text-xs flex flex-col gap-1">
+                  <span className="font-medium">Show Startup Tips</span>
+                  <span className="text-muted-foreground">Displays rotating tips on the folder selection screen.</span>
+                </Label>
+                <Switch
+                  checked={appSettings.showStartupTips}
+                  onCheckedChange={(value) => updateAppSetting("showStartupTips", value)}
+                />
               </div>
             </div>
 
-            {/* Updates */}
-            <div className="space-y-2">
-              <h3 className="font-semibold text-lg">Updates</h3>
-              <Button onClick={handleCheckUpdates}>Check for Updates</Button>
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-3">
+              <h3 className="font-semibold text-sm">Maintenance</h3>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={handleCheckUpdates}>Check for Updates</Button>
+                <Button variant="outline" size="sm" onClick={resetAppSettings}>Reset App Settings</Button>
+              </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="appearance" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Theme</Label>
-                <RadioGroup value={theme} onValueChange={setTheme}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="light" id="light" />
-                    <Label
-                      htmlFor="light"
-                      className="flex items-center gap-2 font-normal cursor-pointer"
-                    >
-                      <Sun className="h-4 w-4" />
-                      Light
-                    </Label>
-                  </div>
+          <TabsContent value="editor" className="space-y-4 mt-0">
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-4">
+              <h3 className="font-semibold text-sm">Code Editor</h3>
 
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="dark" id="dark" />
-                    <Label
-                      htmlFor="dark"
-                      className="flex items-center gap-2 font-normal cursor-pointer"
-                    >
-                      <Moon className="h-4 w-4" />
-                      Dark
-                    </Label>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="system" id="system" />
-                    <Label
-                      htmlFor="system"
-                      className="flex items-center gap-2 font-normal cursor-pointer"
-                    >
-                      <Monitor className="h-4 w-4" />
-                      System
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* Editor Customization */}
-              <div className="pt-4 border-t space-y-4">
-                <h4 className="font-semibold text-sm">Code Editor</h4>
-                
                 <div className="space-y-2">
                   <Label className="text-xs">Font Family</Label>
                   <Select value={editorSettings.fontFamily} onValueChange={(v) => updateEditorSetting("fontFamily", v)}>
@@ -178,46 +239,72 @@ export function SettingsDialog() {
                     onCheckedChange={(v) => updateEditorSetting("wordWrap", v ? "on" : "off")}
                   />
                 </div>
-              </div>
 
-              <div className="pt-4 border-t">
-                <Button
-                  onClick={() => setShowThemeEditor(!showThemeEditor)}
-                  className="w-full"
-                  variant="outline"
-                >
-                  🎨 {showThemeEditor ? "Hide" : "Open"} Theme Editor
-                </Button>
-                
-                {showThemeEditor && (
-                  <div className="mt-4">
-                    <ThemeEditor />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Label className="text-xs">Render Whitespace</Label>
+                  <Select
+                    value={editorSettings.renderWhitespace}
+                    onValueChange={(v) =>
+                      updateEditorSetting("renderWhitespace", v as EditorSettings["renderWhitespace"])
+                    }
+                  >
+                    <SelectTrigger className="text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WHITESPACE_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value} className="text-xs">
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Minimap</Label>
+                  <Switch
+                    checked={editorSettings.minimap}
+                    onCheckedChange={(v) => updateEditorSetting("minimap", v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Sticky Scroll</Label>
+                  <Switch
+                    checked={editorSettings.stickyScroll}
+                    onCheckedChange={(v) => updateEditorSetting("stickyScroll", v)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Font Ligatures</Label>
+                  <Switch
+                    checked={editorSettings.fontLigatures}
+                    onCheckedChange={(v) => updateEditorSetting("fontLigatures", v)}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Button variant="outline" size="sm" onClick={resetEditorSettings}>Reset Editor Settings</Button>
+                </div>
               </div>
-            </div>
           </TabsContent>
 
-          <TabsContent value="advanced" className="space-y-4 mt-4">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="clear-categories" className="flex flex-col gap-1">
-                  <span className="font-medium">Reset Categories</span>
-                  <span className="text-sm text-muted-foreground">
-                    Remove all mod category assignments
-                  </span>
-                </Label>
-                <Button
-                  id="clear-categories"
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => {
-                    localStorage.removeItem('modCategories');
-                    window.location.reload();
-                  }}
-                >
-                  Reset
-                </Button>
+          <TabsContent value="data" className="space-y-4 mt-0">
+            <div className="rounded-lg border border-border bg-card/30 p-4 space-y-3">
+              <h3 className="font-semibold text-sm">Clear Stored Data</h3>
+              <p className="text-xs text-muted-foreground">
+                Use these when troubleshooting stale state, startup issues, or cleaning your workspace.
+              </p>
+
+              <div className="grid sm:grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" onClick={clearFavorites}>Clear Favorites</Button>
+                <Button variant="outline" size="sm" onClick={clearRecentEdits}>Clear Recent Edits</Button>
+                <Button variant="outline" size="sm" onClick={clearSavedSession}>Clear Saved Session</Button>
+                <Button variant="outline" size="sm" onClick={clearSavedFolder}>Clear Saved Folder</Button>
+                <Button variant="outline" size="sm" onClick={clearScanCache}>Clear Scan Cache</Button>
+                <Button variant="destructive" size="sm" onClick={clearCategoryAssignments}>Reset Categories</Button>
               </div>
             </div>
           </TabsContent>

@@ -62,11 +62,6 @@ export const CATEGORIES: Category[] = [
   }
 ];
 
-export const getCategoryColor = (categoryName: string): string => {
-  const category = CATEGORIES.find(c => c.name === categoryName);
-  return category ? category.color : "bg-gray-500";
-};
-
 export const getCategoryBgColor = (categoryName: string): string => {
   const category = CATEGORIES.find(c => c.name === categoryName);
   return category ? category.bgColor : "bg-gray-500";

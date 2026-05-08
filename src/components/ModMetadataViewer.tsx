@@ -6,6 +6,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { openExternal } from "@/utils/electronBridge";
 
 export interface ModMetadata {
   name?: string;
@@ -73,7 +74,7 @@ export const ModMetadataViewer = ({ metadata, modName }: ModMetadataViewerProps)
                   variant="outline"
                   size="sm"
                   className="gap-1 text-xs"
-                  onClick={() => window.open(metadata.homepage, '_blank')}
+                  onClick={() => void openExternal(metadata.homepage!)}
                 >
                   <ExternalLink className="h-3 w-3" />
                   Homepage
@@ -84,7 +85,7 @@ export const ModMetadataViewer = ({ metadata, modName }: ModMetadataViewerProps)
                   variant="outline"
                   size="sm"
                   className="gap-1 text-xs"
-                  onClick={() => window.open(metadata.repository, '_blank')}
+                  onClick={() => void openExternal(metadata.repository!)}
                 >
                   <ExternalLink className="h-3 w-3" />
                   GitHub

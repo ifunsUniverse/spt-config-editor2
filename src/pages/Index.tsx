@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { PathSelector } from "@/components/PathSelector";
 import { FeatureSelect } from "@/components/FeatureSelect";
 import { ModBrowser } from "@/components/ModBrowser";
+import { CommunityHub } from "@/components/CommunityHub";
 import { ModList, Mod, ConfigFile } from "@/components/ModList";
 import { ConfigEditor } from "@/components/ConfigEditor";
 import { SPTControlPanel } from "@/components/SPTControlPanel";
@@ -9,7 +10,8 @@ import { ConfigValue } from "@/utils/configHelpers";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { CategoryDialog } from "@/components/CategoryDialog";
-import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron } from "@/utils/electronFolderScanner";
+import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron, saveScanCache, loadScanCache } from "@/utils/electronFolderScanner";
+import { DirectoryHandleLike, loadLastSelectedFolder, rememberLastSelectedFolder } from "@/utils/electronBridge";
 import { exportModsAsZip } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
 import { 
@@ -20,6 +22,7 @@ import {
 } from "@/utils/categoryStorage";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { loadAppSettings, type AppSettings } from "@/utils/appSettings";
 import { toast } from "sonner";
 import { Package, Download, Upload, Trash2, FolderOpen, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,12 +44,13 @@ import {
 } from "@/components/ui/sheet";
 
 const Index = () => {
-  const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser">("pathSelect");
+  const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser" | "community">("pathSelect");
   const [sptPath, setSptPath] = useState<string | null>(null);
-  const [rootDirHandle, setRootDirHandle] = useState<FileSystemDirectoryHandle | null>(null);
+  const [rootDirHandle, setRootDirHandle] = useState<DirectoryHandleLike | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [scannedMods, setScannedMods] = useState<ElectronScannedMod[]>([]);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanningSource, setScanningSource] = useState<"select" | "last" | undefined>(undefined);
   const [openConfigIndices, setOpenConfigIndices] = useState<number[]>([0]);
   const [activeConfigIndex, setActiveConfigIndex] = useState(0);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -60,6 +64,7 @@ const Index = () => {
   const [showZipDialog, setShowZipDialog] = useState(false);
   const isMobile = useIsMobile();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [appSettings, setAppSettings] = useState<AppSettings>(loadAppSettings);
 
   const [favoritedModIds, setFavoritedModIds] = useState<Set<string>>(() => {
     try {
@@ -78,15 +83,27 @@ const Index = () => {
   const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
   const [showValidationSummary, setShowValidationSummary] = useState(false);
   const [categoryTargetModId, setCategoryTargetModId] = useState<string | null>(null);
+  const [configErrorIndicesByMod, setConfigErrorIndicesByMod] = useState<Record<string, number[]>>({});
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
+  const hasRestoredSessionRef = useRef(false);
+  const hasAutoLoadedFolderRef = useRef(false);
 
   useEffect(() => {
-    const remember = JSON.parse(localStorage.getItem("rememberLastSession") || "false");
+    const handler = (event: Event) => {
+      setAppSettings((event as CustomEvent<AppSettings>).detail);
+    };
+    window.addEventListener("app-settings-changed", handler);
+    return () => window.removeEventListener("app-settings-changed", handler);
+  }, []);
+
+  useEffect(() => {
+    if (hasRestoredSessionRef.current) return;
+
     const lastSession = localStorage.getItem("lastSession");
 
-    if (remember && lastSession && sptPath) {
+    if (appSettings.rememberLastSession && lastSession && sptPath) {
       try {
         const { modId, configFile } = JSON.parse(lastSession);
         const mod = scannedMods.find(m => m.mod.id === modId);
@@ -96,18 +113,40 @@ const Index = () => {
             setSelectedModId(modId);
             setOpenConfigIndices([configIndex]);
             setActiveConfigIndex(configIndex);
+            hasRestoredSessionRef.current = true;
           }
         }
       } catch (e) {
         console.error("Failed to restore last session:", e);
       }
     }
-  }, [sptPath, scannedMods]);
+  }, [appSettings.rememberLastSession, sptPath, scannedMods]);
 
   useEffect(() => {
-    loadCategories().then(categories => {
-      setModCategories(categories);
-    });
+    if (hasAutoLoadedFolderRef.current) return;
+    if (!appSettings.autoLoadLastFolderOnLaunch) return;
+    if (view !== "pathSelect" || isScanning) return;
+
+    hasAutoLoadedFolderRef.current = true;
+    void handleLoadLastFolder();
+  }, [appSettings.autoLoadLastFolderOnLaunch, view, isScanning]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    loadCategories()
+      .then((categories) => {
+        if (isMounted) {
+          setModCategories(categories);
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to load categories:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -153,14 +192,34 @@ const Index = () => {
       return bTime - aTime;
     });
 
-  const handleFolderSelected = async (dirHandle: FileSystemDirectoryHandle) => {
+  const handleFolderSelected = async (dirHandle: DirectoryHandleLike, opts?: { useCache?: boolean; source?: "select" | "last" }) => {
     setIsScanning(true);
+    setScanningSource(opts?.source ?? "select");
+    hasRestoredSessionRef.current = false;
     try {
+      setConfigErrorIndicesByMod({});
       setRootDirHandle(dirHandle);
       const folderName = dirHandle.name;
-      localStorage.setItem('lastSPTFolder', folderName);
-      const mods = await scanSPTFolderElectron(dirHandle);
-      
+      rememberLastSelectedFolder(dirHandle);
+
+      let mods: ElectronScannedMod[];
+      let fromCache = false;
+
+      if (opts?.useCache) {
+        const cached = await loadScanCache(dirHandle);
+        if (cached) {
+          mods = cached;
+          fromCache = true;
+        } else {
+          mods = await scanSPTFolderElectron(dirHandle);
+          saveScanCache(dirHandle, mods).catch(() => {});
+        }
+      } else {
+        mods = await scanSPTFolderElectron(dirHandle);
+        // Always update the cache after a fresh user-initiated scan.
+        saveScanCache(dirHandle, mods).catch(() => {});
+      }
+
       if (mods.length === 0) {
         toast.warning("No mods found", {
           description: "No compatible mod configs were found in the user/mods directory"
@@ -173,7 +232,9 @@ const Index = () => {
       setView("featureSelect");
 
       toast.success(`Found ${mods.length} mod(s)`, {
-        description: `${mods.reduce((sum, m) => sum + m.configs.length, 0)} config files detected`
+        description: `${mods.reduce((sum, m) => sum + m.configs.length, 0)} config files detected${
+          fromCache ? " (loaded from cache)" : ""
+        }`
       });
     } catch (error: any) {
       toast.error("Scan failed", {
@@ -181,6 +242,7 @@ const Index = () => {
       });
     } finally {
       setIsScanning(false);
+      setScanningSource(undefined);
     }
   };
 
@@ -405,11 +467,23 @@ const Index = () => {
   };
 
   const handleLoadLastFolder = async () => {
-    // In web mode, we can't reload a folder without user interaction (security).
-    // We need to re-prompt the user to select the folder.
-    toast.info("Please select your SPT folder again", {
-      description: "Browsers require re-selecting folders for security"
-    });
+    setIsScanning(true);
+    setScanningSource("last");
+    try {
+      const result = await loadLastSelectedFolder();
+      if (result.canceled || !result.handle) return;
+      await handleFolderSelected(result.handle, {
+        useCache: appSettings.useCacheWhenLoadingLastFolder,
+        source: "last"
+      });
+    } catch (error: any) {
+      toast.error("Failed to load folder", {
+        description: error.message || "Could not access the selected folder",
+      });
+    } finally {
+      setIsScanning(false);
+      setScanningSource(undefined);
+    }
   };
 
   const handleCategoryChange = async (category: string | null) => {
@@ -434,7 +508,26 @@ const Index = () => {
     }
   }, [selectedModId]);
 
-  const handleFeatureSelect = (feature: "configEditor" | "modBrowser") => {
+  const handleJsonErrorChange = useCallback((modId: string, configIndex: number, hasError: boolean) => {
+    setConfigErrorIndicesByMod((prev) => {
+      const current = new Set(prev[modId] || []);
+      if (hasError) {
+        current.add(configIndex);
+      } else {
+        current.delete(configIndex);
+      }
+
+      const next = { ...prev };
+      if (current.size === 0) {
+        delete next[modId];
+      } else {
+        next[modId] = Array.from(current).sort((a, b) => a - b);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleFeatureSelect = (feature: "configEditor" | "modBrowser" | "community") => {
     if (feature === "configEditor") {
       if (scannedMods.length > 0) {
         setSelectedModId(scannedMods[0].mod.id);
@@ -442,16 +535,20 @@ const Index = () => {
         setActiveConfigIndex(0);
       }
       setView("configEditor");
-    } else {
+    } else if (feature === "modBrowser") {
       setView("modBrowser");
+    } else {
+      setView("community");
     }
   };
 
   if (view === "pathSelect") {
     return (
       <PathSelector 
-        onFolderSelected={handleFolderSelected}
+        onFolderSelected={(h) => handleFolderSelected(h, { source: "select" })}
         onLoadLastFolder={handleLoadLastFolder}
+        isLoading={isScanning}
+        loadingSource={scanningSource}
       />
     );
   }
@@ -470,6 +567,10 @@ const Index = () => {
     return <ModBrowser onBack={() => setView("featureSelect")} rootDirHandle={rootDirHandle} />;
   }
 
+  if (view === "community") {
+    return <CommunityHub onBack={() => setView("featureSelect")} />;
+  }
+
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
   const selectedMod = selectedScannedMod ? selectedScannedMod.mod : null;
 
@@ -484,7 +585,7 @@ const Index = () => {
   }
 
   const sidebarContent = (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
       {sptPath && (
         <SPTControlPanel 
           sptPath={sptPath} 
@@ -568,7 +669,7 @@ const Index = () => {
         )}
       </div>
       
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 overflow-hidden flex flex-col">
         <ModList
           mods={
             activeTab === "favorites"
@@ -580,6 +681,7 @@ const Index = () => {
               : filteredModsByCategory.filter(m => !favoritedModIds.has(m.id))
           }
           configFiles={configFilesMap}
+          configErrorIndicesByMod={configErrorIndicesByMod}
           selectedModId={selectedModId}
           selectedConfigIndex={activeConfigIndex}
           onSelectMod={handleSelectMod}
@@ -599,7 +701,7 @@ const Index = () => {
       <div className="flex w-full h-screen overflow-hidden relative bg-background">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <div className="w-64 lg:w-72 border-r border-border bg-card flex flex-col h-full shrink-0">
+          <div className="w-64 lg:w-72 bg-card flex flex-col h-full min-h-0 shrink-0 overflow-hidden">
             {sidebarContent}
           </div>
         )}
@@ -616,7 +718,7 @@ const Index = () => {
                 <Menu className="h-6 w-6" />
               </Button>
             </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-[280px] border-r border-border">
+            <SheetContent side="left" className="p-0 w-[280px]">
               {sidebarContent}
             </SheetContent>
           </Sheet>
@@ -628,6 +730,7 @@ const Index = () => {
             <ConfigEditor
               modName={selectedMod.name}
               configFile={selectedConfig?.filePath || ""}
+              activeConfigFileIndex={selectedConfig?.index ?? activeConfigIndex}
               activeConfigIndex={activeConfigIndex}
               openConfigIndices={openConfigIndices}
               allConfigs={selectedScannedMod!.configs}
@@ -639,6 +742,10 @@ const Index = () => {
               sptPath={sptPath}
               rootDirHandle={rootDirHandle}
               onChangesDetected={handleChangesDetected}
+              onJsonErrorChange={(configIndex, hasError) => {
+                if (!selectedModId) return;
+                handleJsonErrorChange(selectedModId, configIndex, hasError);
+              }}
               onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
               onHome={handleHome}
               saveConfigRef={saveConfigRef}
@@ -676,7 +783,6 @@ const Index = () => {
       {/* Dialogs and Overlays */}
       {categoryTargetModId && (
         <CategoryDialog
-          modId={categoryTargetModId}
           modName={mods.find((m) => m.id === categoryTargetModId)?.name || ""}
           currentCategory={modCategories[categoryTargetModId] ?? null}
           open={true}

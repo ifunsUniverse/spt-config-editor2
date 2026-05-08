@@ -30,17 +30,17 @@ export function DeveloperTools() {
       width: 120,
       height: 40,
     };
-    setMockButtons([...mockButtons, newButton]);
+    setMockButtons((prev) => [...prev, newButton]);
     toast.success("Mock button added!");
   };
 
   const removeMockButton = (id: string) => {
-    setMockButtons(mockButtons.filter(btn => btn.id !== id));
+    setMockButtons((prev) => prev.filter((btn) => btn.id !== id));
     toast.info("Mock button removed");
   };
 
   const updateButtonLabel = (id: string, label: string) => {
-    setMockButtons(mockButtons.map(btn => 
+    setMockButtons((prev) => prev.map((btn) => 
       btn.id === id ? { ...btn, label } : btn
     ));
   };
@@ -52,8 +52,8 @@ export function DeveloperTools() {
   const handleDrag = (e: React.DragEvent, id: string) => {
     if (e.clientX === 0 && e.clientY === 0) return; // Ignore end of drag
     
-    setMockButtons(mockButtons.map(btn => 
-      btn.id === id 
+    setMockButtons((prev) => prev.map((btn) => 
+      btn.id === id
         ? { ...btn, x: e.clientX - 60, y: e.clientY - 20 }
         : btn
     ));

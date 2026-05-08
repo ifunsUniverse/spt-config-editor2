@@ -13,34 +13,6 @@
   scrollbar-width: none;  /* Firefox */
 }
 
-/* Absolute Monaco background annihilation */
-.monaco-editor,
-.monaco-editor-background,
-.monaco-editor .margin,
-.monaco-editor .margin .margin-view-overlays,
-.monaco-editor .scrollbar,
-.monaco-editor .scrollbar > .scrollbar-track,
-.monaco-editor .scrollbar > .scrollbar-track-piece,
-.monaco-scrollable-element,
-.monaco-editor .overlayWidgets,
-.monaco-editor .decorationsOverviewRuler,
-.monaco-editor .glyph-margin {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.monaco-editor .margin .line-numbers {
-  color: hsl(var(--muted-foreground)) !important;
-}
-
-/* Style Monaco scrollbar thumb to match theme */
-.monaco-editor .scrollbar > .slider {
-  background: hsl(var(--muted-foreground) / 0.3) !important;
-}
-.monaco-editor .scrollbar > .slider:hover {
-  background: hsl(var(--muted-foreground) / 0.5) !important;
-}
-
 /* Critical fix: Ensure Radix dialogs/sheets/popovers stay above Monaco */
 [data-radix-portal] {
   z-index: 9999 !important;
@@ -60,7 +32,7 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 220 20% 16%;
     --muted-foreground: 215 20% 65%;
-    --accent: 262 83% 58%;
+    --accent: 217 91% 60%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
@@ -95,7 +67,7 @@
     --secondary-foreground: 222 47% 11%;
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
-    --accent: 262 83% 58%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
@@ -115,6 +87,22 @@
     --sidebar-border: 214 32% 91%;
     --sidebar-ring: 217 91% 60%;
   }
+}
+
+/* Scanning overlay — comet bar (GPU-only, no layout recalc) */
+@keyframes comet {
+  0%   { transform: translateX(-280%); }
+  100% { transform: translateX(720%); }
+}
+
+/* Monaco JSON error highlighting */
+.monaco-editor .json-error-line {
+  background: linear-gradient(to right, rgba(239, 68, 68, 0.18), rgba(239, 68, 68, 0.06));
+}
+
+.monaco-editor .json-error-line-number {
+  color: rgb(252, 165, 165) !important;
+  font-weight: 700 !important;
 }
 
 @layer base {

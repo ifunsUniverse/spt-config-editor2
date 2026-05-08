@@ -14,7 +14,64 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      suggestions: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          author_name: string;
+          votes: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          author_name?: string;
+          votes?: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          author_name?: string;
+          votes?: number;
+          created_at?: string;
+        };
+      };
+      bug_reports: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          steps_to_reproduce: string | null;
+          severity: string;
+          author_name: string;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description: string;
+          steps_to_reproduce?: string | null;
+          severity?: string;
+          author_name?: string;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string;
+          steps_to_reproduce?: string | null;
+          severity?: string;
+          author_name?: string;
+          status?: string;
+          created_at?: string;
+        };
+      };
     }
     Views: {
       [_ in never]: never

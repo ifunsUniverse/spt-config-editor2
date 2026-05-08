@@ -1,11 +1,9 @@
-import { useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { useState, useMemo, useEffect } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, XCircle, AlertCircle, Wrench } from "lucide-react";
-import { toast } from "sonner";
+import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import JSON5 from "json5";
 
 export interface ConfigValidationResult {
@@ -38,6 +36,10 @@ export const ConfigValidationSummary = ({
 
   const isOpen = controlledOpen !== undefined ? controlledOpen : internalOpen;
   const setIsOpen = controlledOnOpenChange !== undefined ? controlledOnOpenChange : setInternalOpen;
+
+  useEffect(() => {
+    if (isOpen) setIsValidating(true);
+  }, [isOpen]);
 
   const validationResults = useMemo(() => {
     if (!isValidating) return [];
@@ -74,15 +76,6 @@ export const ConfigValidationSummary = ({
     const invalid = validationResults.filter(r => !r.isValid).length;
     return { valid, invalid, total: valid + invalid };
   }, [validationResults]);
-
-  const handleValidateAll = () => {
-    setIsValidating(true);
-    setTimeout(() => {
-      toast.success("Validation complete", {
-        description: `${stats.valid} valid, ${stats.invalid} invalid configs`
-      });
-    }, 500);
-  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

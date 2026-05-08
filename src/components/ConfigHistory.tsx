@@ -29,6 +29,7 @@ import {
   getConfigHistory,
   clearConfigHistory,
 } from "@/utils/configHistory";
+import { toast } from "sonner";
 
 interface ConfigHistoryProps {
   modId: string;
@@ -48,9 +49,15 @@ export const ConfigHistory = forwardRef<HTMLDivElement, ConfigHistoryProps>(
 
     const refreshHistory = async () => {
       setIsLoading(true);
-      const historyData = await getConfigHistory(modId, modName, configFile);
-      setHistory(historyData);
-      setIsLoading(false);
+      try {
+        const historyData = await getConfigHistory(modId, modName, configFile);
+        setHistory(historyData);
+      } catch (error) {
+        console.error("Failed to load config history:", error);
+        toast.error("Failed to load history");
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     const handleRestore = (entry: ConfigHistoryType) => {
@@ -68,10 +75,17 @@ export const ConfigHistory = forwardRef<HTMLDivElement, ConfigHistoryProps>(
 
     const confirmClearHistory = async () => {
       setIsLoading(true);
-      await clearConfigHistory(modId, modName, configFile);
-      await refreshHistory();
-      setShowClearConfirm(false);
-      setIsLoading(false);
+      try {
+        await clearConfigHistory(modId, modName, configFile);
+        await refreshHistory();
+        toast.success("History cleared");
+      } catch (error) {
+        console.error("Failed to clear config history:", error);
+        toast.error("Failed to clear history");
+      } finally {
+        setShowClearConfirm(false);
+        setIsLoading(false);
+      }
     };
 
     const groupHistoryByDate = (entries: ConfigHistoryType[]) => {

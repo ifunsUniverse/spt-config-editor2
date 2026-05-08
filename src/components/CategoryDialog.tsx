@@ -5,7 +5,6 @@ import { CATEGORIES } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
 
 interface CategoryDialogProps {
-  modId: string;
   modName: string;
   currentCategory: string | null;
   open: boolean;
@@ -14,7 +13,6 @@ interface CategoryDialogProps {
 }
 
 export const CategoryDialog = ({
-  modId,
   modName,
   currentCategory,
   open,

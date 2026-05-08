@@ -1,14 +1,16 @@
 // categoryStorage.ts — Web-native version using localStorage
 
+import { readCategoryFile, writeCategoryFile } from "@/utils/electronBridge";
+
 export type CategoryAssignments = Record<string, string>;
 
 export async function saveCategories(categories: CategoryAssignments) {
-  localStorage.setItem("spt_categories", JSON.stringify(categories, null, 2));
+  await writeCategoryFile(JSON.stringify(categories, null, 2));
 }
 
 export async function loadCategories(): Promise<CategoryAssignments> {
   try {
-    const data = localStorage.getItem("spt_categories");
+    const data = await readCategoryFile();
     return data ? JSON.parse(data) : {};
   } catch {
     return {};

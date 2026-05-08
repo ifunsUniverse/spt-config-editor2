@@ -1,23 +1,23 @@
 import JSZip from "jszip";
 import { ElectronScannedMod } from "./electronFolderScanner";
-import { saveFile } from "./electronBridge";
+import { DirectoryHandleLike, saveFile } from "./electronBridge";
 
 /**
  * Recursively adds all files from a FileSystemDirectoryHandle to a JSZip instance
  */
 async function addDirectoryToZip(
   zip: JSZip,
-  dirHandle: FileSystemDirectoryHandle,
+  dirHandle: DirectoryHandleLike,
   basePath: string
 ): Promise<void> {
   for await (const [name, handle] of (dirHandle as any).entries()) {
     const entryPath = `${basePath}/${name}`;
     if (handle.kind === "file") {
-      const file = await (handle as FileSystemFileHandle).getFile();
+      const file = await handle.getFile();
       const content = await file.arrayBuffer();
       zip.file(entryPath, content);
     } else if (handle.kind === "directory") {
-      await addDirectoryToZip(zip, handle as FileSystemDirectoryHandle, entryPath);
+      await addDirectoryToZip(zip, handle, entryPath);
     }
   }
 }
