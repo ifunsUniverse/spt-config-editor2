@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, MoreVertical, FileJson } from "lucide-react";
+import { Home, RotateCcw, Save, Package, X, Search, AlertCircle, MoreVertical, FileJson, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -20,11 +20,12 @@ import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
 import JSON5 from "json5";
 import { cn } from "@/lib/utils";
-import Editor from "@monaco-editor/react";
+import Editor, { DiffEditor } from "@monaco-editor/react";
 import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { ElectronScannedConfig } from "@/utils/electronFolderScanner";
+import { ElectronScannedMod } from "@/utils/electronFolderScanner";
 import { DirectoryHandleLike } from "@/utils/electronBridge";
 import { loadEditorSettings, type EditorSettings } from "@/utils/editorSettings";
 import { registerSptDarkTheme } from "@/utils/monaco-theme";
@@ -37,6 +38,7 @@ interface ConfigEditorProps {
   activeConfigIndex: number;
   openConfigIndices: number[];
   allConfigs: ElectronScannedConfig[];
+  scannedMods: ElectronScannedMod[];
   onSelectTab: (index: number) => void;
   onCloseTab: (index: number) => void;
   rawJson: any;
@@ -49,9 +51,87 @@ interface ConfigEditorProps {
   sptPath?: string | null;
   rootDirHandle?: DirectoryHandleLike | null;
   onCategoryChange?: (category: string | null) => void;
+  onNavigateToConfig?: (modId: string, configIndex: number) => void;
   onHome?: () => void;
   onExportMods?: () => void;
   showThemeToggle?: boolean;
+}
+
+interface ConfigSearchResult {
+  modId: string;
+  modName: string;
+  configIndex: number;
+  configFileName: string;
+  matchPath: string;
+  matchType: "key" | "value" | "file";
+  preview: string;
+}
+
+const MAX_GLOBAL_SEARCH_RESULTS = 50;
+
+function summarizeValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (value === null) return "null";
+  if (Array.isArray(value)) return `[${value.length} item${value.length === 1 ? "" : "s"}]`;
+  if (typeof value === "object") return "{...}";
+  return "";
+}
+
+function collectConfigSearchMatches(
+  value: unknown,
+  query: string,
+  modId: string,
+  modName: string,
+  configIndex: number,
+  configFileName: string,
+  path = "",
+  matches: ConfigSearchResult[] = [],
+): ConfigSearchResult[] {
+  if (matches.length >= MAX_GLOBAL_SEARCH_RESULTS) return matches;
+
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => {
+      if (matches.length >= MAX_GLOBAL_SEARCH_RESULTS) return;
+      collectConfigSearchMatches(item, query, modId, modName, configIndex, configFileName, `${path}[${index}]`, matches);
+    });
+    return matches;
+  }
+
+  if (value && typeof value === "object") {
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      if (matches.length >= MAX_GLOBAL_SEARCH_RESULTS) return;
+      const nextPath = path ? `${path}.${key}` : key;
+      if (key.toLowerCase().includes(query)) {
+        matches.push({
+          modId,
+          modName,
+          configIndex,
+          configFileName,
+          matchPath: nextPath,
+          matchType: "key",
+          preview: `${nextPath}: ${summarizeValue(nestedValue)}`,
+        });
+      }
+      collectConfigSearchMatches(nestedValue, query, modId, modName, configIndex, configFileName, nextPath, matches);
+    });
+    return matches;
+  }
+
+  const primitive = summarizeValue(value);
+  if (primitive.toLowerCase().includes(query)) {
+    matches.push({
+      modId,
+      modName,
+      configIndex,
+      configFileName,
+      matchPath: path || configFileName,
+      matchType: "value",
+      preview: `${path || configFileName}: ${primitive}`,
+    });
+  }
+
+  return matches;
 }
 
 export const ConfigEditor = ({
@@ -61,6 +141,7 @@ export const ConfigEditor = ({
   activeConfigIndex,
   openConfigIndices,
   allConfigs,
+  scannedMods,
   onSelectTab,
   onCloseTab,
   rawJson,
@@ -71,12 +152,14 @@ export const ConfigEditor = ({
   saveConfigRef,
   currentCategory,
   onCategoryChange,
+  onNavigateToConfig,
   onHome,
   onExportMods,
   sptPath,
   rootDirHandle,
 }: ConfigEditorProps) => {
   const [rawText, setRawText] = useState<string>("");
+  const [originalRawText, setOriginalRawText] = useState<string>("");
   const [hasChanges, setHasChanges] = useState(false);
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [jsonErrorLine, setJsonErrorLine] = useState<number | null>(null);
@@ -89,6 +172,7 @@ export const ConfigEditor = ({
   const [isSplitView, setIsSplitView] = useState(false);
   const [secondaryConfigIndex, setSecondaryConfigIndex] = useState<number | null>(null);
   const [secondaryRawText, setSecondaryRawText] = useState("");
+  const [secondaryOriginalRawText, setSecondaryOriginalRawText] = useState("");
   const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [secondaryHasChanges, setSecondaryHasChanges] = useState(false);
   const [secondaryJsonError, setSecondaryJsonError] = useState<string | null>(null);
@@ -96,6 +180,8 @@ export const ConfigEditor = ({
   const isMobile = useIsMobile();
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
+  const [showSaveDiffDialog, setShowSaveDiffDialog] = useState(false);
+  const [pendingSaveTarget, setPendingSaveTarget] = useState<"primary" | "secondary" | null>(null);
 
   // Listen for settings changes from SettingsDialog
   useEffect(() => {
@@ -273,6 +359,7 @@ export const ConfigEditor = ({
             parseErrorLine = extractErrorLine(parseError);
           }
           setRawText(content);
+          setOriginalRawText(content);
           setHasChanges(false);
           setJsonError(hasParseError ? parseErrorMessage : null);
           setJsonErrorLine(hasParseError ? parseErrorLine : null);
@@ -416,6 +503,7 @@ export const ConfigEditor = ({
 
         const parsed = parseText(content);
         setSecondaryRawText(content);
+        setSecondaryOriginalRawText(content);
         setSecondaryHasChanges(false);
         setSecondaryJsonError(parsed.message);
         setSecondaryJsonErrorLine(parsed.line);
@@ -475,11 +563,12 @@ export const ConfigEditor = ({
     }
   };
 
-  const handleSave = useCallback(async () => {
+  const performPrimarySave = useCallback(async () => {
     try {
       JSON5.parse(rawText);
       onSave([{ key: "__RAW_JSON__", type: "raw", value: rawText }]);
       await saveConfigHistory(modId, modName, configFile, rawText);
+      setOriginalRawText(rawText);
       setHasChanges(false);
       if (onChangesDetected) onChangesDetected(false);
       toast.success("Config saved successfully");
@@ -487,6 +576,16 @@ export const ConfigEditor = ({
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
   }, [configFile, rawText, modId, modName, onSave, onChangesDetected]);
+
+  const handleSave = useCallback(async () => {
+    try {
+      JSON5.parse(rawText);
+      setPendingSaveTarget("primary");
+      setShowSaveDiffDialog(true);
+    } catch (error: any) {
+      toast.error("Invalid JSON/JSON5", { description: error.message });
+    }
+  }, [rawText]);
 
   const handleFormatJson = useCallback(async () => {
     const targetEditor = activeEditorRef.current || editorRef.current;
@@ -518,7 +617,7 @@ export const ConfigEditor = ({
     if (onJsonErrorChange) onJsonErrorChange(secondaryConfig.index, parsed.hasError);
   };
 
-  const handleSecondarySave = async () => {
+  const performSecondarySave = async () => {
     if (!secondaryConfig?.fileHandle) return;
 
     try {
@@ -528,6 +627,7 @@ export const ConfigEditor = ({
       await writable.close();
 
       await saveConfigHistory(modId, modName, secondaryConfig.filePath, secondaryRawText);
+      setSecondaryOriginalRawText(secondaryRawText);
       setSecondaryHasChanges(false);
       if (onJsonErrorChange) onJsonErrorChange(secondaryConfig.index, false);
       toast.success(`Saved ${secondaryConfig.fileName.split(/[\\/]/).pop()}`);
@@ -535,6 +635,38 @@ export const ConfigEditor = ({
       toast.error("Invalid JSON/JSON5", { description: saveError?.message || "Could not save file" });
     }
   };
+
+  const handleSecondarySave = async () => {
+    if (!secondaryConfig?.fileHandle) return;
+
+    try {
+      JSON5.parse(secondaryRawText);
+      setPendingSaveTarget("secondary");
+      setShowSaveDiffDialog(true);
+    } catch (error: any) {
+      toast.error("Invalid JSON/JSON5", { description: error?.message || "Could not save file" });
+    }
+  };
+
+  const handleConfirmSave = useCallback(async () => {
+    const target = pendingSaveTarget;
+    setShowSaveDiffDialog(false);
+    setPendingSaveTarget(null);
+
+    if (target === "primary") {
+      await performPrimarySave();
+      return;
+    }
+
+    if (target === "secondary") {
+      await performSecondarySave();
+    }
+  }, [pendingSaveTarget, performPrimarySave, performSecondarySave]);
+
+  const handleCancelSaveReview = useCallback(() => {
+    setShowSaveDiffDialog(false);
+    setPendingSaveTarget(null);
+  }, []);
 
   const displayPath = React.useMemo(() => {
     if (!configFile) return "";
@@ -625,6 +757,7 @@ export const ConfigEditor = ({
         parseErrorLine = extractErrorLine(parseError);
       }
       setRawText(content);
+      setOriginalRawText(content);
       setHasChanges(false);
       setJsonError(hasParseError ? parseErrorMessage : null);
       setJsonErrorLine(hasParseError ? parseErrorLine : null);
@@ -666,29 +799,102 @@ export const ConfigEditor = ({
     toast.success("Restored from history");
   };
 
+  const pendingSaveConfig = pendingSaveTarget === "secondary" ? secondaryConfig : activeConfig;
+  const pendingSaveOriginalText = pendingSaveTarget === "secondary" ? secondaryOriginalRawText : originalRawText;
+  const pendingSaveModifiedText = pendingSaveTarget === "secondary" ? secondaryRawText : rawText;
+  const pendingSaveLabel = pendingSaveTarget === "secondary" ? "Review Secondary Save" : "Review Save";
+
+  const globalSearchResults = React.useMemo(() => {
+    const trimmed = searchQuery.trim().toLowerCase();
+    if (!trimmed) return [] as ConfigSearchResult[];
+
+    const results: ConfigSearchResult[] = [];
+
+    for (const scannedMod of scannedMods) {
+      for (const config of scannedMod.configs) {
+        if (results.length >= MAX_GLOBAL_SEARCH_RESULTS) return results;
+
+        const fileName = config.fileName.split(/[\\/]/).pop() || config.fileName;
+        if (fileName.toLowerCase().includes(trimmed)) {
+          results.push({
+            modId: scannedMod.mod.id,
+            modName: scannedMod.mod.name,
+            configIndex: config.index,
+            configFileName: fileName,
+            matchPath: fileName,
+            matchType: "file",
+            preview: `${fileName} in ${scannedMod.mod.name}`,
+          });
+        }
+
+        let searchSource = config.rawJson;
+        if (scannedMod.mod.id === modId && config.index === activeConfigIndex) {
+          try {
+            searchSource = JSON5.parse(rawText);
+          } catch {
+            searchSource = config.rawJson;
+          }
+        } else if (scannedMod.mod.id === modId && config.index === secondaryConfigIndex && isSplitView) {
+          try {
+            searchSource = JSON5.parse(secondaryRawText);
+          } catch {
+            searchSource = config.rawJson;
+          }
+        }
+
+        collectConfigSearchMatches(
+          searchSource,
+          trimmed,
+          scannedMod.mod.id,
+          scannedMod.mod.name,
+          config.index,
+          fileName,
+          "",
+          results,
+        );
+      }
+    }
+
+    return results.slice(0, MAX_GLOBAL_SEARCH_RESULTS);
+  }, [searchQuery, scannedMods, modId, activeConfigIndex, rawText, secondaryConfigIndex, isSplitView, secondaryRawText]);
+
+  const handleSelectGlobalSearchResult = useCallback((result: ConfigSearchResult) => {
+    onNavigateToConfig?.(result.modId, result.configIndex);
+    setShowSearch(false);
+    setSearchQuery("");
+  }, [onNavigateToConfig]);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-background min-w-0 overflow-hidden">
-      {/* Top Header Section */}
-      <div className="border-b border-border p-3 sm:p-4 bg-gradient-to-b from-card/60 to-card/25">
-        <div className="flex flex-col gap-3">
-          <div className="flex items-start justify-between min-w-0">
+      {/* MODERN HEADER - Premium Design */}
+      <div className="border-b border-border/60 bg-gradient-to-b from-card/80 to-background shadow-sm">
+        <div className="px-4 sm:px-6 py-3 sm:py-4">
+          {/* Main Header Row */}
+          <div className="flex items-start justify-between gap-4 mb-3">
             <div className="min-w-0 flex-1">
-              <h2 className="text-lg sm:text-xl font-bold text-foreground truncate">
-                {modName}
-              </h2>
-              <p className="text-xs text-muted-foreground truncate max-w-full">
-                {`📂 ${displayPath}`}
-              </p>
+              <div className="flex items-end gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-2 h-2 rounded-full bg-primary"></div>
+                    <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">
+                      {modName}
+                    </h2>
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                    {displayPath}
+                  </p>
+                </div>
+              </div>
               
-              <div className="flex flex-wrap gap-2 mt-2">
+              {/* Category & Status Pills */}
+              <div className="flex flex-wrap gap-2 mt-3 items-center">
                 {currentCategory ? (
                   <Button
                     onClick={() => onCategoryChange?.(null)}
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[10px] sm:text-xs gap-1 sm:gap-2 hover:bg-red-900 hover:text-white px-2"
+                    className="h-7 text-[10px] sm:text-xs gap-1.5 hover:bg-destructive hover:text-white transition-colors px-2"
                   >
-                    ➖ Remove from{" "}
                     <Badge
                       className={cn(
                         "rounded-full px-2 py-0 h-4 text-[9px] sm:text-[10px] font-medium text-white border-0",
@@ -697,65 +903,74 @@ export const ConfigEditor = ({
                     >
                       {currentCategory}
                     </Badge>
+                    <X className="w-3 h-3" />
                   </Button>
                 ) : (
                   <Button
                     onClick={() => setShowCategoryDialog(true)}
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[10px] sm:text-xs gap-1 sm:gap-2 px-2"
+                    className="h-7 text-[10px] sm:text-xs gap-1 px-2 hover:bg-card transition-colors"
                   >
-                    ➕ Add to Category
+                    <span className="text-lg">+</span> Category
                   </Button>
+                )}
+                
+                {hasChanges && (
+                  <Badge variant="secondary" className="text-[10px] sm:text-xs h-7 flex items-center gap-1.5 px-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
+                    Unsaved Changes
+                  </Badge>
                 )}
               </div>
             </div>
 
-            {/* Desktop Actions — shown at lg+ so the editor has ≥736 px to fit all buttons */}
-            <div className="hidden lg:flex gap-2 items-center">
-              <ItemDatabase />
-              <Button variant="outline" size="sm" onClick={() => setShowInstalledMods(true)} className="gap-2">
-                <Package className="w-4 h-4" /> Installed Mods
-              </Button>
-              {onHome && (
-                <Button variant="outline" size="sm" onClick={onHome} className="gap-2">
-                  <Home className="w-4 h-4" /> Home
-                </Button>
-              )}
-              <Button
+            {/* Primary Actions - Desktop */}
+            <div className="hidden xl:flex items-center gap-2 shrink-0">
+              <Button 
+                size="sm" 
                 variant="outline"
-                size="sm"
                 disabled={!hasChanges}
                 onClick={handleReset}
-                className="gap-2"
+                className="gap-2 h-9"
+                title="Discard all changes (Ctrl+Z)"
               >
-                <RotateCcw className="w-4 h-4" /> Reset
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden sm:inline">Reset</span>
               </Button>
               <Button
                 size="sm"
                 disabled={!hasChanges || jsonError !== null}
                 onClick={handleSave}
-                className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="gap-2 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
+                title="Save changes (Ctrl+S)"
               >
-                <Save className="w-4 h-4" /> Save <kbd className="ml-1 text-[10px] opacity-60">Ctrl+S</kbd>
+                <Save className="w-4 h-4" />
+                <span className="hidden sm:inline">Save</span>
               </Button>
               {onExportMods && (
-                <Button variant="secondary" size="sm" onClick={onExportMods} className="gap-2">
-                  <Package className="w-4 h-4" /> Export
+                <Button variant="outline" size="sm" onClick={onExportMods} className="gap-2 h-9">
+                  <Download className="w-4 h-4" />
+                  <span className="hidden sm:inline">Export</span>
+                </Button>
+              )}
+              {onHome && (
+                <Button variant="outline" size="sm" onClick={onHome} className="gap-2 h-9">
+                  <Home className="w-4 h-4" />
                 </Button>
               )}
               <SettingsDialog />
             </div>
 
-            {/* Compact menu — shown below lg (covers both mobile and medium widths) */}
-            <div className="lg:hidden flex items-center gap-1">
-              <ItemDatabase />
+            {/* Compact Actions - Mobile/Tablet */}
+            <div className="xl:hidden flex items-center gap-1">
               <Button 
-                size="sm" 
+                size="icon"
                 variant={hasChanges ? "default" : "outline"}
                 disabled={!hasChanges || jsonError !== null}
                 onClick={handleSave}
-                className="h-9 px-3"
+                className="h-9 w-9"
+                title="Save (Ctrl+S)"
               >
                 <Save className="h-4 w-4" />
               </Button>
@@ -767,9 +982,12 @@ export const ConfigEditor = ({
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
+                <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem onClick={() => setShowInstalledMods(true)}>
                     <Package className="w-4 h-4 mr-2" /> Installed Mods
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowSearch(true)}>
+                    <Search className="w-4 h-4 mr-2" /> Search Config
                   </DropdownMenuItem>
                   {onHome && (
                     <DropdownMenuItem onClick={onHome}>
@@ -779,12 +997,9 @@ export const ConfigEditor = ({
                   <DropdownMenuItem disabled={!hasChanges} onClick={handleReset}>
                     <RotateCcw className="w-4 h-4 mr-2" /> Reset
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleFormatJson}>
-                    <FileJson className="w-4 h-4 mr-2" /> Format JSON
-                  </DropdownMenuItem>
                   {onExportMods && (
                     <DropdownMenuItem onClick={onExportMods}>
-                      <Package className="w-4 h-4 mr-2" /> Export
+                      <Download className="w-4 h-4 mr-2" /> Export
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -792,23 +1007,26 @@ export const ConfigEditor = ({
             </div>
           </div>
 
+          {/* Error Alert */}
           {jsonError && (
-            <Alert variant="destructive" className="py-2">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription className="text-xs sm:text-sm">
-                <span className="font-medium">JSON Error:</span> {jsonError}
+            <Alert variant="destructive" className="py-2 text-xs sm:text-sm mt-2">
+              <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
+              <AlertDescription>
+                <span className="font-semibold">JSON Error:</span> {jsonError}
+                {jsonErrorLine && <span className="ml-2 text-xs opacity-75">(Line {jsonErrorLine})</span>}
               </AlertDescription>
             </Alert>
           )}
         </div>
       </div>
 
-      {/* Config Chrome (Tabs + Toolbar) */}
+      {/* ENHANCED TABS & TOOLBAR */}
       <div className="px-2 sm:px-4 lg:px-6 pt-3 shrink-0">
-        <div className="rounded-xl border border-border bg-card/35 shadow-sm overflow-hidden">
-          <div className="border-b border-border/70 bg-card/50">
+        <div className="rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden shadow-sm">
+          {/* Tab Bar */}
+          <div className="border-b border-border/50 bg-card/50">
             <ScrollArea className="w-full">
-              <div className="flex items-center px-2 py-2 gap-1 min-h-[42px]">
+              <div className="flex items-center px-2 py-2.5 gap-1.5 min-h-[44px]">
                 {openConfigIndices.map((idx) => {
                   const config = allConfigs[idx];
                   const isActive = activeConfigIndex === idx;
@@ -818,10 +1036,11 @@ export const ConfigEditor = ({
                     <div
                       key={idx}
                       className={cn(
-                        "flex items-center gap-2 px-3 py-1.5 text-xs cursor-pointer transition-all border rounded-md",
+                        "flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer transition-all border rounded-md",
+                        "group relative",
                         isActive
-                          ? "bg-background text-foreground border-primary/40 font-medium"
-                          : "bg-card text-muted-foreground border-transparent hover:text-foreground hover:border-border"
+                          ? "bg-primary/15 text-foreground border-primary/40 font-medium shadow-sm"
+                          : "bg-card/40 text-muted-foreground border-transparent hover:text-foreground hover:bg-card/60"
                       )}
                       onMouseDown={(e) => {
                         if (e.button === 1 && openConfigIndices.length > 1) {
@@ -832,15 +1051,16 @@ export const ConfigEditor = ({
                       }}
                       onClick={() => onSelectTab(idx)}
                     >
-                      <FileJson className={cn("w-3 h-3", isActive ? "text-primary" : "text-muted-foreground")} />
-                      <span className="truncate max-w-[150px]">{config.fileName.split(/[\\/]/).pop()}</span>
+                      <FileJson className={cn("w-3 h-3 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground/60")} />
+                      <span className="truncate max-w-[140px] sm:max-w-[200px]">{config.fileName.split(/[\\/]/).pop()}</span>
                       {openConfigIndices.length > 1 && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onCloseTab(idx);
                           }}
-                          className="ml-1 hover:bg-muted rounded-full p-0.5"
+                          className="ml-0.5 rounded-full p-0.5 hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                          title="Close tab (Middle click to close)"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -853,64 +1073,79 @@ export const ConfigEditor = ({
             </ScrollArea>
           </div>
 
-          <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-card/20">
-            <div className="flex-1">
-          {showSearch ? (
-            <div className="flex items-center gap-2 bg-accent/50 rounded-md px-2 py-1 max-w-sm">
-              <Search className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search..."
-                className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm"
-                autoFocus
-              />
-              <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => {
-                setShowSearch(false);
-                setSearchQuery("");
-              }}>
-                <X className="w-3 h-3" />
-              </Button>
-            </div>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => setShowSearch(true)} className="h-8 px-2">
-              <Search className="w-4 h-4 text-muted-foreground" />
-            </Button>
-          )}
+          {/* Control Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-card/25">
+            {/* Search Area */}
+            <div className="w-full sm:flex-1 sm:max-w-sm">
+              {showSearch ? (
+                <div className="flex items-center gap-2 bg-card/80 border border-border/50 rounded-md px-2.5 py-1.5">
+                  <Search className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search config files..."
+                    className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm text-foreground placeholder:text-muted-foreground"
+                    autoFocus
+                  />
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-5 w-5 hover:bg-muted/40"
+                    onClick={() => {
+                      setShowSearch(false);
+                      setSearchQuery("");
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => setShowSearch(true)} 
+                  className="h-8 px-2 text-muted-foreground hover:text-foreground w-full sm:w-auto"
+                >
+                  <Search className="w-3.5 h-3.5 mr-1.5" />
+                  <span className="text-xs">Search</span>
+                </Button>
+              )}
             </div>
 
-            <div className="flex items-center gap-1 sm:gap-2">
+            {/* Editor Controls */}
+            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={handleFormatJson}
-                className="text-[11px] sm:text-xs"
+                className="text-xs h-8 px-3"
                 title="Format JSON (Shift+Alt+F)"
               >
-                Format JSON
+                <FileJson className="w-3.5 h-3.5 mr-1" />
+                Format
               </Button>
               <Button
                 variant={isSplitView ? "default" : "outline"}
                 size="sm"
                 onClick={toggleSplitView}
-                className="text-[11px] sm:text-xs"
+                className="text-xs h-8 px-3"
                 disabled={allConfigs.length < 2}
-                title={allConfigs.length < 2 ? "Need at least 2 files to split" : "Toggle split view"}
+                title={allConfigs.length < 2 ? "Need at least 2 files" : "Split view (Ctrl+\\)"}
               >
-                {isSplitView ? "Split On" : "Split View"}
+                {isSplitView ? "✓ Split" : "Split"}
               </Button>
               {isSplitView && (
                 <select
                   value={secondaryConfigIndex ?? ""}
                   onChange={(e) => setSecondaryConfigIndex(Number(e.target.value))}
-                  className="h-8 rounded-md border border-border bg-background px-2 text-[11px] sm:text-xs max-w-[180px]"
+                  className="h-8 rounded-md border border-border/50 bg-card/40 px-2 text-[11px] sm:text-xs max-w-[160px] hover:bg-card/60 transition-colors cursor-pointer"
                 >
                   {allConfigs
                     .filter((cfg) => cfg.index !== activeConfigIndex)
                     .map((cfg) => (
                       <option key={cfg.index} value={cfg.index}>
-                        {cfg.fileName.split(/[\\/]/).pop()}
+                        {cfg.fileName.split(/[\\/]/).pop()?.substring(0, 20)}
                       </option>
                     ))}
                 </select>
@@ -921,21 +1156,93 @@ export const ConfigEditor = ({
                 configFile={configFile}
                 onRestore={handleRestoreHistory}
               />
+              <ItemDatabase />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Editor Content Area */}
-      <div className="flex flex-col flex-grow overflow-hidden p-2 sm:p-4 lg:p-6 pt-3">
-        {!loading && !error && (
-          <div className={cn("flex flex-col flex-grow min-h-0 overflow-hidden gap-3", isSplitView && "lg:grid lg:grid-cols-2") }>
-            <div className="flex flex-col min-h-0 flex-1">
-              <div className="h-8 px-3 bg-card/60 text-foreground border border-border border-b-0 rounded-t-md flex items-center justify-between text-[11px]">
-                <div className="truncate font-medium">Primary: {activeConfig?.fileName.split(/[\\/]/).pop()}</div>
-                <div className="text-muted-foreground">JSON with comments</div>
+      {showSearch && (
+        <div className="px-2 sm:px-4 lg:px-6 pt-2 shrink-0">
+          <div className="rounded-lg border border-border/50 bg-gradient-to-b from-card/60 to-card/30 shadow-sm overflow-hidden">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 py-3 border-b border-border/50 bg-card/40">
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">Global Search</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Searching across {scannedMods.length} mod{scannedMods.length !== 1 ? "s" : ""}
+                </p>
               </div>
-              <div className="mod-editor-shell flex-grow rounded-b-md border border-[#333333] overflow-hidden min-h-[260px] bg-[#1e1e1e]">
+              {searchQuery.trim() && (
+                <Badge className="bg-primary/20 text-primary border border-primary/30 text-xs">
+                  {globalSearchResults.length} result{globalSearchResults.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
+
+            {!searchQuery.trim() ? (
+              <div className="px-4 py-8 text-center">
+                <Search className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">Type to search file names, keys, and values</p>
+              </div>
+            ) : globalSearchResults.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <AlertCircle className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No matches found for "<span className="font-medium">{searchQuery}</span>"</p>
+              </div>
+            ) : (
+              <ScrollArea className="max-h-80">
+                <div className="divide-y divide-border/40">
+                  {globalSearchResults.map((result, index) => (
+                    <button
+                      key={`${result.modId}:${result.configIndex}:${result.matchPath}:${index}`}
+                      onClick={() => handleSelectGlobalSearchResult(result)}
+                      className="w-full px-4 py-3 text-left hover:bg-primary/5 transition-colors group border-l-2 border-l-transparent hover:border-l-primary"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                            {result.modName}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 truncate">
+                            <span className="font-mono bg-card/60 px-1.5 py-0.5 rounded text-[10px]">{result.configFileName}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {result.preview}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="capitalize text-[10px] shrink-0">
+                          {result.matchType}
+                        </Badge>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <ScrollBar orientation="vertical" />
+              </ScrollArea>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* EDITOR WORKSPACE */}
+      <div className="flex flex-col flex-grow overflow-hidden p-2 sm:p-4 lg:p-6 pt-3 gap-3">
+        {!loading && !error && (
+          <div className={cn("flex flex-col flex-grow min-h-0 overflow-hidden gap-3", isSplitView && "lg:grid lg:grid-cols-2")}>
+            {/* Primary Editor Pane */}
+            <div className="flex flex-col min-h-0 flex-1 rounded-lg border border-border/50 overflow-hidden shadow-lg bg-gradient-to-br from-[#1e1e1e] to-[#252526]">
+              {/* Pane Header */}
+              <div className="h-9 px-4 bg-gradient-to-r from-card/80 to-card/40 border-b border-border/50 flex items-center justify-between text-xs font-medium">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-2 h-2 rounded-full bg-blue-500/70"></div>
+                  <span className="text-foreground truncate">Primary Editor</span>
+                  <span className="text-muted-foreground/60">—</span>
+                  <span className="text-muted-foreground text-[11px] truncate">{activeConfig?.fileName.split(/[\\/]/).pop()}</span>
+                </div>
+                <span className="text-muted-foreground/50 text-[10px]">JSON5</span>
+              </div>
+
+              {/* Editor */}
+              <div className="mod-editor-shell flex-grow overflow-hidden bg-[#1e1e1e]">
                 <Editor
                   height="100%"
                   language="jsonc"
@@ -947,27 +1254,51 @@ export const ConfigEditor = ({
                   options={editorOptions}
                 />
               </div>
+
+              {/* Editor Footer */}
+              <div className="h-7 px-4 bg-card/30 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground/70 gap-2">
+                <span className="truncate">
+                  {jsonError ? `Error${jsonErrorLine ? ` on Line ${jsonErrorLine}` : ""}` : "Valid JSON5"}
+                </span>
+                <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground/50">
+                  <span>Ln {cursorPosition.line}</span>
+                  <span>Col {cursorPosition.column}</span>
+                </div>
+              </div>
             </div>
 
+            {/* Secondary Editor Pane (Split View) */}
             {isSplitView && secondaryConfig && (
-              <div className="flex flex-col min-h-0 flex-1">
-                <div className="h-8 px-3 bg-card/60 text-foreground border border-border border-b-0 rounded-t-md flex items-center justify-between text-[11px] gap-2">
-                  <div className="truncate">
-                    Secondary: {secondaryConfig.fileName.split(/[\\/]/).pop()}
+              <div className="flex flex-col min-h-0 flex-1 rounded-lg border border-border/50 overflow-hidden shadow-lg bg-gradient-to-br from-[#1e1e1e] to-[#252526]">
+                {/* Pane Header */}
+                <div className="h-9 px-4 bg-gradient-to-r from-card/80 to-card/40 border-b border-border/50 flex items-center justify-between text-xs font-medium">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-2 h-2 rounded-full bg-purple-500/70"></div>
+                    <span className="text-foreground truncate">Secondary Editor</span>
+                    <span className="text-muted-foreground/60">—</span>
+                    <span className="text-muted-foreground text-[11px] truncate">{secondaryConfig.fileName.split(/[\\/]/).pop()}</span>
                   </div>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     disabled={!secondaryHasChanges || secondaryJsonError !== null || secondaryLoading}
                     onClick={handleSecondarySave}
-                    className="h-7 px-2 text-[11px]"
+                    className="h-6 px-2 text-[10px] hover:bg-primary/20 hover:text-primary"
+                    title="Save secondary file"
                   >
-                    <Save className="w-3 h-3 mr-1" /> Save Pane
+                    <Save className="w-3 h-3 mr-1" /> Save
                   </Button>
                 </div>
-                <div className="mod-editor-shell flex-grow rounded-md border border-border overflow-hidden min-h-[260px] bg-[#1e1e1e]">
+
+                {/* Editor */}
+                <div className="mod-editor-shell flex-grow overflow-hidden bg-[#1e1e1e]">
                   {secondaryLoading ? (
-                    <div className="h-full flex items-center justify-center text-muted-foreground text-sm">Reading file content...</div>
+                    <div className="h-full flex items-center justify-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+                        <p className="text-xs text-muted-foreground">Loading...</p>
+                      </div>
+                    </div>
                   ) : (
                     <Editor
                       height="100%"
@@ -1001,45 +1332,51 @@ export const ConfigEditor = ({
                     />
                   )}
                 </div>
-                {secondaryJsonError && (
-                  <p className="text-[11px] text-red-300 mt-1 truncate">Secondary Error: {secondaryJsonError}</p>
-                )}
+
+                {/* Editor Footer */}
+                <div className="h-7 px-4 bg-card/30 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground/70">
+                  <span className="truncate">
+                    {secondaryJsonError ? "Error on secondary pane" : "Valid JSON5"}
+                  </span>
+                  <span className="text-muted-foreground/50">UTF-8</span>
+                </div>
               </div>
             )}
 
-            <p className="text-[10px] sm:text-xs text-muted-foreground shrink-0 mt-2 text-center sm:text-left">
-              Direct text editing preserves JSON5 comments and syntax{isSplitView ? " across both panes" : ""}.
-            </p>
-
-            <div className="h-7 mt-1 rounded-md border border-border bg-card/45 text-foreground px-2 sm:px-3 flex items-center justify-between text-[10px] sm:text-xs">
-              <div className="truncate">
-                {jsonError ? `JSON Error${jsonErrorLine ? ` (Line ${jsonErrorLine})` : ""}` : "No Problems"}
-              </div>
-              <div className="flex items-center gap-3 whitespace-nowrap text-muted-foreground">
-                <span>{editorSettings.wordWrap === "on" ? "Wrap: On" : "Wrap: Off"}</span>
-                <span>UTF-8</span>
-                <span>JSON5</span>
-                <span>Ln {cursorPosition.line}, Col {cursorPosition.column}</span>
-              </div>
+            {/* Status Info */}
+            <div className="text-xs text-muted-foreground/60 text-center">
+              <p>
+                {isSplitView 
+                  ? "Split view enabled — edit both files side-by-side"
+                  : "Single pane mode — use split view to edit multiple files"}
+              </p>
             </div>
           </div>
         )}
 
+        {/* Loading State */}
         {loading && (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-muted-foreground animate-pulse">Reading file content...</p>
+          <div className="flex-1 flex flex-col items-center justify-center gap-3">
+            <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>
+            <p className="text-sm text-muted-foreground">Loading configuration file...</p>
           </div>
         )}
 
+        {/* Error State */}
         {error && !loading && (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center space-y-3">
-              <p className="text-destructive font-medium">Failed to read file content.</p>
-              <Button variant="outline" onClick={handleReset}>Try Reload</Button>
+            <div className="bg-card/40 border border-border/50 rounded-lg p-6 text-center max-w-sm">
+              <AlertCircle className="w-12 h-12 text-destructive/60 mx-auto mb-3" />
+              <p className="text-base font-medium text-foreground mb-2">Failed to Load File</p>
+              <p className="text-sm text-muted-foreground mb-4">The configuration file could not be read. Try reloading or selecting another file.</p>
+              <Button variant="outline" onClick={handleReset} className="gap-2">
+                <RotateCcw className="w-4 h-4" /> Try Reload
+              </Button>
             </div>
           </div>
         )}
 
+        {/* Dialogs */}
         {showCategoryDialog && (
           <CategoryDialog
             modName={modName}
@@ -1054,6 +1391,46 @@ export const ConfigEditor = ({
           <DialogContent className="w-[96vw] max-w-[1240px] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 [&>button]:top-3 [&>button]:right-3 [&>button]:z-10">
             <div className="flex-1 min-h-0">
               <InstalledMods rootDirHandle={rootDirHandle} />
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={showSaveDiffDialog} onOpenChange={(open) => !open && handleCancelSaveReview()}>
+          <DialogContent className="w-[96vw] max-w-[1400px] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden [&>button]:top-3 [&>button]:right-3 [&>button]:z-10">
+            <div className="border-b border-border px-4 py-3 shrink-0 bg-card/60">
+              <h3 className="text-lg font-semibold text-foreground">{pendingSaveLabel}</h3>
+              <p className="text-sm text-muted-foreground truncate">
+                {pendingSaveConfig?.fileName.split(/[\\/]/).pop() ?? configFile}
+              </p>
+            </div>
+
+            <div className="flex-1 min-h-0">
+              <DiffEditor
+                height="100%"
+                language="jsonc"
+                original={pendingSaveOriginalText}
+                modified={pendingSaveModifiedText}
+                beforeMount={(monaco) => {
+                  registerSptDarkTheme(monaco);
+                }}
+                theme="spt-dark"
+                options={{
+                  ...editorOptions,
+                  readOnly: true,
+                  originalEditable: false,
+                  renderSideBySide: !isMobile,
+                  minimap: { enabled: false },
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3 shrink-0 bg-card/60">
+              <Button variant="outline" onClick={handleCancelSaveReview}>
+                Cancel
+              </Button>
+              <Button onClick={handleConfirmSave} className="gap-2 bg-primary hover:bg-primary/90">
+                <Save className="w-4 h-4" /> Confirm Save
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

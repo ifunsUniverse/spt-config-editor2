@@ -8,12 +8,16 @@
     "dev": "concurrently -k \"npm:dev:web\" \"npm:dev:electron\"",
     "dev:electron": "wait-on tcp:5174 && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 electronmon .",
     "dev:electron:debug": "wait-on tcp:5174 && cross-env VITE_DEV_SERVER_URL=http://localhost:5174 ELECTRON_OPEN_DEVTOOLS=1 electronmon .",
-    "dev:web": "vite --port 5174 --strictPort",
+    "dev:web": "vite --host --port 5174 --strictPort --open",
+    "dev:live": "npm run dev",
     "start": "npm run build:renderer && electron .",
     "build:renderer": "vite build",
     "build": "npm run build:renderer && electron-builder",
     "build:dev": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "preview:live:web": "npm run build:renderer && vite preview --host --port 4173 --strictPort --open",
+    "preview:live:electron": "wait-on tcp:4173 && cross-env VITE_DEV_SERVER_URL=http://localhost:4173 electron .",
+    "preview:live": "concurrently -k \"npm:preview:live:web\" \"npm:preview:live:electron\""
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

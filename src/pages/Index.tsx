@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { AuthScreen } from "@/components/AuthScreen";
 import { PathSelector } from "@/components/PathSelector";
 import { FeatureSelect } from "@/components/FeatureSelect";
 import { ModBrowser } from "@/components/ModBrowser";
@@ -22,9 +23,11 @@ import {
 } from "@/utils/categoryStorage";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/integrations/supabase/AuthProvider";
 import { loadAppSettings, type AppSettings } from "@/utils/appSettings";
 import { toast } from "sonner";
-import { Package, Download, Upload, Trash2, FolderOpen, Menu } from "lucide-react";
+import { Package, Download, Upload, Trash2, FolderOpen, Menu, LogOut, Loader2, ArrowLeft } from "lucide-react";
+import JSON5 from "json5";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -84,6 +87,8 @@ const Index = () => {
   const [showValidationSummary, setShowValidationSummary] = useState(false);
   const [categoryTargetModId, setCategoryTargetModId] = useState<string | null>(null);
   const [configErrorIndicesByMod, setConfigErrorIndicesByMod] = useState<Record<string, number[]>>({});
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const { user, loading: authLoading, signOut } = useAuth();
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
@@ -318,6 +323,24 @@ const Index = () => {
     try {
       await saveConfigToFileElectron(config, values, config.rawJson);
 
+      const rawValue = values.find((value) => value.key === "__RAW_JSON__")?.value;
+      if (typeof rawValue === "string") {
+        try {
+          const parsed = JSON5.parse(rawValue);
+          setScannedMods((prev) => prev.map((modEntry) => {
+            if (modEntry.mod.id !== selectedModId) return modEntry;
+            return {
+              ...modEntry,
+              configs: modEntry.configs.map((entry) =>
+                entry.index === activeConfigIndex ? { ...entry, rawJson: parsed } : entry,
+              ),
+            };
+          }));
+        } catch {
+          // Keep the previous parsed representation if JSON5 parsing unexpectedly fails.
+        }
+      }
+
       setHasUnsavedChanges(false);
       if (selectedModId) {
         setEditedModIds((prev) => {
@@ -527,6 +550,11 @@ const Index = () => {
     });
   }, []);
 
+  const handleEditorJsonErrorChange = useCallback((configIndex: number, hasError: boolean) => {
+    if (!selectedModId) return;
+    handleJsonErrorChange(selectedModId, configIndex, hasError);
+  }, [selectedModId, handleJsonErrorChange]);
+
   const handleFeatureSelect = (feature: "configEditor" | "modBrowser" | "community") => {
     if (feature === "configEditor") {
       if (scannedMods.length > 0) {
@@ -541,6 +569,33 @@ const Index = () => {
       setView("community");
     }
   };
+
+  const handleSignOut = useCallback(async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      const { error } = await signOut();
+      if (error) {
+        toast.error(`Sign out failed: ${error}`);
+        return;
+      }
+      toast.success("Signed out.");
+    } finally {
+      setIsSigningOut(false);
+    }
+  }, [isSigningOut, signOut]);
+
+  const accountControl = (
+    <div className="fixed top-3 right-3 z-50 flex items-center gap-2 rounded-lg border border-border/70 bg-card/85 px-2.5 py-1.5 backdrop-blur-md">
+      <span className="hidden sm:inline max-w-[180px] truncate text-xs text-muted-foreground" title={user?.email ?? ""}>
+        {user?.email}
+      </span>
+      <Button size="sm" variant="outline" onClick={handleSignOut} disabled={isSigningOut} className="h-7 gap-1.5 text-xs">
+        <LogOut className="h-3.5 w-3.5" />
+        {isSigningOut ? "Signing Out..." : "Sign Out"}
+      </Button>
+    </div>
+  );
 
   if (view === "pathSelect") {
     return (
@@ -564,11 +619,41 @@ const Index = () => {
   }
 
   if (view === "modBrowser") {
-    return <ModBrowser onBack={() => setView("featureSelect")} rootDirHandle={rootDirHandle} />;
+    return (
+      <ModBrowser onBack={() => setView("featureSelect")} rootDirHandle={rootDirHandle} />
+    );
   }
 
   if (view === "community") {
-    return <CommunityHub onBack={() => setView("featureSelect")} />;
+    if (authLoading) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-background">
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" /> Checking community access...
+          </div>
+        </div>
+      );
+    }
+
+    if (!user) {
+      return (
+        <div className="relative">
+          <div className="fixed left-3 top-3 z-50">
+            <Button variant="outline" size="sm" onClick={() => setView("featureSelect")} className="gap-1.5">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+          </div>
+          <AuthScreen />
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {accountControl}
+        <CommunityHub onBack={() => setView("featureSelect")} />
+      </>
+    );
   }
 
   const selectedScannedMod = scannedMods.find(m => m.mod.id === selectedModId);
@@ -734,6 +819,7 @@ const Index = () => {
               activeConfigIndex={activeConfigIndex}
               openConfigIndices={openConfigIndices}
               allConfigs={selectedScannedMod!.configs}
+              scannedMods={scannedMods}
               onSelectTab={(idx) => { setActiveConfigIndex(idx); }}
               onCloseTab={handleCloseTab}
               rawJson={selectedConfig?.rawJson}
@@ -742,15 +828,13 @@ const Index = () => {
               sptPath={sptPath}
               rootDirHandle={rootDirHandle}
               onChangesDetected={handleChangesDetected}
-              onJsonErrorChange={(configIndex, hasError) => {
-                if (!selectedModId) return;
-                handleJsonErrorChange(selectedModId, configIndex, hasError);
-              }}
+              onJsonErrorChange={handleEditorJsonErrorChange}
               onExportMods={scannedMods.length > 0 ? handleExportMods : undefined}
               onHome={handleHome}
               saveConfigRef={saveConfigRef}
               currentCategory={getModCategory(selectedModId, modCategories)}
               onCategoryChange={handleCategoryChange}
+              onNavigateToConfig={handleSelectMod}
             />
           ) : selectedMod && selectedModId ? (
             <div className="flex-1 flex items-center justify-center p-4">
