@@ -14,6 +14,27 @@ function validateEmail(email: string): boolean {
   return EMAIL_PATTERN.test(email);
 }
 
+const DISPOSABLE_DOMAINS = new Set([
+  "mailinator.com",
+  "tempmail.com",
+  "10minutemail.com",
+  "guerrillamail.com",
+  "yopmail.com",
+  "throwawaymail.com",
+  "fakeinbox.com",
+  "sharklasers.com",
+  "getairmail.com",
+  "burnermail.io",
+  "temp-mail.org",
+  "mailnesia.com",
+]);
+
+function isDisposableEmail(email: string): boolean {
+  const domain = email.split("@")[1];
+  if (!domain) return false;
+  return DISPOSABLE_DOMAINS.has(domain.toLowerCase());
+}
+
 export const AuthScreen = () => {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -38,6 +59,11 @@ export const AuthScreen = () => {
 
     if (mode === "signup" && password !== confirmPassword) {
       toast.error("Passwords do not match.");
+      return;
+    }
+
+    if (mode === "signup" && isDisposableEmail(trimmedEmail)) {
+      toast.error("Disposable email addresses are not allowed.");
       return;
     }
 
