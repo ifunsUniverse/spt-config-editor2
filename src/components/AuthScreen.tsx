@@ -62,6 +62,11 @@ export const AuthScreen = () => {
       return;
     }
 
+    if (mode === "signup" && isDisposableEmail(trimmedEmail)) {
+      toast.error("Disposable email addresses are not allowed.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (mode === "login") {
