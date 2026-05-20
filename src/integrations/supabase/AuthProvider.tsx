@@ -74,6 +74,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         return { error: error ? normalizeAuthError(error) : null };
       },
+<<<<<<< HEAD
       signUp: async (email, password, username) => {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -83,6 +84,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
               username,
             },
           },
+=======
+      signUp: async (email, password) => {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin },
+>>>>>>> fab456858afb6ba7909cfa225427aee1c45b8a1c
         });
         const needsEmailVerification = Boolean(data.user && !data.session);
         return {
