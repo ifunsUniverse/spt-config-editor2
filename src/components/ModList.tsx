@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, Star, Clock, FileJson, Folder } from "lucide-react";
+import { ChevronRight, Star, Clock, FileJson, Folder, Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { splitCamelCase, cn } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -120,20 +120,54 @@ export const ModList = ({
     return groups;
   }, [configFiles]);
 
+  const filteredFavoriteCount = filteredMods.filter((mod) => favoritedModIds.has(mod.id)).length;
+  const totalConfigCount = filteredMods.reduce((sum, mod) => sum + (configFiles[mod.id]?.length ?? 0), 0);
+
   return (
     <div className="flex flex-col flex-1 h-full min-h-0 min-w-0 overflow-hidden bg-background">
-      <div className="p-4 border-b border-border shrink-0">
-        <Input
-          ref={searchInputRef}
-          placeholder="Search mods... (Ctrl+F)"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-muted/50 border-border h-10 text-sm focus-visible:ring-primary/30"
-        />
+      <div className="shrink-0 border-b border-border/70 bg-[linear-gradient(180deg,rgba(59,130,246,0.08)_0%,rgba(59,130,246,0)_100%)] px-3 py-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            ref={searchInputRef}
+            placeholder="Search mods, IDs, or author (Ctrl+F)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 border-border/80 bg-background/85 pl-9 pr-9 text-sm shadow-sm focus-visible:ring-primary/30"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-2 flex flex-wrap gap-1">
+          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+            {filteredMods.length} mod{filteredMods.length === 1 ? "" : "s"}
+          </Badge>
+          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+            {totalConfigCount} config{totalConfigCount === 1 ? "" : "s"}
+          </Badge>
+          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+            {filteredFavoriteCount} favorite{filteredFavoriteCount === 1 ? "" : "s"}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden no-scrollbar">
-        <div className="flex w-full flex-col gap-2.5 py-4 px-4">
+        <div className="flex w-full flex-col gap-2 px-2 py-2">
+          {filteredMods.length === 0 && (
+            <Card className="border-dashed border-border/70 bg-muted/30 p-4 text-center">
+              <p className="text-sm font-semibold text-foreground">No mods match this search</p>
+              <p className="mt-1 text-xs text-muted-foreground">Try a different name, ID, or author.</p>
+            </Card>
+          )}
+
           {filteredMods.map((mod) => {
             const lastEditTime = getModEditTime(mod.id);
             const isSelectedMod = selectedModId === mod.id;
@@ -149,19 +183,18 @@ export const ModList = ({
                   <ContextMenuTrigger>
                     <Card 
                       className={cn(
-                        "relative h-auto transition-all duration-200 border-border overflow-hidden w-full max-w-full",
-                        "mx-0",
+                        "relative h-auto w-full max-w-full overflow-hidden border transition-all duration-200",
                         hasErrorInMod
-                          ? "ring-2 ring-red-500/70 border-red-500/60 bg-red-500/15 shadow-md shadow-red-500/20"
+                          ? "border-red-500/60 bg-red-500/15 shadow-[0_0_0_1px_rgba(239,68,68,0.45)]"
                           : isSelectedMod 
-                          ? "ring-2 ring-blue-400/70 border-blue-400/60 bg-blue-500/18 shadow-md shadow-blue-500/20" 
-                          : "bg-card/50 hover:bg-card hover:border-primary/30 hover:shadow-sm",
-                        isExpanded && "pb-2"
+                          ? "border-blue-400/65 bg-blue-500/15 shadow-[0_0_0_1px_rgba(96,165,250,0.55)]" 
+                          : "border-border/70 bg-card/50 hover:border-primary/35 hover:bg-card/85",
+                        isExpanded && "pb-1"
                       )}
                     >
                       {/* Mod Header Row */}
                       <div 
-                        className="flex items-center gap-2 p-2 cursor-pointer select-none min-w-0"
+                        className="flex min-w-0 cursor-pointer select-none items-center gap-2 p-2"
                         onClick={() => toggleMod(mod.id)}
                       >
                         <button
@@ -169,7 +202,7 @@ export const ModList = ({
                             e.stopPropagation();
                             onToggleFavorite(mod.id);
                           }}
-                          className="shrink-0 transition-transform active:scale-125 focus:outline-none self-start mt-1"
+                          className="mt-1 shrink-0 rounded-sm p-0.5 transition-transform active:scale-125 focus:outline-none"
                         >
                           <Star
                             className={cn(
@@ -182,15 +215,15 @@ export const ModList = ({
                         </button>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-1.5 mb-0.5">
-                            <span className="font-bold text-sm text-foreground whitespace-normal break-words leading-tight">
+                          <div className="mb-0.5 flex items-start gap-1.5">
+                            <span className="whitespace-normal break-words text-sm font-semibold leading-tight text-foreground">
                               {splitCamelCase(mod.name)}
                             </span>
                             {modCategories[mod.id] && (
                               <Badge
                                 className={cn(
                                   getCategoryBgColor(modCategories[mod.id]),
-                                  "text-white border-0 text-[9px] px-1 py-0 h-3.5 uppercase tracking-wider font-black shrink-0 mt-0.5"
+                                  "mt-0.5 h-3.5 shrink-0 border-0 px-1 py-0 text-[9px] font-black uppercase tracking-wider text-white"
                                 )}
                               >
                                 {modCategories[mod.id]}
@@ -205,7 +238,7 @@ export const ModList = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-0.5 shrink-0 self-center">
+                        <div className="flex shrink-0 items-center gap-0.5 self-center">
                           {lastEditTime && (
                             <Clock className="h-3 w-3 text-primary/60" />
                           )}
@@ -223,8 +256,8 @@ export const ModList = ({
 
                       {/* Nested Content */}
                       {isExpanded && (
-                        <div className="px-1.5 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-200">
-                          <div className="mx-2 h-px bg-border/50 mb-1.5" />
+                        <div className="animate-in slide-in-from-top-1 fade-in space-y-0.5 px-1 duration-200">
+                          <div className="mx-2 mb-1 h-px bg-border/60" />
                           
                           {/* Files in the mod root */}
                           {modGroup.root.map((cfg) => (
@@ -246,7 +279,7 @@ export const ModList = ({
                               <div key={folderName} className="space-y-0.5">
                                 <button
                                   onClick={() => toggleFolder(mod.id, folderName)}
-                                  className="flex items-center gap-2 w-full text-left px-2 py-1 rounded-md text-[11px] hover:bg-blue-500/10 text-foreground/80 hover:text-foreground transition-colors"
+                                  className="flex w-full items-center gap-2 rounded-md px-2 py-0.5 text-left text-[11px] text-foreground/80 transition-colors hover:bg-blue-500/10 hover:text-foreground"
                                 >
                                   <ChevronRight className={cn(
                                     "h-3 w-3 transition-transform",
@@ -254,11 +287,11 @@ export const ModList = ({
                                   )} />
                                   <Folder className="h-3 w-3 text-primary/40" />
                                   <span className="font-medium truncate">{folderName}</span>
-                                  <Badge variant="outline" className="ml-auto text-[9px] h-3.5 px-1 opacity-50">{files.length}</Badge>
+                                  <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px] opacity-50">{files.length}</Badge>
                                 </button>
                                 
                                 {isFolderExpanded && (
-                                  <div className="pl-4 space-y-0.5">
+                                  <div className="space-y-0.5 pl-3">
                                     {files.map((cfg) => (
                                       <ConfigButton 
                                         key={cfg.index}

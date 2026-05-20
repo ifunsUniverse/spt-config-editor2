@@ -20,7 +20,7 @@ import { getCategoryBgColor } from "@/utils/categoryDefinitions";
 import { toast } from "sonner";
 import JSON5 from "json5";
 import { cn } from "@/lib/utils";
-import Editor, { DiffEditor } from "@monaco-editor/react";
+import Editor from "@monaco-editor/react";
 import { ConfigValue } from "@/utils/configHelpers";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
@@ -43,7 +43,7 @@ interface ConfigEditorProps {
   onCloseTab: (index: number) => void;
   rawJson: any;
   modId: string;
-  onSave: (values: ConfigValue[]) => void;
+  onSave: (values: ConfigValue[]) => Promise<void> | void;
   onChangesDetected?: (hasChanges: boolean) => void;
   onJsonErrorChange?: (configFileIndex: number, hasError: boolean) => void;
   saveConfigRef?: React.MutableRefObject<(() => void) | null>;
@@ -180,8 +180,6 @@ export const ConfigEditor = ({
   const isMobile = useIsMobile();
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(loadEditorSettings);
   const [cursorPosition, setCursorPosition] = useState({ line: 1, column: 1 });
-  const [showSaveDiffDialog, setShowSaveDiffDialog] = useState(false);
-  const [pendingSaveTarget, setPendingSaveTarget] = useState<"primary" | "secondary" | null>(null);
 
   // Listen for settings changes from SettingsDialog
   useEffect(() => {
@@ -566,8 +564,9 @@ export const ConfigEditor = ({
   const performPrimarySave = useCallback(async () => {
     try {
       JSON5.parse(rawText);
-      onSave([{ key: "__RAW_JSON__", type: "raw", value: rawText }]);
-      await saveConfigHistory(modId, modName, configFile, rawText);
+      const previousSnapshot = originalRawText;
+      await Promise.resolve(onSave([{ key: "__RAW_JSON__", type: "raw", value: rawText }]));
+      await saveConfigHistory(modId, modName, configFile, rawText, undefined, previousSnapshot);
       setOriginalRawText(rawText);
       setHasChanges(false);
       if (onChangesDetected) onChangesDetected(false);
@@ -575,17 +574,16 @@ export const ConfigEditor = ({
     } catch (error: any) {
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
-  }, [configFile, rawText, modId, modName, onSave, onChangesDetected]);
+  }, [configFile, rawText, modId, modName, onSave, onChangesDetected, originalRawText]);
 
   const handleSave = useCallback(async () => {
     try {
       JSON5.parse(rawText);
-      setPendingSaveTarget("primary");
-      setShowSaveDiffDialog(true);
+      await performPrimarySave();
     } catch (error: any) {
       toast.error("Invalid JSON/JSON5", { description: error.message });
     }
-  }, [rawText]);
+  }, [performPrimarySave, rawText]);
 
   const handleFormatJson = useCallback(async () => {
     const targetEditor = activeEditorRef.current || editorRef.current;
@@ -622,11 +620,12 @@ export const ConfigEditor = ({
 
     try {
       JSON5.parse(secondaryRawText);
+      const previousSnapshot = secondaryOriginalRawText;
       const writable = await (secondaryConfig.fileHandle as any).createWritable();
       await writable.write(secondaryRawText);
       await writable.close();
 
-      await saveConfigHistory(modId, modName, secondaryConfig.filePath, secondaryRawText);
+      await saveConfigHistory(modId, modName, secondaryConfig.filePath, secondaryRawText, undefined, previousSnapshot);
       setSecondaryOriginalRawText(secondaryRawText);
       setSecondaryHasChanges(false);
       if (onJsonErrorChange) onJsonErrorChange(secondaryConfig.index, false);
@@ -641,32 +640,11 @@ export const ConfigEditor = ({
 
     try {
       JSON5.parse(secondaryRawText);
-      setPendingSaveTarget("secondary");
-      setShowSaveDiffDialog(true);
+      await performSecondarySave();
     } catch (error: any) {
       toast.error("Invalid JSON/JSON5", { description: error?.message || "Could not save file" });
     }
   };
-
-  const handleConfirmSave = useCallback(async () => {
-    const target = pendingSaveTarget;
-    setShowSaveDiffDialog(false);
-    setPendingSaveTarget(null);
-
-    if (target === "primary") {
-      await performPrimarySave();
-      return;
-    }
-
-    if (target === "secondary") {
-      await performSecondarySave();
-    }
-  }, [pendingSaveTarget, performPrimarySave, performSecondarySave]);
-
-  const handleCancelSaveReview = useCallback(() => {
-    setShowSaveDiffDialog(false);
-    setPendingSaveTarget(null);
-  }, []);
 
   const displayPath = React.useMemo(() => {
     if (!configFile) return "";
@@ -799,11 +777,6 @@ export const ConfigEditor = ({
     toast.success("Restored from history");
   };
 
-  const pendingSaveConfig = pendingSaveTarget === "secondary" ? secondaryConfig : activeConfig;
-  const pendingSaveOriginalText = pendingSaveTarget === "secondary" ? secondaryOriginalRawText : originalRawText;
-  const pendingSaveModifiedText = pendingSaveTarget === "secondary" ? secondaryRawText : rawText;
-  const pendingSaveLabel = pendingSaveTarget === "secondary" ? "Review Secondary Save" : "Review Save";
-
   const globalSearchResults = React.useMemo(() => {
     const trimmed = searchQuery.trim().toLowerCase();
     if (!trimmed) return [] as ConfigSearchResult[];
@@ -868,13 +841,13 @@ export const ConfigEditor = ({
     <div className="flex-1 flex flex-col h-full bg-background min-w-0 overflow-hidden">
       {/* MODERN HEADER - Premium Design */}
       <div className="border-b border-border/60 bg-gradient-to-b from-card/80 to-background shadow-sm">
-        <div className="px-4 sm:px-6 py-3 sm:py-4">
+        <div className="px-3 py-3 sm:px-4">
           {/* Main Header Row */}
-          <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="mb-2 flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-end gap-3">
+              <div className="flex items-end gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="mb-1 flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-primary"></div>
                     <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">
                       {modName}
@@ -887,13 +860,13 @@ export const ConfigEditor = ({
               </div>
               
               {/* Category & Status Pills */}
-              <div className="flex flex-wrap gap-2 mt-3 items-center">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {currentCategory ? (
                   <Button
                     onClick={() => onCategoryChange?.(null)}
                     variant="outline"
                     size="sm"
-                    className="h-7 text-[10px] sm:text-xs gap-1.5 hover:bg-destructive hover:text-white transition-colors px-2"
+                    className="h-7 gap-1 px-2 text-[10px] sm:text-xs hover:bg-destructive hover:text-white transition-colors"
                   >
                     <Badge
                       className={cn(
@@ -917,7 +890,7 @@ export const ConfigEditor = ({
                 )}
                 
                 {hasChanges && (
-                  <Badge variant="secondary" className="text-[10px] sm:text-xs h-7 flex items-center gap-1.5 px-2">
+                  <Badge variant="secondary" className="flex h-7 items-center gap-1 px-2 text-[10px] sm:text-xs">
                     <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
                     Unsaved Changes
                   </Badge>
@@ -926,7 +899,7 @@ export const ConfigEditor = ({
             </div>
 
             {/* Primary Actions - Desktop */}
-            <div className="hidden xl:flex items-center gap-2 shrink-0">
+            <div className="hidden shrink-0 items-center gap-2 xl:flex">
               <Button 
                 size="sm" 
                 variant="outline"
@@ -963,7 +936,7 @@ export const ConfigEditor = ({
             </div>
 
             {/* Compact Actions - Mobile/Tablet */}
-            <div className="xl:hidden flex items-center gap-1">
+            <div className="flex items-center gap-1 xl:hidden">
               <Button 
                 size="icon"
                 variant={hasChanges ? "default" : "outline"}
@@ -1021,12 +994,12 @@ export const ConfigEditor = ({
       </div>
 
       {/* ENHANCED TABS & TOOLBAR */}
-      <div className="px-2 sm:px-4 lg:px-6 pt-3 shrink-0">
+      <div className="shrink-0 px-3 pt-2 sm:px-4">
         <div className="rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden shadow-sm">
           {/* Tab Bar */}
           <div className="border-b border-border/50 bg-card/50">
             <ScrollArea className="w-full">
-              <div className="flex items-center px-2 py-2.5 gap-1.5 min-h-[44px]">
+              <div className="flex min-h-[40px] items-center gap-1 px-2 py-2">
                 {openConfigIndices.map((idx) => {
                   const config = allConfigs[idx];
                   const isActive = activeConfigIndex === idx;
@@ -1036,7 +1009,7 @@ export const ConfigEditor = ({
                     <div
                       key={idx}
                       className={cn(
-                        "flex items-center gap-1.5 px-3 py-1.5 text-xs cursor-pointer transition-all border rounded-md",
+                        "flex cursor-pointer items-center gap-1 border rounded-md px-3 py-1 text-xs transition-all",
                         "group relative",
                         isActive
                           ? "bg-primary/15 text-foreground border-primary/40 font-medium shadow-sm"
@@ -1074,11 +1047,11 @@ export const ConfigEditor = ({
           </div>
 
           {/* Control Bar */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-3 sm:px-4 py-2.5 bg-card/25">
+          <div className="flex flex-col items-start justify-between gap-2 bg-card/25 px-3 py-2 sm:flex-row sm:items-center sm:px-4">
             {/* Search Area */}
             <div className="w-full sm:flex-1 sm:max-w-sm">
               {showSearch ? (
-                <div className="flex items-center gap-2 bg-card/80 border border-border/50 rounded-md px-2.5 py-1.5">
+                <div className="flex items-center gap-2 rounded-md border border-border/50 bg-card/80 px-2 py-1">
                   <Search className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
                   <input
                     type="text"
@@ -1114,7 +1087,7 @@ export const ConfigEditor = ({
             </div>
 
             {/* Editor Controls */}
-            <div className="flex items-center gap-1.5 w-full sm:w-auto justify-end">
+            <div className="flex w-full items-center justify-end gap-1 sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
@@ -1163,9 +1136,9 @@ export const ConfigEditor = ({
       </div>
 
       {showSearch && (
-        <div className="px-2 sm:px-4 lg:px-6 pt-2 shrink-0">
+        <div className="shrink-0 px-3 pt-2 sm:px-4">
           <div className="rounded-lg border border-border/50 bg-gradient-to-b from-card/60 to-card/30 shadow-sm overflow-hidden">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 px-4 py-3 border-b border-border/50 bg-card/40">
+            <div className="flex flex-col items-start justify-between gap-2 border-b border-border/50 bg-card/40 px-3 py-2 sm:flex-row sm:items-center sm:px-4">
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">Global Search</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -1180,12 +1153,12 @@ export const ConfigEditor = ({
             </div>
 
             {!searchQuery.trim() ? (
-              <div className="px-4 py-8 text-center">
+              <div className="px-3 py-5 text-center sm:px-4">
                 <Search className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">Type to search file names, keys, and values</p>
               </div>
             ) : globalSearchResults.length === 0 ? (
-              <div className="px-4 py-8 text-center">
+              <div className="px-3 py-5 text-center sm:px-4">
                 <AlertCircle className="w-8 h-8 text-muted-foreground/50 mx-auto mb-2" />
                 <p className="text-sm text-muted-foreground">No matches found for "<span className="font-medium">{searchQuery}</span>"</p>
               </div>
@@ -1196,7 +1169,7 @@ export const ConfigEditor = ({
                     <button
                       key={`${result.modId}:${result.configIndex}:${result.matchPath}:${index}`}
                       onClick={() => handleSelectGlobalSearchResult(result)}
-                      className="w-full px-4 py-3 text-left hover:bg-primary/5 transition-colors group border-l-2 border-l-transparent hover:border-l-primary"
+                      className="group w-full border-l-2 border-l-transparent px-3 py-2 text-left transition-colors hover:border-l-primary hover:bg-primary/5 sm:px-4"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
@@ -1225,13 +1198,13 @@ export const ConfigEditor = ({
       )}
 
       {/* EDITOR WORKSPACE */}
-      <div className="flex flex-col flex-grow overflow-hidden p-2 sm:p-4 lg:p-6 pt-3 gap-3">
+      <div className="flex flex-grow flex-col gap-2 overflow-hidden p-2 pt-2 sm:p-3 sm:pt-2">
         {!loading && !error && (
-          <div className={cn("flex flex-col flex-grow min-h-0 overflow-hidden gap-3", isSplitView && "lg:grid lg:grid-cols-2")}>
+          <div className={cn("flex flex-grow min-h-0 flex-col gap-2 overflow-hidden", isSplitView && "lg:grid lg:grid-cols-2")}>
             {/* Primary Editor Pane */}
             <div className="flex flex-col min-h-0 flex-1 rounded-lg border border-border/50 overflow-hidden shadow-lg bg-gradient-to-br from-[#1e1e1e] to-[#252526]">
               {/* Pane Header */}
-              <div className="h-9 px-4 bg-gradient-to-r from-card/80 to-card/40 border-b border-border/50 flex items-center justify-between text-xs font-medium">
+              <div className="flex h-8 items-center justify-between border-b border-border/50 bg-gradient-to-r from-card/80 to-card/40 px-3 text-xs font-medium">
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="w-2 h-2 rounded-full bg-blue-500/70"></div>
                   <span className="text-foreground truncate">Primary Editor</span>
@@ -1256,7 +1229,7 @@ export const ConfigEditor = ({
               </div>
 
               {/* Editor Footer */}
-              <div className="h-7 px-4 bg-card/30 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground/70 gap-2">
+              <div className="flex h-7 items-center justify-between gap-2 border-t border-border/30 bg-card/30 px-3 text-[10px] text-muted-foreground/70">
                 <span className="truncate">
                   {jsonError ? `Error${jsonErrorLine ? ` on Line ${jsonErrorLine}` : ""}` : "Valid JSON5"}
                 </span>
@@ -1271,7 +1244,7 @@ export const ConfigEditor = ({
             {isSplitView && secondaryConfig && (
               <div className="flex flex-col min-h-0 flex-1 rounded-lg border border-border/50 overflow-hidden shadow-lg bg-gradient-to-br from-[#1e1e1e] to-[#252526]">
                 {/* Pane Header */}
-                <div className="h-9 px-4 bg-gradient-to-r from-card/80 to-card/40 border-b border-border/50 flex items-center justify-between text-xs font-medium">
+                <div className="flex h-8 items-center justify-between border-b border-border/50 bg-gradient-to-r from-card/80 to-card/40 px-3 text-xs font-medium">
                   <div className="flex items-center gap-2 min-w-0">
                     <div className="w-2 h-2 rounded-full bg-purple-500/70"></div>
                     <span className="text-foreground truncate">Secondary Editor</span>
@@ -1334,7 +1307,7 @@ export const ConfigEditor = ({
                 </div>
 
                 {/* Editor Footer */}
-                <div className="h-7 px-4 bg-card/30 border-t border-border/30 flex items-center justify-between text-[10px] text-muted-foreground/70">
+                <div className="flex h-7 items-center justify-between border-t border-border/30 bg-card/30 px-3 text-[10px] text-muted-foreground/70">
                   <span className="truncate">
                     {secondaryJsonError ? "Error on secondary pane" : "Valid JSON5"}
                   </span>
@@ -1365,7 +1338,7 @@ export const ConfigEditor = ({
         {/* Error State */}
         {error && !loading && (
           <div className="flex-1 flex items-center justify-center">
-            <div className="bg-card/40 border border-border/50 rounded-lg p-6 text-center max-w-sm">
+            <div className="max-w-sm rounded-lg border border-border/50 bg-card/40 p-4 text-center">
               <AlertCircle className="w-12 h-12 text-destructive/60 mx-auto mb-3" />
               <p className="text-base font-medium text-foreground mb-2">Failed to Load File</p>
               <p className="text-sm text-muted-foreground mb-4">The configuration file could not be read. Try reloading or selecting another file.</p>
@@ -1395,45 +1368,6 @@ export const ConfigEditor = ({
           </DialogContent>
         </Dialog>
 
-        <Dialog open={showSaveDiffDialog} onOpenChange={(open) => !open && handleCancelSaveReview()}>
-          <DialogContent className="w-[96vw] max-w-[1400px] h-[88vh] max-h-[920px] flex flex-col p-0 gap-0 overflow-hidden [&>button]:top-3 [&>button]:right-3 [&>button]:z-10">
-            <div className="border-b border-border px-4 py-3 shrink-0 bg-card/60">
-              <h3 className="text-lg font-semibold text-foreground">{pendingSaveLabel}</h3>
-              <p className="text-sm text-muted-foreground truncate">
-                {pendingSaveConfig?.fileName.split(/[\\/]/).pop() ?? configFile}
-              </p>
-            </div>
-
-            <div className="flex-1 min-h-0">
-              <DiffEditor
-                height="100%"
-                language="jsonc"
-                original={pendingSaveOriginalText}
-                modified={pendingSaveModifiedText}
-                beforeMount={(monaco) => {
-                  registerSptDarkTheme(monaco);
-                }}
-                theme="spt-dark"
-                options={{
-                  ...editorOptions,
-                  readOnly: true,
-                  originalEditable: false,
-                  renderSideBySide: !isMobile,
-                  minimap: { enabled: false },
-                }}
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border px-4 py-3 shrink-0 bg-card/60">
-              <Button variant="outline" onClick={handleCancelSaveReview}>
-                Cancel
-              </Button>
-              <Button onClick={handleConfirmSave} className="gap-2 bg-primary hover:bg-primary/90">
-                <Save className="w-4 h-4" /> Confirm Save
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

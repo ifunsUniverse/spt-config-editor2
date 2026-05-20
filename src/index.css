@@ -146,6 +146,11 @@
   --theme-font-family: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   --theme-display-font: "Sora", "Bahnschrift", "Trebuchet MS", sans-serif;
   --theme-font-size: 16px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 20px;
 }
 
 @keyframes config-glow-drift {

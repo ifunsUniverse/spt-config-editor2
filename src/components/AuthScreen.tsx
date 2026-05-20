@@ -9,6 +9,7 @@ import { useAuth } from "@/integrations/supabase/AuthProvider";
 import { toast } from "sonner";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,24}$/;
 
 function validateEmail(email: string): boolean {
   return EMAIL_PATTERN.test(email);
@@ -17,11 +18,13 @@ function validateEmail(email: string): boolean {
 export const AuthScreen = () => {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"login" | "signup">("login");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const trimmedUsername = useMemo(() => username.trim(), [username]);
   const trimmedEmail = useMemo(() => email.trim().toLowerCase(), [email]);
 
   const handleSubmit = async (event: FormEvent) => {
@@ -41,6 +44,11 @@ export const AuthScreen = () => {
       return;
     }
 
+    if (mode === "signup" && !USERNAME_PATTERN.test(trimmedUsername)) {
+      toast.error("Username must be 3-24 characters and use only letters, numbers, or underscores.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       if (mode === "login") {
@@ -53,7 +61,7 @@ export const AuthScreen = () => {
         return;
       }
 
-      const { error, needsEmailVerification } = await signUp(trimmedEmail, password);
+      const { error, needsEmailVerification } = await signUp(trimmedEmail, password, trimmedUsername);
       if (error) {
         toast.error(error);
         return;
@@ -135,6 +143,19 @@ export const AuthScreen = () => {
 
             <TabsContent value="signup" className="mt-0">
               <form className="space-y-4" onSubmit={handleSubmit}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="auth-username-signup">Username</Label>
+                  <Input
+                    id="auth-username-signup"
+                    type="text"
+                    autoComplete="username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="your_name"
+                    disabled={submitting}
+                  />
+                </div>
+
                 <div className="space-y-1.5">
                   <Label htmlFor="auth-email-signup">Email</Label>
                   <Input

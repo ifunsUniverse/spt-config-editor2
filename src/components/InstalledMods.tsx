@@ -681,7 +681,7 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
       </div>
 
       {needsSetup ? (
-        <div className="flex flex-1 flex-col items-center justify-center px-4 py-20 text-center gap-5">
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 py-12 text-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full border border-dashed border-border/70 bg-background/70">
             <FolderOpen className="w-9 h-9 text-muted-foreground/40" />
           </div>
@@ -692,7 +692,7 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
               root folder.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button onClick={handleSelectPluginsFolder} variant="outline" className="gap-2 text-xs h-10 px-4">
               <FolderOpen className="w-4 h-4" />
               BepInEx/plugins
@@ -713,11 +713,11 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
           }}
           className="flex flex-col flex-1 min-h-0"
         >
-          <div className="px-4 pt-4 shrink-0 sm:px-5">
+          <div className="shrink-0 px-3 pt-3 sm:px-4">
             <TabsList className="grid h-auto w-full grid-cols-1 gap-2 bg-transparent p-0 md:grid-cols-3">
               <TabsTrigger
                 value="plugins"
-                className="justify-between rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+                className="justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2.5 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
               >
                 <span className="flex flex-col items-start">
                   <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Client</span>
@@ -731,7 +731,7 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
               </TabsTrigger>
               <TabsTrigger
                 value="mods"
-                className="justify-between rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+                className="justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2.5 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
               >
                 <span className="flex flex-col items-start">
                   <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Server</span>
@@ -745,7 +745,7 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
               </TabsTrigger>
               <TabsTrigger
                 value="disabled"
-                className="justify-between rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
+                className="justify-between rounded-xl border border-border/70 bg-background/70 px-3 py-2.5 text-left data-[state=active]:border-primary/30 data-[state=active]:bg-card data-[state=active]:shadow-sm"
               >
                 <span className="flex flex-col items-start">
                   <span className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Storage</span>

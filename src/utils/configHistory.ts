@@ -11,6 +11,7 @@ export interface ConfigHistory {
   configFile: string;
   timestamp: number;
   rawJson: any;
+  previousRawJson?: any;
   label?: string;
   filename?: string;
 }
@@ -23,11 +24,12 @@ export const saveConfigHistory = async (
   modName: string,
   configFile: string,
   rawJson: any,
-  label?: string
+  label?: string,
+  previousRawJson?: any,
 ): Promise<void> => {
   const timestamp = Date.now();
   const safeConfigName = configFile.replace(/[<>:"/\\|?*]/g, "_");
-  const content = JSON.stringify({ rawJson, label }, null, 2);
+  const content = JSON.stringify({ rawJson, previousRawJson, label }, null, 2);
 
   try {
     await writeHistoryBackup(modName, safeConfigName, timestamp, content);
@@ -58,6 +60,7 @@ export const getConfigHistory = async (
           configFile,
           timestamp: b.timestamp,
           rawJson: parsed.rawJson,
+          previousRawJson: parsed.previousRawJson,
           label: parsed.label || `Backup from ${new Date(b.timestamp).toLocaleString()}`,
           filename: b.filename,
         };

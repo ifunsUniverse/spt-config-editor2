@@ -26,9 +26,12 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/integrations/supabase/AuthProvider";
 import { loadAppSettings, type AppSettings } from "@/utils/appSettings";
 import { toast } from "sonner";
-import { Package, Download, Upload, Trash2, FolderOpen, Menu, LogOut, Loader2, ArrowLeft } from "lucide-react";
+import { Package, Download, Upload, Trash2, FolderOpen, Menu, LogOut, Loader2, ArrowLeft, Crown, Sparkles, UserRoundPen } from "lucide-react";
 import JSON5 from "json5";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +48,90 @@ import {
   SheetContent,
   SheetTrigger,
 } from "@/components/ui/sheet";
+
+const OWNER_EMAILS = new Set(
+  String(import.meta.env.VITE_OWNER_EMAILS ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+const OWNER_USERNAMES = new Set(
+  String(import.meta.env.VITE_OWNER_USERNAMES ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+function resolveUsername(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null): string {
+  if (!user) return "Anonymous";
+
+  const rawUsername = user.user_metadata?.username;
+  if (typeof rawUsername === "string" && rawUsername.trim().length > 0) {
+    return rawUsername.trim();
+  }
+
+  const rawDisplayName = user.user_metadata?.display_name;
+  if (typeof rawDisplayName === "string" && rawDisplayName.trim().length > 0) {
+    return rawDisplayName.trim();
+  }
+
+  const rawFullName = user.user_metadata?.full_name;
+  if (typeof rawFullName === "string" && rawFullName.trim().length > 0) {
+    return rawFullName.trim();
+  }
+
+  const email = typeof user.email === "string" ? user.email.trim() : "";
+  if (!email.includes("@")) return "Anonymous";
+
+  const candidate = email.split("@")[0]?.trim();
+  return candidate ? candidate : "Anonymous";
+}
+
+function isOwnerAccount(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null, username: string): boolean {
+  if (!user) return false;
+
+  const role = user.user_metadata?.role;
+  if (typeof role === "string" && role.trim().toLowerCase() === "owner") {
+    return true;
+  }
+
+  const usernameKey = username.trim().toLowerCase();
+  if (usernameKey && OWNER_USERNAMES.has(usernameKey)) {
+    return true;
+  }
+
+  const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : "";
+  if (email && OWNER_EMAILS.has(email)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getMetadataString(user: { user_metadata?: Record<string, unknown> } | null, key: string): string {
+  if (!user) return "";
+  const value = user.user_metadata?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function getGravatarUrlSync(email: string | null | undefined): string {
+  if (!email) return "";
+  const trimmedEmail = String(email).trim().toLowerCase();
+  
+  // Simple MD5-like hash using character codes
+  // This is not a true MD5 but works for generating consistent Gravatar URLs
+  let hash = 0;
+  for (let i = 0; i < trimmedEmail.length; i++) {
+    const char = trimmedEmail.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  const hashStr = Math.abs(hash).toString(16).padStart(32, '0');
+  return `https://www.gravatar.com/avatar/${hashStr.substring(0, 32)}?d=identicon&s=32`;
+}
+
+const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,24}$/;
 
 const Index = () => {
   const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser" | "community">("pathSelect");
@@ -88,7 +175,13 @@ const Index = () => {
   const [categoryTargetModId, setCategoryTargetModId] = useState<string | null>(null);
   const [configErrorIndicesByMod, setConfigErrorIndicesByMod] = useState<Record<string, number[]>>({});
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const { user, loading: authLoading, signOut } = useAuth();
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [profileUsername, setProfileUsername] = useState("");
+  const [profileDisplayName, setProfileDisplayName] = useState("");
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const { user, loading: authLoading, signOut, updateProfile } = useAuth();
+  const accountUsername = useMemo(() => resolveUsername(user), [user]);
+  const isOwner = useMemo(() => isOwnerAccount(user, accountUsername), [user, accountUsername]);
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
@@ -255,25 +348,29 @@ const Index = () => {
     const targetMod = scannedMods.find(m => m.mod.id === modId);
     if (!targetMod) return;
     if (!targetMod.configs || targetMod.configs.length === 0) return;
-    
+
     const safeConfigIndex = Math.max(0, Math.min(configIndex, targetMod.configs.length - 1));
-    
-    if (hasUnsavedChanges && selectedModId !== modId) {
+    const isSwitchingToDifferentMod = selectedModId !== modId;
+
+    if (hasUnsavedChanges && isSwitchingToDifferentMod) {
       setPendingModSwitch({ modId, configIndex: safeConfigIndex });
-    } else {
-      setSelectedModId(modId);
-      if (selectedModId !== modId) {
-        setOpenConfigIndices([safeConfigIndex]);
-        setActiveConfigIndex(safeConfigIndex);
-      } else {
-        setOpenConfigIndices(prev => 
-          prev.includes(safeConfigIndex) ? prev : [...prev, safeConfigIndex]
-        );
-        setActiveConfigIndex(safeConfigIndex);
-      }
-      setHasUnsavedChanges(false);
-      if (isMobile) setIsSidebarOpen(false);
+      return;
     }
+
+    setSelectedModId(modId);
+    if (isSwitchingToDifferentMod) {
+      setOpenConfigIndices([safeConfigIndex]);
+      setActiveConfigIndex(safeConfigIndex);
+      setHasUnsavedChanges(false);
+    } else {
+      setOpenConfigIndices(prev =>
+        prev.includes(safeConfigIndex) ? prev : [...prev, safeConfigIndex]
+      );
+      setActiveConfigIndex(safeConfigIndex);
+      // Keep unsaved change tracking when staying within the same mod.
+    }
+
+    if (isMobile) setIsSidebarOpen(false);
   };
 
   const handleCloseTab = (index: number) => {
@@ -585,11 +682,62 @@ const Index = () => {
     }
   }, [isSigningOut, signOut]);
 
+  const openEditProfileDialog = useCallback(() => {
+    if (!user) return;
+    setProfileUsername(accountUsername);
+    setProfileDisplayName(getMetadataString(user, "display_name"));
+    setShowEditProfile(true);
+  }, [accountUsername, user]);
+
+  const handleSaveProfile = useCallback(async () => {
+    const trimmedUsername = profileUsername.trim();
+    const trimmedDisplayName = profileDisplayName.trim();
+
+    if (!USERNAME_PATTERN.test(trimmedUsername)) {
+      toast.error("Username must be 3-24 characters and use only letters, numbers, or underscores.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    try {
+      const { error } = await updateProfile({
+        username: trimmedUsername,
+        displayName: trimmedDisplayName || null,
+      });
+
+      if (error) {
+        toast.error(`Profile update failed: ${error}`);
+        return;
+      }
+
+      toast.success("Profile updated.");
+      setShowEditProfile(false);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }, [profileDisplayName, profileUsername, updateProfile]);
+
   const accountControl = (
     <div className="fixed top-3 right-3 z-50 flex items-center gap-2 rounded-lg border border-border/70 bg-card/85 px-2.5 py-1.5 backdrop-blur-md">
-      <span className="hidden sm:inline max-w-[180px] truncate text-xs text-muted-foreground" title={user?.email ?? ""}>
-        {user?.email}
+      {isOwner && (
+        <span
+          className="inline-flex h-7 items-center gap-1.5 rounded-md border border-amber-300/70 bg-amber-400/10 px-2 text-[11px] font-semibold text-amber-700 shadow-[0_0_16px_rgba(251,191,36,0.35)] dark:border-amber-500/50 dark:text-amber-300"
+          title="Application Owner"
+        >
+          <span className="relative inline-flex items-center justify-center">
+            <Crown className="h-3.5 w-3.5" />
+            <Sparkles className="absolute -right-1 -top-1 h-2.5 w-2.5 text-yellow-500" />
+          </span>
+          <span className="hidden sm:inline">Owner</span>
+        </span>
+      )}
+      <span className="hidden sm:inline max-w-[180px] truncate text-xs text-muted-foreground" title={accountUsername}>
+        {accountUsername}
       </span>
+      <Button size="sm" variant="outline" onClick={openEditProfileDialog} className="h-7 gap-1.5 text-xs">
+        <UserRoundPen className="h-3.5 w-3.5" />
+        Edit Profile
+      </Button>
       <Button size="sm" variant="outline" onClick={handleSignOut} disabled={isSigningOut} className="h-7 gap-1.5 text-xs">
         <LogOut className="h-3.5 w-3.5" />
         {isSigningOut ? "Signing Out..." : "Sign Out"}
@@ -651,7 +799,55 @@ const Index = () => {
     return (
       <>
         {accountControl}
-        <CommunityHub onBack={() => setView("featureSelect")} />
+        <CommunityHub onBack={() => setView("featureSelect")} isOwner={isOwner} />
+
+        <Dialog open={showEditProfile} onOpenChange={setShowEditProfile}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Edit Profile</DialogTitle>
+              <DialogDescription>
+                Update how your account appears in the community.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-1">
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-username">Username</Label>
+                <Input
+                  id="profile-username"
+                  value={profileUsername}
+                  onChange={(event) => setProfileUsername(event.target.value)}
+                  placeholder="your_name"
+                  autoComplete="username"
+                  disabled={isSavingProfile}
+                />
+                <p className="text-[11px] text-muted-foreground">3-24 chars. Letters, numbers, and underscores only.</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="profile-display-name">Display Name</Label>
+                <Input
+                  id="profile-display-name"
+                  value={profileDisplayName}
+                  onChange={(event) => setProfileDisplayName(event.target.value)}
+                  placeholder="Optional friendly name"
+                  autoComplete="name"
+                  disabled={isSavingProfile}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowEditProfile(false)} disabled={isSavingProfile}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveProfile} disabled={isSavingProfile} className="gap-2">
+                {isSavingProfile && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Profile
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </>
     );
   }
@@ -677,26 +873,26 @@ const Index = () => {
         />
       )}
 
-      <div className="border-b border-border px-3 pt-3 pb-2 shrink-0">
-        <div className="flex gap-1 mb-1.5">
+      <div className="shrink-0 border-b border-border px-3 py-2">
+        <div className="mb-2 flex gap-1">
           <Button
             variant={activeTab === "mods" ? "default" : "ghost"}
             onClick={() => setActiveTab("mods")}
-            className="flex-1 h-8 text-[10px] sm:text-xs px-1"
+            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
           >
             Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
           </Button>
           <Button
             variant={activeTab === "favorites" ? "default" : "ghost"}
             onClick={() => setActiveTab("favorites")}
-            className="flex-1 h-8 text-[10px] sm:text-xs px-1"
+            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
           >
             Favs ({favoritedModIds.size})
           </Button>
           <Button
             variant={activeTab === "recent" ? "default" : "ghost"}
             onClick={() => setActiveTab("recent")}
-            className="flex-1 h-8 text-[10px] sm:text-xs px-1"
+            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
             title="Recently Edited"
           >
             Recent
@@ -707,7 +903,7 @@ const Index = () => {
           variant="outline"
           size="sm"
           onClick={() => setShowCategoryBrowser(true)}
-          className="w-full h-8 text-xs flex items-center gap-2 justify-start"
+          className="flex h-8 w-full items-center justify-start gap-2 px-2 text-xs"
         >
           <FolderOpen className="w-4 h-4" />
           <span className="hidden sm:inline">Categories</span>
@@ -719,12 +915,12 @@ const Index = () => {
           )}
         </Button>
         {activeTab === "favorites" && favoritedModIds.size > 0 && (
-          <div className="flex gap-1 mt-1.5">
+          <div className="mt-2 flex gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={handleExportFavorites}
-              className="flex-1 h-7 text-[10px] px-1"
+              className="h-7 flex-1 px-2 text-[10px]"
               title="Export favorites list"
             >
               <Download className="w-3 h-3 mr-1" />
@@ -734,7 +930,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={handleImportFavorites}
-              className="flex-1 h-7 text-[10px] px-1"
+              className="h-7 flex-1 px-2 text-[10px]"
               title="Import favorites list"
             >
               <Upload className="w-3 h-3 mr-1" />
@@ -744,7 +940,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={handleClearFavorites}
-              className="flex-1 h-7 text-[10px] px-1"
+              className="h-7 flex-1 px-2 text-[10px]"
               title="Clear all favorites"
             >
               <Trash2 className="w-3 h-3 mr-1" />
@@ -786,7 +982,7 @@ const Index = () => {
       <div className="flex w-full h-screen overflow-hidden relative bg-background">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <div className="w-64 lg:w-72 bg-card flex flex-col h-full min-h-0 shrink-0 overflow-hidden">
+          <div className="flex h-full min-h-0 w-60 shrink-0 flex-col overflow-hidden bg-card lg:w-64">
             {sidebarContent}
           </div>
         )}
@@ -837,7 +1033,7 @@ const Index = () => {
               onNavigateToConfig={handleSelectMod}
             />
           ) : selectedMod && selectedModId ? (
-            <div className="flex-1 flex items-center justify-center p-4">
+            <div className="flex flex-1 items-center justify-center p-3">
               <div className="text-center text-muted-foreground space-y-4 max-w-sm">
                 <Package className="w-16 h-16 mx-auto opacity-20" />
                 <h3 className="text-lg font-semibold">No configuration files found</h3>
@@ -850,7 +1046,7 @@ const Index = () => {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-4">
+            <div className="flex flex-1 items-center justify-center p-3">
               <div className="text-center space-y-4">
                 <p className="text-muted-foreground">Select a mod from the list to begin editing</p>
                 {isMobile && (
@@ -906,9 +1102,9 @@ const Index = () => {
       <AlertDialog open={pendingModSwitch !== null} onOpenChange={(open) => !open && setPendingModSwitch(null)}>
         <AlertDialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
+            <AlertDialogTitle>Save and Change Mod?</AlertDialogTitle>
             <AlertDialogDescription>
-              You have unsaved changes. Do you want to save them before switching to another mod?
+              You have unsaved changes in this mod. Save before switching, or switch without saving.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -916,7 +1112,7 @@ const Index = () => {
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction onClick={handleDiscardAndSwitch} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Discard Changes
+              Switch Without Save
             </AlertDialogAction>
             <AlertDialogAction onClick={handleSaveAndSwitch}>
               Save and Switch

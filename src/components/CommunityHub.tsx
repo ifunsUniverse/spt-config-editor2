@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { ArrowLeft, Plus, ThumbsUp, Bug, Lightbulb, Loader2, RefreshCw, Trash2, Eye, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -28,6 +28,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
+import { useAllUsers } from "@/integrations/supabase/userApi";
+import { updateUserRole, deleteUser } from "@/integrations/supabase/userAdminApi";
+import { useAuth } from "@/integrations/supabase/AuthProvider";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -49,10 +52,12 @@ interface BugReport {
   author_name: string;
   status: string;
   created_at: string;
+  resolution_note?: string | null;
 }
 
 interface CommunityHubProps {
   onBack: () => void;
+  isOwner?: boolean;
 }
 
 const POSTIT_COLORS = [
@@ -101,6 +106,32 @@ function getVotedSet(): Set<string> {
 function saveVotedSet(ids: Set<string>) {
   localStorage.setItem("spt-voted-suggestions", JSON.stringify([...ids]));
 }
+
+function resolveUsername(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null): string {
+  if (!user) return "Anonymous";
+
+  const rawUsername = user.user_metadata?.username;
+  if (typeof rawUsername === "string" && rawUsername.trim().length > 0) {
+    return rawUsername.trim();
+  }
+
+  const rawDisplayName = user.user_metadata?.display_name;
+  if (typeof rawDisplayName === "string" && rawDisplayName.trim().length > 0) {
+    return rawDisplayName.trim();
+  }
+
+  const rawFullName = user.user_metadata?.full_name;
+  if (typeof rawFullName === "string" && rawFullName.trim().length > 0) {
+    return rawFullName.trim();
+  }
+
+  const email = typeof user.email === "string" ? user.email.trim() : "";
+  if (!email.includes("@")) return "Anonymous";
+
+  const candidate = email.split("@")[0]?.trim();
+  return candidate ? candidate : "Anonymous";
+}
+
 
 const MOCK_BUG_REPORTS = [
   {
@@ -176,7 +207,39 @@ const MOCK_SUGGESTIONS = [
   },
 ] as const;
 
-export const CommunityHub = ({ onBack }: CommunityHubProps) => {
+export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => {
+  const { user } = useAuth();
+  const { users, loading: loadingUsers, error: usersError } = useAllUsers();
+  const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
+  const [userDeleteConfirm, setUserDeleteConfirm] = useState<string | null>(null);
+    // User management actions
+    const handleRoleChange = async (userId: string, newRole: string) => {
+      setUserActionLoading(userId + newRole);
+      try {
+        await updateUserRole(userId, newRole as any);
+        toast.success(`Role updated to ${newRole}`);
+        // Optionally, refetch users here
+        window.location.reload();
+      } catch (e: any) {
+        toast.error(e.message || String(e));
+      } finally {
+        setUserActionLoading(null);
+      }
+    };
+
+    const handleDeleteUser = async (userId: string) => {
+      setUserActionLoading(userId + "delete");
+      try {
+        await deleteUser(userId);
+        toast.success("User deleted");
+        window.location.reload();
+      } catch (e: any) {
+        toast.error(e.message || String(e));
+      } finally {
+        setUserActionLoading(null);
+        setUserDeleteConfirm(null);
+      }
+    };
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
@@ -194,6 +257,8 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
   const [currentBugPage, setCurrentBugPage] = useState(1);
   const [simulatingActivity, setSimulatingActivity] = useState(false);
+  const [updatingBugStatusId, setUpdatingBugStatusId] = useState<string | null>(null);
+  const [resolutionNote, setResolutionNote] = useState("");
 
   // New Suggestion dialog
   const [showSuggestionForm, setShowSuggestionForm] = useState(false);
@@ -208,6 +273,8 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
   const [bugSteps, setBugSteps] = useState("");
   const [bugSeverity, setBugSeverity] = useState("medium");
   const [submittingBug, setSubmittingBug] = useState(false);
+
+  const currentUsername = useMemo(() => resolveUsername(user), [user]);
 
   const fetchSuggestions = useCallback(async () => {
     setLoadingSuggestions(true);
@@ -315,6 +382,7 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
       await submitSuggestion({
         title: suggTitle.trim(),
         description: suggDesc.trim(),
+        author_name: currentUsername,
       });
       setShowSuggestionForm(false);
       setSuggTitle("");
@@ -365,6 +433,7 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
         description: bugDesc.trim(),
         steps_to_reproduce: bugSteps.trim() || null,
         severity: bugSeverity,
+        author_name: currentUsername,
       });
       setCurrentBugPage(1);
       setShowBugForm(false);
@@ -516,6 +585,44 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
     }
   };
 
+  const handleUpdateBugStatus = async (id: string, newStatus: string, note?: string) => {
+    if (updatingBugStatusId || !isOwner) return;
+    setUpdatingBugStatusId(id);
+    try {
+      const updateData: any = { status: newStatus };
+      if (newStatus === "resolved" && note) {
+        updateData.resolution_note = note;
+      }
+      const { error } = await (supabase as any)
+        .from("bug_reports")
+        .update(updateData)
+        .eq("id", id);
+      if (error) throw error;
+
+      setBugReports((prev) =>
+        prev.map((b) => {
+          if (b.id === id) {
+            const updated: any = { ...b, status: newStatus };
+            if (newStatus === "resolved" && note) {
+              updated.resolution_note = note;
+            }
+            return updated;
+          }
+          return b;
+        })
+      );
+      if (newStatus === "resolved") {
+        setResolutionNote("");
+      }
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (error) {
+      console.error("Failed to update bug status:", error);
+      toast.error(`Failed to update bug status: ${getErrorMessage(error)}`);
+    } finally {
+      setUpdatingBugStatusId(null);
+    }
+  };
+
   const handleDeleteAllBugReports = async () => {
     if (deletingAllBugs || bugReports.length === 0) return;
 
@@ -550,25 +657,27 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border shrink-0">
-        <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 text-muted-foreground">
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-lg font-semibold text-foreground">Community Board</h1>
-          <p className="text-xs text-muted-foreground">Share ideas and report issues</p>
+      <div className="border-b border-border shrink-0 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 text-muted-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <div className="flex-1">
+            <h1 className="text-lg font-semibold text-foreground">Community Board</h1>
+            <p className="text-xs text-muted-foreground">Share ideas and report issues</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleSimulateActivity}
+            disabled={simulatingActivity || submittingSugg || submittingBug}
+            className="gap-2"
+          >
+            {simulatingActivity ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
+            Simulate Activity
+          </Button>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleSimulateActivity}
-          disabled={simulatingActivity || submittingSugg || submittingBug}
-          className="gap-2"
-        >
-          {simulatingActivity ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />}
-          Simulate Activity
-        </Button>
       </div>
 
       {/* Tabs */}
@@ -593,7 +702,120 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
                 </Badge>
               )}
             </TabsTrigger>
+            {isOwner && (
+              <TabsTrigger value="users" className="gap-2 flex-1 sm:flex-none">
+                <Users className="w-4 h-4" />
+                Users
+              </TabsTrigger>
+            )}
           </TabsList>
+                {/* ── Users Tab (Owner only) ── */}
+                {isOwner && (
+                  <TabsContent value="users" className="m-0 mt-4 flex flex-col">
+                    <div className="flex items-center justify-between pb-3">
+                      <h2 className="text-xl font-semibold text-foreground">User Accounts</h2>
+                      <p className="text-xs text-muted-foreground">All registered users and their roles.</p>
+                    </div>
+                    <ScrollArea className="w-full box-border">
+                      {loadingUsers ? (
+                        <div className="flex items-center justify-center py-16">
+                          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : usersError ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center text-destructive">
+                          <p className="text-sm font-medium">Failed to load users</p>
+                          <p className="text-xs mt-1">{usersError}</p>
+                        </div>
+                      ) : users.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+                          <Users className="w-10 h-10 mb-3 opacity-30" />
+                          <p className="text-sm font-medium">No users found</p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto rounded-lg border border-border/70 bg-background/40">
+                          <div className="grid grid-cols-[2fr_2fr_1fr_2fr] gap-4 border-b border-border/70 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <div>Email</div>
+                            <div>Username</div>
+                            <div>Role</div>
+                            <div>Created</div>
+                          </div>
+                          {users.map((u) => (
+                            <div key={u.id} className="grid grid-cols-[2fr_2fr_1fr_2fr] gap-4 border-b border-border/50 px-4 py-3 last:border-b-0 hover:bg-muted/20 items-center">
+                              <div className="truncate text-sm font-medium text-foreground/85">{u.email}</div>
+                              <div className="truncate text-sm text-foreground">{u.username}</div>
+                              <div className="flex items-center gap-2">
+                                <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
+                                  u.role === "Owner"
+                                    ? "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+                                    : u.role === "Admin"
+                                    ? "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
+                                    : u.role === "Mod"
+                                    ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+                                    : "bg-gray-100 text-gray-800 dark:bg-gray-900/40 dark:text-gray-300"
+                                }`}>
+                                  {u.role}
+                                </span>
+                                {u.role !== "Owner" && (
+                                  <Select
+                                    value={u.role}
+                                    onValueChange={(val) => handleRoleChange(u.id, val)}
+                                    disabled={!!userActionLoading}
+                                  >
+                                    <SelectTrigger className="w-20 h-7 text-xs">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="User">User</SelectItem>
+                                      <SelectItem value="Mod">Mod</SelectItem>
+                                      <SelectItem value="Admin">Admin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                {new Date(u.created_at).toLocaleString()}
+                                {u.role !== "Owner" && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      className="h-7 px-2 text-xs"
+                                      disabled={!!userActionLoading}
+                                      onClick={() => setUserDeleteConfirm(u.id)}
+                                    >
+                                      Delete
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                              {/* User Delete Confirm Dialog */}
+                              <AlertDialog open={!!userDeleteConfirm} onOpenChange={(open) => !open && setUserDeleteConfirm(null)}>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete user?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete this user account. This cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel disabled={!!userActionLoading} onClick={() => setUserDeleteConfirm(null)}>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      disabled={!!userActionLoading}
+                                      onClick={() => userDeleteConfirm && handleDeleteUser(userDeleteConfirm)}
+                                    >
+                                      {userActionLoading ? "Deleting..." : "Delete"}
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </TabsContent>
+                )}
         {/* ── Suggestions Tab ── */}
         <TabsContent value="suggestions" className="m-0 mt-4 flex flex-col">
           <div className="flex items-center justify-between pb-3">
@@ -634,7 +856,7 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
                 <p className="text-xs mt-1">Be the first to share an idea!</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 pb-6 pt-2">
+              <div className="grid grid-cols-1 gap-3 pb-3 pt-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {suggestions.map((s, i) => {
                   const color = POSTIT_COLORS[i % POSTIT_COLORS.length];
                   const rotation = ROTATIONS[i % ROTATIONS.length];
@@ -743,11 +965,11 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
 
               <div className="flex-1 w-full max-w-full box-border p-4">
                 {loadingBugs ? (
-                  <div className="flex min-h-[260px] items-center justify-center">
+                  <div className="flex min-h-[200px] items-center justify-center">
                     <Loader2 className="h-7 w-7 animate-spin text-muted-foreground" />
                   </div>
                 ) : bugReports.length === 0 ? (
-                  <div className="flex min-h-[260px] flex-col items-center justify-center text-center text-muted-foreground">
+                  <div className="flex min-h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
                     <Bug className="mb-3 h-10 w-10 opacity-30" />
                     <p className="text-base font-medium">No bug reports yet</p>
                     <p className="mt-1 text-sm">All clear - or be the first to report.</p>
@@ -954,6 +1176,7 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
                 maxLength={100}
               />
             </div>
+            <p className="text-xs text-muted-foreground">Posting as <span className="font-medium text-foreground">{currentUsername}</span></p>
             <div className="space-y-1.5">
               <Label htmlFor="sugg-desc">Description</Label>
               <Textarea
@@ -999,6 +1222,7 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
                 maxLength={100}
               />
             </div>
+            <p className="text-xs text-muted-foreground">Reporting as <span className="font-medium text-foreground">{currentUsername}</span></p>
             <div className="space-y-1.5">
               <Label htmlFor="bug-severity">Severity</Label>
               <Select value={bugSeverity} onValueChange={setBugSeverity}>
@@ -1067,13 +1291,38 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
           {selectedBugReport && (
             <div className="space-y-4 py-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
-                    STATUS_BADGES[selectedBugReport.status] ?? STATUS_BADGES.open
-                  }`}
-                >
-                  {selectedBugReport.status}
-                </span>
+                {isOwner ? (
+                  <Select value={selectedBugReport.status} onValueChange={(newStatus) => {
+                    if (newStatus === "resolved") {
+                      setResolutionNote("");
+                    } else {
+                      handleUpdateBugStatus(selectedBugReport.id, newStatus);
+                    }
+                  }}>
+                    <SelectTrigger className="w-auto">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">
+                        <span className="inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">open</span>
+                      </SelectItem>
+                      <SelectItem value="in-progress">
+                        <span className="inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">in-progress</span>
+                      </SelectItem>
+                      <SelectItem value="resolved">
+                        <span className="inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300">resolved</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span
+                    className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
+                      STATUS_BADGES[selectedBugReport.status] ?? STATUS_BADGES.open
+                    }`}
+                  >
+                    {selectedBugReport.status}
+                  </span>
+                )}
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold capitalize ${
                     SEVERITY_BADGES[selectedBugReport.severity] ?? SEVERITY_BADGES.medium
@@ -1099,6 +1348,36 @@ export const CommunityHub = ({ onBack }: CommunityHubProps) => {
                   <p className="rounded-md border border-border/70 bg-muted/30 p-3 font-mono text-xs text-foreground whitespace-pre-wrap">
                     {selectedBugReport.steps_to_reproduce}
                   </p>
+                </div>
+              )}
+
+              {selectedBugReport.status === "resolved" && selectedBugReport.resolution_note && (
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Resolution</p>
+                  <p className="rounded-md border border-border/70 bg-muted/30 p-3 text-sm text-foreground whitespace-pre-wrap">
+                    {selectedBugReport.resolution_note}
+                  </p>
+                </div>
+              )}
+
+              {isOwner && selectedBugReport.status === "resolved" && resolutionNote !== null && (
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Add Resolution Note</p>
+                  <textarea
+                    value={resolutionNote}
+                    onChange={(e) => setResolutionNote(e.target.value)}
+                    placeholder="Describe what you did to fix this bug..."
+                    className="w-full rounded-md border border-border/70 bg-background p-3 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    rows={3}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => handleUpdateBugStatus(selectedBugReport.id, "resolved", resolutionNote)}
+                    disabled={updatingBugStatusId === selectedBugReport.id || !resolutionNote.trim()}
+                    className="mt-2"
+                  >
+                    {updatingBugStatusId === selectedBugReport.id ? "Saving..." : "Save Resolution"}
+                  </Button>
                 </div>
               )}
             </div>

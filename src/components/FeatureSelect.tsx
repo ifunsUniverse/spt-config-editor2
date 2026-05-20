@@ -10,9 +10,9 @@ interface FeatureSelectProps {
 
 export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSelectProps) => {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4">
-      <div className="w-full max-w-2xl space-y-6">
-        <div className="text-center space-y-2">
+    <div className="flex min-h-screen items-center justify-center bg-background p-3 sm:p-4">
+      <div className="w-full max-w-2xl space-y-4">
+        <div className="space-y-1.5 text-center">
           <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Choose Feature
           </h1>
@@ -21,13 +21,13 @@ export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSele
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <Card
             className="cursor-pointer border-border hover:border-primary/50 hover:bg-primary/5 transition-all group"
             onClick={() => onSelectFeature("configEditor")}
           >
-            <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
                 <Settings className="w-7 h-7 text-primary" />
               </div>
               <div>
@@ -43,8 +43,8 @@ export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSele
             className="cursor-pointer border-border hover:border-primary/50 hover:bg-primary/5 transition-all group"
             onClick={() => onSelectFeature("modBrowser")}
           >
-            <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+            <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
                 <Globe className="w-7 h-7 text-primary" />
               </div>
               <div>
@@ -60,8 +60,8 @@ export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSele
             className="cursor-pointer border-border hover:border-yellow-500/50 hover:bg-yellow-500/5 transition-all group"
             onClick={() => onSelectFeature("community")}
           >
-            <CardContent className="p-6 flex flex-col items-center text-center gap-3">
-              <div className="w-14 h-14 rounded-full bg-yellow-500/10 flex items-center justify-center group-hover:bg-yellow-500/20 transition-colors">
+            <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10 transition-colors group-hover:bg-yellow-500/20">
                 <MessageSquarePlus className="w-7 h-7 text-yellow-500" />
               </div>
               <div>

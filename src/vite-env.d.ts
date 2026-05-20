@@ -1,5 +1,17 @@
 /// <reference types="vite/client" />
 
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  readonly VITE_SUPABASE_PROJECT_ID?: string;
+  readonly VITE_OWNER_EMAILS?: string;
+  readonly VITE_OWNER_USERNAMES?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
+
 interface ElectronBridgeApi {
   // Generic allowlisted invoke (used by bridge internals)
   invoke: (channel: string, payload?: Record<string, unknown> | string) => Promise<any>;

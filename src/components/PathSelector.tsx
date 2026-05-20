@@ -71,7 +71,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-background p-4 sm:p-6 relative">
+    <div className="relative flex min-h-screen items-center justify-center bg-background p-3 sm:p-4">
 
       {/* Scanning overlay — covers full viewport */}
       {isLoading && (
@@ -80,7 +80,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
           <div className="absolute inset-0 bg-background/90 backdrop-blur-[6px]" />
 
           {/* Content — slides up gently after backdrop */}
-          <div className="relative h-full flex flex-col items-center justify-center gap-5
+          <div className="relative flex h-full flex-col items-center justify-center gap-4
                           animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both [animation-delay:60ms]">
 
             {/* Spinner with ambient glow */}
@@ -117,8 +117,8 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
         </div>
       )}
 
-      <Card className="w-full max-w-2xl p-4 sm:p-8 space-y-6 border-border relative">
-        <div className="text-center space-y-2">
+      <Card className="relative w-full max-w-2xl space-y-4 border-border p-4 sm:p-6">
+        <div className="space-y-1.5 text-center">
           <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-primary/10 mb-2 sm:mb-4">
             <FolderOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
           </div>
@@ -128,20 +128,20 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
           <p className="text-sm sm:text-base text-muted-foreground">Select your SPT installation directory to begin</p>
 
           {appSettings.showStartupTips && (
-            <div className="mt-4 p-3 rounded-lg bg-info/10 border border-info/20 max-w-md mx-auto">
+            <div className="mx-auto mt-3 max-w-md rounded-lg border border-info/20 bg-info/10 p-3">
               <p className="text-[10px] sm:text-xs text-foreground">{tip}</p>
             </div>
           )}
         </div>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div className="space-y-2">
             <label className="text-sm font-medium text-foreground">Select Your SPT Folder</label>
 
             <Button
               onClick={handleSelectFolder}
               disabled={isBusy}
-              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-20 sm:h-24 text-base sm:text-lg gap-3"
+              className="h-16 w-full gap-2.5 bg-primary text-base text-primary-foreground hover:bg-primary/90 sm:h-20 sm:text-lg"
             >
               {isLoading && loadingSource === "select" ? (
                 <>
@@ -165,12 +165,12 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
               Click to browse and select your SPT installation directory
             </p>
 
-            <div className="flex flex-col gap-2 sm:gap-3 pt-2">
+            <div className="flex flex-col gap-2 pt-1 sm:gap-2.5">
               <Button
                 onClick={onLoadLastFolder}
                 disabled={isBusy}
                 variant="outline"
-                className="w-full h-12 sm:h-16 text-base sm:text-lg gap-3"
+                className="h-11 w-full gap-2.5 text-base sm:h-14 sm:text-lg"
               >
                 {isLoading && loadingSource === "last" ? (
                   <>
@@ -190,7 +190,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
               <Button
                 onClick={handleCheckUpdates}
                 variant="ghost"
-                className="w-full h-10 sm:h-12 gap-2 text-muted-foreground hover:text-foreground text-xs sm:text-sm"
+                className="h-9 w-full gap-2 text-xs text-muted-foreground hover:text-foreground sm:h-11 sm:text-sm"
               >
                 <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
                 Check for Updates
@@ -198,7 +198,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
             </div>
           </div>
 
-          <div className="text-[10px] sm:text-xs text-muted-foreground bg-muted/30 p-3 rounded-md z-10 space-y-3">
+          <div className="z-10 space-y-2.5 rounded-md bg-muted/30 p-3 text-[10px] text-muted-foreground sm:text-xs">
             <div className="space-y-1.5">
               <p className="text-foreground font-semibold tracking-wide">Current Setup</p>
               <p>

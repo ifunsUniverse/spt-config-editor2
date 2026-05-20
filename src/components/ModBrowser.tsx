@@ -702,7 +702,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
     return (
       <div
         key={mod.id}
-        className="group min-h-[170px] flex rounded-lg border border-border bg-card overflow-hidden hover:border-primary/30 transition-colors"
+        className="group flex min-h-[152px] overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary/30"
       >
         <div className="w-[110px] shrink-0 bg-muted/30 flex items-center justify-center overflow-hidden">
           {mod.thumbnail ? (
@@ -786,7 +786,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
 
   return (
     <div className="h-full min-h-0 bg-background flex flex-col overflow-hidden">
-      <div className="shrink-0 border-b border-border px-4 py-3 flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-3 border-b border-border px-3 py-2.5 sm:px-4 sm:py-3">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
@@ -814,7 +814,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <div className="shrink-0 px-4 pt-2">
+        <div className="shrink-0 px-3 pt-2 sm:px-4">
           <TabsList>
             <TabsTrigger value="browse">Browse</TabsTrigger>
             <TabsTrigger value="installed">Installed Mods</TabsTrigger>
@@ -823,7 +823,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
 
         {activeTab === "browse" && (
           <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-            <div className="shrink-0 px-4 py-3 border-b border-border flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 sm:px-4 sm:py-2.5">
               <div className="relative flex-1 min-w-[160px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -866,7 +866,7 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
               </Select>
             </div>
 
-            <div className="shrink-0 px-4 py-2 border-b border-border/60 text-[11px] text-muted-foreground flex items-center justify-between">
+            <div className="flex shrink-0 items-center justify-between border-b border-border/60 px-3 py-2 text-[11px] text-muted-foreground sm:px-4">
               <span>
                 {apiKey && !isLoading && !error
                   ? `Showing ${visibleStart}-${visibleEnd} of ${totalResults} mods`
@@ -878,9 +878,9 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
               )}
             </div>
 
-            <div ref={listViewportRef} className="flex-1 min-h-0 overflow-y-auto p-4">
+            <div ref={listViewportRef} className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4">
               {!apiKey ? (
-                <div className="h-full min-h-[280px] flex flex-col items-center justify-center text-center gap-4">
+                <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 text-center">
                   <KeyRound className="w-12 h-12 text-muted-foreground/30" />
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">API Key Required</h3>
@@ -908,23 +908,23 @@ export const ModBrowser = ({ onBack, rootDirHandle }: ModBrowserProps) => {
                   ))}
                 </div>
               ) : error ? (
-                <div className="h-full min-h-[280px] flex flex-col items-center justify-center text-center gap-3">
+                <div className="flex h-full min-h-[220px] flex-col items-center justify-center gap-3 text-center">
                   <p className="text-destructive font-medium">{error}</p>
                   <Button variant="outline" onClick={() => setShowApiKeyDialog(true)}>Re-enter API Key</Button>
                 </div>
               ) : mods.length === 0 ? (
-                <div className="h-full min-h-[280px] flex items-center justify-center text-muted-foreground text-sm">
+                <div className="flex h-full min-h-[220px] items-center justify-center text-sm text-muted-foreground">
                   No mods found matching "{search}"
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 pb-4">
+                <div className="grid grid-cols-1 gap-2.5 pb-3 md:grid-cols-2 xl:grid-cols-3">
                   {mods.map(renderModCard)}
                 </div>
               )}
             </div>
 
             {apiKey && !isLoading && !error && totalPages > 1 && (
-              <div className="shrink-0 px-4 py-3 border-t border-border flex flex-wrap items-center justify-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center justify-center gap-2 border-t border-border px-3 py-2.5 sm:px-4">
                 <Button variant="ghost" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage(1)} className="text-xs">
                   First
                 </Button>
