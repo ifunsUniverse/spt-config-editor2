@@ -65,13 +65,13 @@ export const AuthScreen = () => {
       return;
     }
 
-<<<<<<< HEAD
     if (mode === "signup" && !USERNAME_PATTERN.test(trimmedUsername)) {
       toast.error("Username must be 3-24 characters and use only letters, numbers, or underscores.");
-=======
+      return;
+    }
+
     if (mode === "signup" && isDisposableEmail(trimmedEmail)) {
       toast.error("Disposable email addresses are not allowed.");
->>>>>>> fab456858afb6ba7909cfa225427aee1c45b8a1c
       return;
     }
 
