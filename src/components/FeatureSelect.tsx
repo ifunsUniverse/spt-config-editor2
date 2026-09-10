@@ -57,17 +57,17 @@ export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSele
           </Card>
 
           <Card
-            className="cursor-pointer border-border hover:border-yellow-500/50 hover:bg-yellow-500/5 transition-all group"
-            onClick={() => onSelectFeature("community")}
+            aria-disabled
+            className="border-border opacity-50 cursor-not-allowed select-none"
           >
             <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10 transition-colors group-hover:bg-yellow-500/20">
-                <MessageSquarePlus className="w-7 h-7 text-yellow-500" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <MessageSquarePlus className="w-7 h-7 text-muted-foreground" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Community Board</h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Suggest features and report bugs
+                  Temporarily unavailable
                 </p>
               </div>
             </CardContent>
