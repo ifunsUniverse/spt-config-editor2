@@ -81,6 +81,7 @@ export async function loadScanCache(
 
     // Find the mods directory with one existence check per candidate.
     const candidates = [
+      rootHandle.path + "/SPT_Runtime/user/mods",
       rootHandle.path + "/SPT/user/mods",
       rootHandle.path + "/user/mods",
     ];
@@ -143,6 +144,7 @@ export interface ElectronScannedMod {
 export async function scanSPTFolderElectron(rootHandle: DirectoryHandleLike): Promise<ElectronScannedMod[]> {
   // Try standard SPT mod paths
   const paths = [
+    ["SPT_Runtime", "user", "mods"],
     ["SPT", "user", "mods"],
     ["user", "mods"],
     [], // root might be the mods folder itself
