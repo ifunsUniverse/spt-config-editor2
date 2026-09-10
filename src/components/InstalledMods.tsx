@@ -308,11 +308,13 @@ export const InstalledMods = ({ rootDirHandle }: InstalledModsProps) => {
     let dir = await getSubDir(rootDirHandle, "user/mods");
     if (dir) return dir;
 
-    // Try nested SPT folder
-    const nestedSPT = await getSubDir(rootDirHandle, "SPT");
-    if (nestedSPT) {
-      dir = await getSubDir(nestedSPT, "user/mods");
-      if (dir) return dir;
+    // Try nested SPT / SPT_Runtime folders
+    for (const nested of ["SPT_Runtime", "SPT"]) {
+      const nestedDir = await getSubDir(rootDirHandle, nested);
+      if (nestedDir) {
+        dir = await getSubDir(nestedDir, "user/mods");
+        if (dir) return dir;
+      }
     }
 
     console.warn("❌ user/mods not found anywhere");
