@@ -217,8 +217,10 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
 
             <div className="space-y-1.5 pt-1 border-t border-border/50">
               <p className="text-foreground font-semibold tracking-wide">What Happens Next</p>
-              <p className="flex items-start gap-1.5">
+              <p className="flex flex-wrap items-start gap-1.5">
                 • Mod scan paths:
+                <span className="text-foreground font-mono">{path || lastFolderName || "[folder]"}/SPT_Runtime/user/mods/</span>
+                <span>or</span>
                 <span className="text-foreground font-mono">{path || lastFolderName || "[folder]"}/SPT/user/mods/</span>
                 <span>or</span>
                 <span className="text-foreground font-mono">{path || lastFolderName || "[folder]"}/user/mods/</span>
