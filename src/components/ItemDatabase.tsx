@@ -47,17 +47,29 @@ let cachedItems: TarkovItem[] | null = null;
 
 const iconUrl = (id: string) => `https://assets.tarkov.dev/${id}-icon.webp`;
 
+async function fetchJson(urls: string[], signal: AbortSignal): Promise<any> {
+  let lastError: unknown = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { signal, cache: "force-cache" });
+      if (!res.ok) throw new Error(`HTTP ${res.status} from ${new URL(url).hostname}`);
+      return await res.json();
+    } catch (error) {
+      if ((error as any)?.name === "AbortError") throw error;
+      console.warn(`Item DB source failed: ${url}`, error);
+      lastError = error;
+    }
+  }
+  throw lastError ?? new Error("All item data sources failed");
+}
+
 async function loadItems(signal: AbortSignal): Promise<TarkovItem[]> {
   if (cachedItems) return cachedItems;
 
-  const [handbookRes, localeRes] = await Promise.all([
-    fetch(HANDBOOK_URL, { signal }),
-    fetch(LOCALE_URL, { signal }),
+  const [handbook, locale] = await Promise.all([
+    fetchJson(HANDBOOK_URLS, signal),
+    fetchJson(LOCALE_URLS, signal) as Promise<Record<string, string>>,
   ]);
-  if (!handbookRes.ok || !localeRes.ok) throw new Error("Failed to download item data");
-
-  const handbook = await handbookRes.json();
-  const locale: Record<string, string> = await localeRes.json();
 
   const categories: { Id: string; ParentId: string }[] = handbook.Categories ?? [];
   const parentMap = new Map(categories.map((c) => [c.Id, c.ParentId]));
