@@ -16,10 +16,14 @@ import { cn } from "@/lib/utils";
 
 const DISPLAY_LIMIT = 300;
 
-const HANDBOOK_URL =
-  "https://raw.githubusercontent.com/sp-tarkov/server/master/project/assets/database/templates/handbook.json";
-const LOCALE_URL =
-  "https://raw.githubusercontent.com/sp-tarkov/server/master/project/assets/database/locales/global/en.json";
+const HANDBOOK_URLS = [
+  "https://raw.githubusercontent.com/sp-tarkov/server/master/project/assets/database/templates/handbook.json",
+  "https://cdn.jsdelivr.net/gh/sp-tarkov/server@master/project/assets/database/templates/handbook.json",
+];
+const LOCALE_URLS = [
+  "https://raw.githubusercontent.com/sp-tarkov/server/master/project/assets/database/locales/global/en.json",
+  "https://cdn.jsdelivr.net/gh/sp-tarkov/server@master/project/assets/database/locales/global/en.json",
+];
 
 interface TarkovItem {
   id: string;
