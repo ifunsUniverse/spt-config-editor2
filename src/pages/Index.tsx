@@ -12,6 +12,7 @@ import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { CategoryDialog } from "@/components/CategoryDialog";
 import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron, saveScanCache, loadScanCache } from "@/utils/electronFolderScanner";
+import { generateMockMods } from "@/utils/mockMods";
 import { DirectoryHandleLike, loadLastSelectedFolder, rememberLastSelectedFolder } from "@/utils/electronBridge";
 import { exportModsAsZip } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -136,6 +137,7 @@ const USERNAME_PATTERN = /^[a-zA-Z0-9_]{3,24}$/;
 const Index = () => {
   const [view, setView] = useState<"pathSelect" | "featureSelect" | "configEditor" | "modBrowser" | "community">("pathSelect");
   const [sptPath, setSptPath] = useState<string | null>(null);
+  const [isDevMockMode, setIsDevMockMode] = useState(false);
   const [rootDirHandle, setRootDirHandle] = useState<DirectoryHandleLike | null>(null);
   const [selectedModId, setSelectedModId] = useState<string | null>(null);
   const [scannedMods, setScannedMods] = useState<ElectronScannedMod[]>([]);
@@ -294,6 +296,7 @@ const Index = () => {
     setIsScanning(true);
     setScanningSource(opts?.source ?? "select");
     hasRestoredSessionRef.current = false;
+    setIsDevMockMode(false);
     try {
       setConfigErrorIndicesByMod({});
       setRootDirHandle(dirHandle);
@@ -533,6 +536,7 @@ const Index = () => {
 
   const handleGoHome = () => {
     setView("pathSelect");
+    setIsDevMockMode(false);
     setSptPath(null);
     setRootDirHandle(null);
     setScannedMods([]);
@@ -584,6 +588,19 @@ const Index = () => {
       }
     };
     input.click();
+  };
+
+  const handleDevLoad = () => {
+    const mockMods = generateMockMods();
+    setIsDevMockMode(true);
+    setScannedMods(mockMods);
+    setSptPath("Dev Mock Install");
+    setSelectedModId(null);
+    setEditedModIds(new Set());
+    setView("featureSelect");
+    toast.success(`Dev Load: ${mockMods.length} mock mods`, {
+      description: "Mod data is fake and in memory only. SPT Control Panel is disabled.",
+    });
   };
 
   const handleLoadLastFolder = async () => {
@@ -751,6 +768,7 @@ const Index = () => {
       <PathSelector 
         onFolderSelected={(h) => handleFolderSelected(h, { source: "select" })}
         onLoadLastFolder={handleLoadLastFolder}
+        onDevLoad={handleDevLoad}
         isLoading={isScanning}
         loadingSource={scanningSource}
       />
@@ -870,7 +888,8 @@ const Index = () => {
     <div className="flex flex-col h-full min-h-0 min-w-0 overflow-hidden">
       {sptPath && (
         <SPTControlPanel 
-          sptPath={sptPath} 
+          sptPath={sptPath}
+          disabled={isDevMockMode}
         />
       )}
 

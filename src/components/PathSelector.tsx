@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FolderOpen, Upload, Loader2, RefreshCw, History, Package, ShieldCheck, Clock, Flame } from "lucide-react";
+import { FolderOpen, Upload, Loader2, RefreshCw, History, Package, ShieldCheck, Clock, Flame, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 interface PathSelectorProps {
   onFolderSelected: (handle: DirectoryHandleLike) => void;
   onLoadLastFolder: () => void;
+  /** Loads mock mod data for testing without an SPT install */
+  onDevLoad?: () => void;
   /** True while Index.tsx is running the actual scan */
   isLoading?: boolean;
   /** Which action is currently loading */
@@ -45,7 +47,7 @@ const timeAgo = (ts: number) => {
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
-export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = false, loadingSource }: PathSelectorProps) => {
+export const PathSelector = ({ onFolderSelected, onLoadLastFolder, onDevLoad, isLoading = false, loadingSource }: PathSelectorProps) => {
   const appSettings = loadAppSettings();
   const [path, setPath] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -207,6 +209,17 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, isLoading = f
                 <RefreshCw className="h-4 w-4" /> Updates
               </Button>
             </div>
+
+            {onDevLoad && (
+              <Button
+                onClick={onDevLoad}
+                disabled={isBusy}
+                variant="outline"
+                className="mt-2.5 h-10 w-full gap-2 border-dashed text-sm text-muted-foreground hover:text-foreground"
+              >
+                <FlaskConical className="h-4 w-4" /> Dev Load (mock mods)
+              </Button>
+            )}
 
             {appSettings.showStartupTips && tip && (
               <p className="mt-3 rounded-lg border border-info/20 bg-info/10 p-2.5 text-[11px] text-foreground">

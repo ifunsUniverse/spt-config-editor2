@@ -23,10 +23,12 @@ import { launchExecutable, selectExecutable } from "@/utils/electronBridge";
 
 interface SPTControlPanelProps {
   sptPath: string;
+  /** Disables all launch controls (used by Dev Load mock mode) */
+  disabled?: boolean;
 }
 
-export const SPTControlPanel = ({ sptPath }: SPTControlPanelProps) => {
-  const isDesktop = Boolean(window.sptElectron?.invoke);
+export const SPTControlPanel = ({ sptPath, disabled = false }: SPTControlPanelProps) => {
+  const isDesktop = Boolean(window.sptElectron?.invoke) && !disabled;
   const [serverExePath, setServerExePath] = useState<string>(() => localStorage.getItem("spt_server_exe_path") || "");
   const [launcherExePath, setLauncherExePath] = useState<string>(() => localStorage.getItem("spt_launcher_exe_path") || "");
   const [isLaunchingServer, setIsLaunchingServer] = useState(false);
@@ -312,7 +314,11 @@ export const SPTControlPanel = ({ sptPath }: SPTControlPanelProps) => {
       </div>
 
       <p className="text-[9px] text-muted-foreground text-center italic">
-        {isDesktop ? "Launch controls are active in desktop mode" : "Launch controls require the desktop app"}
+        {disabled
+          ? "Disabled in Dev Load (mock) mode"
+          : isDesktop
+            ? "Launch controls are active in desktop mode"
+            : "Launch controls require the desktop app"}
       </p>
     </Card>
   );
