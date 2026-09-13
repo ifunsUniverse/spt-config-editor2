@@ -30,6 +30,7 @@ import { DirectoryHandleLike } from "@/utils/electronBridge";
 import { loadEditorSettings, type EditorSettings } from "@/utils/editorSettings";
 import { registerSptDarkTheme } from "@/utils/monaco-theme";
 import { loadAppSettings } from "@/utils/appSettings";
+import { ConfigAssistant } from "@/components/ConfigAssistant";
 
 interface ConfigEditorProps {
   modName: string;
@@ -838,7 +839,7 @@ export const ConfigEditor = ({
   }, [onNavigateToConfig]);
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-background min-w-0 overflow-hidden">
+    <div className="relative flex-1 flex flex-col h-full bg-background min-w-0 overflow-hidden">
       {/* MODERN HEADER - Premium Design */}
       <div className="border-b border-border/60 bg-gradient-to-b from-card/80 to-background shadow-sm">
         <div className="px-3 py-3 sm:px-4">
@@ -1347,6 +1348,34 @@ export const ConfigEditor = ({
               </Button>
             </div>
           </div>
+        )}
+
+        {!loading && !error && activeConfig && (
+          <ConfigAssistant
+            key={`${modId}:${activeConfigIndex}`}
+            modName={modName}
+            configs={allConfigs}
+            activeIndex={activeConfigIndex}
+            rawText={rawText}
+            secondaryIndex={isSplitView ? secondaryConfigIndex : null}
+            secondaryText={secondaryRawText}
+            onApply={async (text, before) => {
+              if (rawText !== before) throw new Error("The editor changed. Request a fresh suggestion.");
+              const diskText = await (await activeConfig.fileHandle.getFile()).text();
+              if (diskText !== originalRawText) throw new Error("The file changed on disk. Reload it before applying a suggestion.");
+              JSON5.parse(text);
+              await Promise.resolve(onSave([{ key: "__RAW_JSON__", type: "raw", value: text }]));
+              await saveConfigHistory(modId, modName, configFile, text, "AI-assisted edit", before);
+              setRawText(text);
+              setOriginalRawText(text);
+              setHasChanges(false);
+              setJsonError(null);
+              setJsonErrorLine(null);
+              onChangesDetected?.(false);
+              onJsonErrorChange?.(activeConfig.index, false);
+              toast.success("Reviewed change saved");
+            }}
+          />
         )}
 
         {/* Dialogs */}
