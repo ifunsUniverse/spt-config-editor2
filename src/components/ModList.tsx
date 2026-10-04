@@ -130,7 +130,7 @@ export const ModList = ({
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
-            placeholder="Search mods... (Ctrl+F)"
+            placeholder="Search mods..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="h-9 rounded-lg border-border/50 bg-muted/20 pl-9 pr-9 text-sm focus-visible:ring-primary/30"

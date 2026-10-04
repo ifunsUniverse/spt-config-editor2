@@ -210,14 +210,14 @@ export const SPTControlPanel = ({ sptPath, disabled = false }: SPTControlPanelPr
   return (
     <Card className="m-0 flex flex-col gap-3 rounded-none border-0 bg-transparent p-4 pb-3 shadow-none">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Activity className="w-4 h-4 text-primary" />
-          <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.2em] text-primary">SPT Control Panel</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <Activity className="w-4 h-4 shrink-0 text-primary" />
+          <h3 className="font-display truncate text-[11px] font-bold uppercase tracking-[0.14em] text-primary">SPT Control Panel</h3>
           
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="cursor-help relative">
+                <div className="cursor-help relative shrink-0 p-px">
                   <HelpCircle className="w-3.5 h-3.5 text-primary/60" />
                   <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
