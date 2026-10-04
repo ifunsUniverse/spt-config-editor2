@@ -1,3 +1,4 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=DM+Sans:wght@400;500;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -143,8 +144,8 @@
 }
 
 :root {
-  --theme-font-family: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
-  --theme-display-font: "Sora", "Bahnschrift", "Trebuchet MS", sans-serif;
+  --theme-font-family: "DM Sans", "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  --theme-display-font: "Space Grotesk", "Sora", "Bahnschrift", "Trebuchet MS", sans-serif;
   --theme-font-size: 16px;
   --space-xs: 4px;
   --space-sm: 8px;
@@ -211,3 +212,6 @@
   font-family: var(--theme-font-family);
   font-size: var(--theme-font-size);
 }
+
+.font-display { font-family: var(--theme-display-font); }
+body { font-family: var(--theme-font-family); }

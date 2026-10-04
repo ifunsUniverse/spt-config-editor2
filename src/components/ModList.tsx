@@ -124,16 +124,16 @@ export const ModList = ({
   const totalConfigCount = filteredMods.reduce((sum, mod) => sum + (configFiles[mod.id]?.length ?? 0), 0);
 
   return (
-    <div className="flex flex-col flex-1 h-full min-h-0 min-w-0 overflow-hidden bg-background">
-      <div className="shrink-0 border-b border-border/70 bg-[linear-gradient(180deg,rgba(59,130,246,0.08)_0%,rgba(59,130,246,0)_100%)] px-3 py-2">
+    <div className="flex flex-col flex-1 h-full min-h-0 min-w-0 overflow-hidden bg-transparent">
+      <div className="shrink-0 px-4 pb-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             ref={searchInputRef}
-            placeholder="Search mods, IDs, or author (Ctrl+F)"
+            placeholder="Search mods... (Ctrl+F)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-9 border-border/80 bg-background/85 pl-9 pr-9 text-sm shadow-sm focus-visible:ring-primary/30"
+            className="h-9 rounded-lg border-border/50 bg-muted/20 pl-9 pr-9 text-sm focus-visible:ring-primary/30"
           />
           {searchQuery && (
             <button
@@ -146,21 +146,21 @@ export const ModList = ({
           )}
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-1">
-          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          <Badge variant="outline" className="h-5 rounded border-primary/25 bg-primary/10 px-2 text-[10px] font-bold uppercase text-primary">
             {filteredMods.length} mod{filteredMods.length === 1 ? "" : "s"}
           </Badge>
-          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+          <Badge variant="outline" className="h-5 rounded border-border/50 bg-muted/20 px-2 text-[10px] font-bold uppercase text-muted-foreground">
             {totalConfigCount} config{totalConfigCount === 1 ? "" : "s"}
           </Badge>
-          <Badge variant="secondary" className="h-5 rounded-md px-2 text-[10px] font-semibold">
+          <Badge variant="outline" className="h-5 rounded border-border/50 bg-muted/20 px-2 text-[10px] font-bold uppercase text-muted-foreground">
             {filteredFavoriteCount} favorite{filteredFavoriteCount === 1 ? "" : "s"}
           </Badge>
         </div>
       </div>
 
       <div className="flex-1 min-h-0 w-full overflow-y-auto overflow-x-hidden no-scrollbar">
-        <div className="flex w-full flex-col gap-2 px-2 py-2">
+        <div className="flex w-full flex-col gap-1.5 px-3 py-2">
           {filteredMods.length === 0 && (
             <Card className="border-dashed border-border/70 bg-muted/30 p-4 text-center">
               <p className="text-sm font-semibold text-foreground">No mods match this search</p>
@@ -183,18 +183,18 @@ export const ModList = ({
                   <ContextMenuTrigger>
                     <Card 
                       className={cn(
-                        "relative h-auto w-full max-w-full overflow-hidden border transition-all duration-200",
+                        "relative h-auto w-full max-w-full overflow-hidden rounded-xl border shadow-none transition-all duration-200",
                         hasErrorInMod
                           ? "border-red-500/60 bg-red-500/15 shadow-[0_0_0_1px_rgba(239,68,68,0.45)]"
                           : isSelectedMod 
-                          ? "border-blue-400/65 bg-blue-500/15 shadow-[0_0_0_1px_rgba(96,165,250,0.55)]" 
-                          : "border-border/70 bg-card/50 hover:border-primary/35 hover:bg-card/85",
+                          ? "border-primary/50 bg-primary/5 shadow-[0_0_15px_hsl(var(--primary)/0.12)]" 
+                          : "border-border/30 bg-transparent hover:bg-muted/20",
                         isExpanded && "pb-1"
                       )}
                     >
                       {/* Mod Header Row */}
                       <div 
-                        className="flex min-w-0 cursor-pointer select-none items-center gap-2 p-2"
+                        className="flex min-w-0 cursor-pointer select-none items-center gap-2 p-3"
                         onClick={() => toggleMod(mod.id)}
                       >
                         <button
@@ -216,7 +216,7 @@ export const ModList = ({
 
                         <div className="flex-1 min-w-0">
                           <div className="mb-0.5 flex items-start gap-1.5">
-                            <span className="whitespace-normal break-words text-sm font-semibold leading-tight text-foreground">
+                            <span className="font-display whitespace-normal break-words text-sm font-bold leading-tight text-foreground">
                               {splitCamelCase(mod.name)}
                             </span>
                             {modCategories[mod.id] && (
