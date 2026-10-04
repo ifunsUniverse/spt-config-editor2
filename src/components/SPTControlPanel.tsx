@@ -208,11 +208,11 @@ export const SPTControlPanel = ({ sptPath, disabled = false }: SPTControlPanelPr
   };
 
   return (
-    <Card className="mx-3 my-3 p-3 bg-card/40 border-primary/20 flex flex-col gap-3">
+    <Card className="m-0 flex flex-col gap-3 rounded-none border-0 bg-transparent p-4 pb-3 shadow-none">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-primary" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">SPT Control Panel</h3>
+          <h3 className="font-display text-[11px] font-bold uppercase tracking-[0.2em] text-primary">SPT Control Panel</h3>
           
           <TooltipProvider>
             <Tooltip>
@@ -277,7 +277,7 @@ export const SPTControlPanel = ({ sptPath, disabled = false }: SPTControlPanelPr
         <Button
           variant="outline"
           size="sm"
-          className="w-full h-12 flex flex-col gap-0.5 border-dashed hover:border-primary/50"
+          className="w-full h-14 flex flex-col gap-0.5 rounded-xl border-primary/20 bg-primary/10 hover:bg-primary/20 disabled:border-border/30 disabled:bg-muted/20"
           onClick={handleLaunchServer}
           disabled={!isDesktop || !serverExePath || isLaunchingServer}
         >
@@ -296,7 +296,7 @@ export const SPTControlPanel = ({ sptPath, disabled = false }: SPTControlPanelPr
         <Button
           variant="outline"
           size="sm"
-          className="w-full h-12 flex flex-col gap-0.5 border-dashed hover:border-primary/50"
+          className="w-full h-14 flex flex-col gap-0.5 rounded-xl border-primary/20 bg-primary/10 hover:bg-primary/20 disabled:border-border/30 disabled:bg-muted/20"
           onClick={handleLaunchLauncher}
           disabled={!isDesktop || !launcherExePath || isLaunchingLauncher}
         >

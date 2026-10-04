@@ -893,47 +893,35 @@ const Index = () => {
         />
       )}
 
-      <div className="shrink-0 border-b border-border px-3 py-2">
-        <div className="mb-2 flex gap-1">
-          <Button
-            variant={activeTab === "mods" ? "default" : "ghost"}
+      <div className="shrink-0 px-4 pt-1 pb-2">
+        <nav className="flex items-center border-b border-border/40">
+          <button
             onClick={() => setActiveTab("mods")}
-            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
+            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "mods" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
-          </Button>
-          <Button
-            variant={activeTab === "favorites" ? "default" : "ghost"}
+          </button>
+          <button
             onClick={() => setActiveTab("favorites")}
-            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
+            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "favorites" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Favs ({favoritedModIds.size})
-          </Button>
-          <Button
-            variant={activeTab === "recent" ? "default" : "ghost"}
+          </button>
+          <button
             onClick={() => setActiveTab("recent")}
-            className="h-8 flex-1 px-2 text-[10px] sm:text-xs"
-            title="Recently Edited"
+            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "recent" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Recent
-          </Button>
-        </div>
-        
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowCategoryBrowser(true)}
-          className="flex h-8 w-full items-center justify-start gap-2 px-2 text-xs"
-        >
-          <FolderOpen className="w-4 h-4" />
-          <span className="hidden sm:inline">Categories</span>
-          <span className="sm:hidden">Cats</span>
-          {selectedCategory && (
-            <span className="ml-auto text-[10px] text-muted-foreground truncate max-w-[60px]">
-              ({selectedCategory})
-            </span>
-          )}
-        </Button>
+          </button>
+          <button
+            onClick={() => setShowCategoryBrowser(true)}
+            title="Categories"
+            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-primary"
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            {selectedCategory && <span className="max-w-[60px] truncate">{selectedCategory}</span>}
+          </button>
+        </nav>
         {activeTab === "favorites" && favoritedModIds.size > 0 && (
           <div className="mt-2 flex gap-1">
             <Button
@@ -1002,7 +990,7 @@ const Index = () => {
       <div className="flex w-full h-screen overflow-hidden relative bg-background">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <div className="flex h-full min-h-0 w-60 shrink-0 flex-col overflow-hidden bg-card lg:w-64">
+          <div className="flex h-full min-h-0 w-64 shrink-0 flex-col overflow-hidden border-r border-border/40 bg-card/60 lg:w-72">
             {sidebarContent}
           </div>
         )}
