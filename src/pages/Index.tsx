@@ -894,29 +894,29 @@ const Index = () => {
       )}
 
       <div className="shrink-0 px-4 pt-1 pb-2">
-        <nav className="flex items-center border-b border-border/40">
+        <nav className="flex min-w-0 items-center border-b border-border/40">
           <button
             onClick={() => setActiveTab("mods")}
-            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "mods" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2 py-2 text-xs transition-colors ${activeTab === "mods" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
           </button>
           <button
             onClick={() => setActiveTab("favorites")}
-            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "favorites" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2 py-2 text-xs transition-colors ${activeTab === "favorites" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Favs ({favoritedModIds.size})
           </button>
           <button
             onClick={() => setActiveTab("recent")}
-            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "recent" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2 py-2 text-xs transition-colors ${activeTab === "recent" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Recent
           </button>
           <button
             onClick={() => setShowCategoryBrowser(true)}
             title="Categories"
-            className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-primary"
+            className="ml-auto flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/40 hover:text-primary"
           >
             <FolderOpen className="h-3.5 w-3.5" />
             {selectedCategory && <span className="max-w-[60px] truncate">{selectedCategory}</span>}
