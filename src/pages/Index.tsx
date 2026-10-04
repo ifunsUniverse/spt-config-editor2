@@ -897,19 +897,19 @@ const Index = () => {
         <nav className="flex items-center border-b border-border/40">
           <button
             onClick={() => setActiveTab("mods")}
-            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "mods" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "mods" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Mods ({mods.filter(m => !favoritedModIds.has(m.id)).length})
           </button>
           <button
             onClick={() => setActiveTab("favorites")}
-            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "favorites" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "favorites" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Favs ({favoritedModIds.size})
           </button>
           <button
             onClick={() => setActiveTab("recent")}
-            className={`-mb-px border-b-2 px-3 py-2 text-xs transition-colors ${activeTab === "recent" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
+            className={`-mb-px whitespace-nowrap border-b-2 px-2.5 py-2 text-xs transition-colors ${activeTab === "recent" ? "border-primary font-bold text-primary" : "border-transparent font-medium text-muted-foreground hover:text-foreground"}`}
           >
             Recent
           </button>
