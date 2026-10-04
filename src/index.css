@@ -138,8 +138,12 @@
     width: 6px;
     height: 6px;
   }
-  * {
+  /* Gutter only on real scroll containers, never on every element */
+  .overflow-y-auto:not(.no-scrollbar), .overflow-auto:not(.no-scrollbar) {
     scrollbar-gutter: stable;
+  }
+  .overflow-hidden, .no-scrollbar {
+    scrollbar-gutter: auto;
   }
 }
 
