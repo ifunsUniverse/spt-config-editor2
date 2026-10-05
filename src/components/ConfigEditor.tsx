@@ -840,301 +840,249 @@ export const ConfigEditor = ({
 
   return (
     <div className="relative flex-1 flex flex-col h-full bg-background min-w-0 overflow-hidden">
-      {/* MODERN HEADER - Premium Design */}
-      <div className="border-b border-border/60 bg-gradient-to-b from-card/80 to-background shadow-sm">
-        <div className="px-3 py-3 sm:px-4">
-          {/* Main Header Row */}
-          <div className="mb-2 flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-end gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-1 flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-primary"></div>
-                    <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">
-                      {modName}
-                    </h2>
-                  </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">
-                    {displayPath}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Category & Status Pills */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {currentCategory ? (
-                  <Button
-                    onClick={() => onCategoryChange?.(null)}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 gap-1 px-2 text-[10px] sm:text-xs hover:bg-destructive hover:text-white transition-colors"
-                  >
-                    <Badge
-                      className={cn(
-                        "rounded-full px-2 py-0 h-4 text-[9px] sm:text-[10px] font-medium text-white border-0",
-                        getCategoryBgColor(currentCategory)
-                      )}
-                    >
-                      {currentCategory}
-                    </Badge>
-                    <X className="w-3 h-3" />
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => setShowCategoryDialog(true)}
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-[10px] sm:text-xs gap-1 px-2 hover:bg-card transition-colors"
-                  >
-                    <span className="text-lg">+</span> Category
-                  </Button>
-                )}
-                
-                {hasChanges && (
-                  <Badge variant="secondary" className="flex h-7 items-center gap-1 px-2 text-[10px] sm:text-xs">
-                    <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 animate-pulse"></span>
-                    Unsaved Changes
-                  </Badge>
-                )}
-              </div>
+      {/* TOP BAR: title, category, primary actions */}
+      <header className="shrink-0 border-b border-border/40 bg-card/60 backdrop-blur-md">
+        <div className="flex h-14 items-center justify-between gap-3 px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.7)]" />
+            <div className="min-w-0">
+              <h2 className="font-display truncate text-base font-bold leading-tight text-foreground sm:text-lg">{modName}</h2>
+              <p className="truncate font-mono text-[10px] text-muted-foreground">{displayPath}</p>
             </div>
-
-            {/* Primary Actions - Desktop */}
-            <div className="hidden shrink-0 items-center gap-2 xl:flex">
-              <Button 
-                size="sm" 
-                variant="outline"
-                disabled={!hasChanges}
-                onClick={handleReset}
-                className="gap-2 h-9"
-                title="Discard all changes (Ctrl+Z)"
+            {currentCategory ? (
+              <button
+                onClick={() => onCategoryChange?.(null)}
+                title="Remove category"
+                className="group hidden shrink-0 items-center gap-1 sm:flex"
               >
-                <RotateCcw className="w-4 h-4" />
-                <span className="hidden sm:inline">Reset</span>
-              </Button>
-              <Button
-                size="sm"
-                disabled={!hasChanges || jsonError !== null}
-                onClick={handleSave}
-                className="gap-2 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-medium"
-                title="Save changes (Ctrl+S)"
+                <Badge className={cn("h-5 rounded px-2 text-[9px] font-bold uppercase tracking-wider text-white border-0", getCategoryBgColor(currentCategory))}>
+                  {currentCategory}
+                </Badge>
+                <X className="h-3 w-3 text-muted-foreground group-hover:text-destructive" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCategoryDialog(true)}
+                className="hidden shrink-0 rounded border border-dashed border-border/60 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary sm:block"
               >
-                <Save className="w-4 h-4" />
-                <span className="hidden sm:inline">Save</span>
-              </Button>
-              {onExportMods && (
-                <Button variant="outline" size="sm" onClick={onExportMods} className="gap-2 h-9">
-                  <Download className="w-4 h-4" />
-                  <span className="hidden sm:inline">Export</span>
-                </Button>
-              )}
-              {onHome && (
-                <Button variant="outline" size="sm" onClick={onHome} className="gap-2 h-9">
-                  <Home className="w-4 h-4" />
-                </Button>
-              )}
-              <SettingsDialog />
-            </div>
-
-            {/* Compact Actions - Mobile/Tablet */}
-            <div className="flex items-center gap-1 xl:hidden">
-              <Button 
-                size="icon"
-                variant={hasChanges ? "default" : "outline"}
-                disabled={!hasChanges || jsonError !== null}
-                onClick={handleSave}
-                className="h-9 w-9"
-                title="Save (Ctrl+S)"
-              >
-                <Save className="h-4 w-4" />
-              </Button>
-              <SettingsDialog />
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" className="h-9 w-9">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem onClick={() => setShowInstalledMods(true)}>
-                    <Package className="w-4 h-4 mr-2" /> Installed Mods
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowSearch(true)}>
-                    <Search className="w-4 h-4 mr-2" /> Search Config
-                  </DropdownMenuItem>
-                  {onHome && (
-                    <DropdownMenuItem onClick={onHome}>
-                      <Home className="w-4 h-4 mr-2" /> Home
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem disabled={!hasChanges} onClick={handleReset}>
-                    <RotateCcw className="w-4 h-4 mr-2" /> Reset
-                  </DropdownMenuItem>
-                  {onExportMods && (
-                    <DropdownMenuItem onClick={onExportMods}>
-                      <Download className="w-4 h-4 mr-2" /> Export
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                + Category
+              </button>
+            )}
+            {hasChanges && (
+              <span className="hidden shrink-0 items-center gap-1.5 rounded border border-warning/30 bg-warning/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-warning md:flex">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-warning" />
+                Unsaved
+              </span>
+            )}
           </div>
 
-          {/* Error Alert */}
-          {jsonError && (
-            <Alert variant="destructive" className="py-2 text-xs sm:text-sm mt-2">
-              <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0" />
-              <AlertDescription>
-                <span className="font-semibold">JSON Error:</span> {jsonError}
-                {jsonErrorLine && <span className="ml-2 text-xs opacity-75">(Line {jsonErrorLine})</span>}
-              </AlertDescription>
-            </Alert>
-          )}
+          {/* Desktop actions */}
+          <div className="hidden shrink-0 items-center gap-2 xl:flex">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={!hasChanges}
+              onClick={handleReset}
+              className="h-8 gap-1.5 px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+              title="Discard all changes (Ctrl+Z)"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> Reset
+            </Button>
+            <Button
+              size="sm"
+              disabled={!hasChanges || jsonError !== null}
+              onClick={handleSave}
+              className="h-8 gap-1.5 rounded-lg px-5 text-[11px] font-bold uppercase tracking-wider shadow-[0_0_20px_hsl(var(--primary)/0.3)]"
+              title="Save changes (Ctrl+S)"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+            <div className="mx-1 h-6 w-px bg-border/60" />
+            {onExportMods && (
+              <Button variant="ghost" size="icon" onClick={onExportMods} className="h-8 w-8" title="Export mods">
+                <Download className="h-4 w-4" />
+              </Button>
+            )}
+            {onHome && (
+              <Button variant="ghost" size="icon" onClick={onHome} className="h-8 w-8" title="Home">
+                <Home className="h-4 w-4" />
+              </Button>
+            )}
+            <SettingsDialog />
+          </div>
+
+          {/* Compact actions */}
+          <div className="flex items-center gap-1 xl:hidden">
+            <Button
+              size="icon"
+              variant={hasChanges ? "default" : "outline"}
+              disabled={!hasChanges || jsonError !== null}
+              onClick={handleSave}
+              className="h-8 w-8"
+              title="Save (Ctrl+S)"
+            >
+              <Save className="h-4 w-4" />
+            </Button>
+            <SettingsDialog />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={() => setShowInstalledMods(true)}>
+                  <Package className="w-4 h-4 mr-2" /> Installed Mods
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowCategoryDialog(true)}>
+                  <span className="mr-2 w-4 text-center">+</span> Category
+                </DropdownMenuItem>
+                {onHome && (
+                  <DropdownMenuItem onClick={onHome}>
+                    <Home className="w-4 h-4 mr-2" /> Home
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem disabled={!hasChanges} onClick={handleReset}>
+                  <RotateCcw className="w-4 h-4 mr-2" /> Reset
+                </DropdownMenuItem>
+                {onExportMods && (
+                  <DropdownMenuItem onClick={onExportMods}>
+                    <Download className="w-4 h-4 mr-2" /> Export
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
-      </div>
 
-      {/* ENHANCED TABS & TOOLBAR */}
-      <div className="shrink-0 px-3 pt-2 sm:px-4">
-        <div className="rounded-lg border border-border/50 bg-card/40 backdrop-blur-sm overflow-hidden shadow-sm">
-          {/* Tab Bar */}
-          <div className="border-b border-border/50 bg-card/50">
-            <ScrollArea className="w-full">
-              <div className="flex min-h-[40px] items-center gap-1 px-2 py-2">
-                {openConfigIndices.map((idx) => {
-                  const config = allConfigs[idx];
-                  const isActive = activeConfigIndex === idx;
-                  if (!config) return null;
-
-                  return (
-                    <div
-                      key={idx}
-                      className={cn(
-                        "flex cursor-pointer items-center gap-1 border rounded-md px-3 py-1 text-xs transition-all",
-                        "group relative",
-                        isActive
-                          ? "bg-primary/15 text-foreground border-primary/40 font-medium shadow-sm"
-                          : "bg-card/40 text-muted-foreground border-transparent hover:text-foreground hover:bg-card/60"
-                      )}
-                      onMouseDown={(e) => {
-                        if (e.button === 1 && openConfigIndices.length > 1) {
-                          e.preventDefault();
+        {/* FILE TABS + TOOLS */}
+        <div className="flex h-11 items-center gap-2 border-t border-border/30 px-4">
+          <ScrollArea className="min-w-0 flex-1">
+            <div className="flex items-center gap-1 py-1">
+              {openConfigIndices.map((idx) => {
+                const config = allConfigs[idx];
+                const isActive = activeConfigIndex === idx;
+                if (!config) return null;
+                return (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "group relative flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-1 text-[11px] font-bold tracking-tight transition-colors",
+                      isActive
+                        ? "border-primary/25 bg-primary/10 text-primary"
+                        : "border-transparent text-muted-foreground hover:bg-muted/30 hover:text-foreground"
+                    )}
+                    onMouseDown={(e) => {
+                      if (e.button === 1 && openConfigIndices.length > 1) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onCloseTab(idx);
+                      }
+                    }}
+                    onClick={() => onSelectTab(idx)}
+                  >
+                    <FileJson className="h-3 w-3 shrink-0" />
+                    <span className="max-w-[140px] truncate sm:max-w-[200px]">{config.fileName.split(/[\\/]/).pop()}</span>
+                    {openConfigIndices.length > 1 && (
+                      <button
+                        onClick={(e) => {
                           e.stopPropagation();
                           onCloseTab(idx);
-                        }
-                      }}
-                      onClick={() => onSelectTab(idx)}
-                    >
-                      <FileJson className={cn("w-3 h-3 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground/60")} />
-                      <span className="truncate max-w-[140px] sm:max-w-[200px]">{config.fileName.split(/[\\/]/).pop()}</span>
-                      {openConfigIndices.length > 1 && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onCloseTab(idx);
-                          }}
-                          className="ml-0.5 rounded-full p-0.5 hover:bg-muted/60 opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Close tab (Middle click to close)"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              <ScrollBar orientation="horizontal" />
-            </ScrollArea>
-          </div>
-
-          {/* Control Bar */}
-          <div className="flex flex-col items-start justify-between gap-2 bg-card/25 px-3 py-2 sm:flex-row sm:items-center sm:px-4">
-            {/* Search Area */}
-            <div className="w-full sm:flex-1 sm:max-w-sm">
-              {showSearch ? (
-                <div className="flex items-center gap-2 rounded-md border border-border/50 bg-card/80 px-2 py-1">
-                  <Search className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search config files..."
-                    className="flex-1 bg-transparent border-none outline-none text-xs sm:text-sm text-foreground placeholder:text-muted-foreground"
-                    autoFocus
-                  />
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-5 w-5 hover:bg-muted/40"
-                    onClick={() => {
-                      setShowSearch(false);
-                      setSearchQuery("");
-                    }}
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
-                </div>
-              ) : (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => setShowSearch(true)} 
-                  className="h-8 px-2 text-muted-foreground hover:text-foreground w-full sm:w-auto"
-                >
-                  <Search className="w-3.5 h-3.5 mr-1.5" />
-                  <span className="text-xs">Search</span>
-                </Button>
-              )}
+                        }}
+                        className="ml-0.5 rounded p-0.5 opacity-50 transition-opacity hover:bg-muted/60 hover:opacity-100"
+                        title="Close tab (Middle click to close)"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
 
-            {/* Editor Controls */}
-            <div className="flex w-full items-center justify-end gap-1 sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleFormatJson}
-                className="text-xs h-8 px-3"
-                title="Format JSON (Shift+Alt+F)"
-              >
-                <FileJson className="w-3.5 h-3.5 mr-1" />
-                Format
+          <div className="flex shrink-0 items-center gap-1">
+            {showSearch ? (
+              <div className="flex h-8 w-44 items-center gap-1.5 rounded-lg border border-border/50 bg-muted/20 px-2 sm:w-56">
+                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search all configs..."
+                  className="min-w-0 flex-1 border-none bg-transparent text-xs text-foreground outline-none placeholder:text-muted-foreground"
+                  autoFocus
+                />
+                <button
+                  onClick={() => {
+                    setShowSearch(false);
+                    setSearchQuery("");
+                  }}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  aria-label="Close search"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <Button variant="ghost" size="icon" onClick={() => setShowSearch(true)} className="h-8 w-8" title="Search configs">
+                <Search className="h-4 w-4" />
               </Button>
-              <Button
-                variant={isSplitView ? "default" : "outline"}
-                size="sm"
+            )}
+            <div className="flex items-center rounded-lg border border-border/50 bg-muted/20 p-0.5">
+              <button
+                onClick={handleFormatJson}
+                title="Format JSON (Shift+Alt+F)"
+                className="rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                Format
+              </button>
+              <button
                 onClick={toggleSplitView}
-                className="text-xs h-8 px-3"
                 disabled={allConfigs.length < 2}
                 title={allConfigs.length < 2 ? "Need at least 2 files" : "Split view (Ctrl+\\)"}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                  isSplitView ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                )}
               >
-                {isSplitView ? "✓ Split" : "Split"}
-              </Button>
-              {isSplitView && (
-                <select
-                  value={secondaryConfigIndex ?? ""}
-                  onChange={(e) => setSecondaryConfigIndex(Number(e.target.value))}
-                  className="h-8 rounded-md border border-border/50 bg-card/40 px-2 text-[11px] sm:text-xs max-w-[160px] hover:bg-card/60 transition-colors cursor-pointer"
-                >
-                  {allConfigs
-                    .filter((cfg) => cfg.index !== activeConfigIndex)
-                    .map((cfg) => (
-                      <option key={cfg.index} value={cfg.index}>
-                        {cfg.fileName.split(/[\\/]/).pop()?.substring(0, 20)}
-                      </option>
-                    ))}
-                </select>
-              )}
-              <ConfigHistory
-                modId={modId}
-                modName={modName}
-                configFile={configFile}
-                onRestore={handleRestoreHistory}
-              />
-              <ItemDatabase />
+                Split
+              </button>
             </div>
+            {isSplitView && (
+              <select
+                value={secondaryConfigIndex ?? ""}
+                onChange={(e) => setSecondaryConfigIndex(Number(e.target.value))}
+                className="h-8 max-w-[150px] cursor-pointer rounded-lg border border-border/50 bg-muted/20 px-2 text-[11px]"
+              >
+                {allConfigs
+                  .filter((cfg) => cfg.index !== activeConfigIndex)
+                  .map((cfg) => (
+                    <option key={cfg.index} value={cfg.index}>
+                      {cfg.fileName.split(/[\\/]/).pop()?.substring(0, 20)}
+                    </option>
+                  ))}
+              </select>
+            )}
+            <div className="mx-1 h-5 w-px bg-border/60" />
+            <ConfigHistory modId={modId} modName={modName} configFile={configFile} onRestore={handleRestoreHistory} />
+            <ItemDatabase />
           </div>
         </div>
-      </div>
+      </header>
+
+      {jsonError && (
+        <div className="shrink-0 px-4 pt-2">
+          <Alert variant="destructive" className="py-2 text-xs sm:text-sm">
+            <AlertCircle className="mr-2 h-4 w-4 flex-shrink-0" />
+            <AlertDescription>
+              <span className="font-semibold">JSON Error:</span> {jsonError}
+              {jsonErrorLine && <span className="ml-2 text-xs opacity-75">(Line {jsonErrorLine})</span>}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {showSearch && (
         <div className="shrink-0 px-3 pt-2 sm:px-4">
