@@ -117,35 +117,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, onDevLoad, is
   return (
     <div className="relative min-h-screen bg-background">
       {/* Scanning overlay — covers full viewport */}
-      {isLoading && (
-        <div className="fixed inset-0 z-50 animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-background/90 backdrop-blur-[6px]" />
-          <div className="relative flex h-full flex-col items-center justify-center gap-4
-                          animate-in fade-in slide-in-from-bottom-3 duration-500 fill-mode-both [animation-delay:60ms]">
-            <div className="relative flex items-center justify-center w-20 h-20">
-              <div className="absolute inset-0 rounded-full bg-primary/25 blur-2xl scale-[1.8] animate-pulse [animation-duration:2200ms]" />
-              <div className="absolute inset-0 rounded-full border-[3px] border-primary/12" />
-              <div className="absolute inset-0 rounded-full border-[3px] border-transparent border-t-primary animate-spin" />
-              <Package className="w-7 h-7 text-primary relative z-10" />
-            </div>
-            <div className="text-center space-y-1">
-              <p className="text-sm font-semibold text-foreground tracking-wide">
-                {loadingSource === "last" ? "Loading saved folder..." : "Scanning folder..."}
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                {loadingSource === "last"
-                  ? "Checking cache and reading mod configs"
-                  : "Reading mod configs and package files"}
-              </p>
-            </div>
-            <div className="w-52 h-[3px] bg-primary/10 rounded-full overflow-hidden">
-              <div className="h-full w-2/5 rounded-full
-                bg-gradient-to-r from-primary/0 via-primary to-primary/0
-                animate-[comet_1.65s_ease-in-out_infinite]" />
-            </div>
-          </div>
-        </div>
-      )}
+      {isLoading && <ScanningOverlay source={loadingSource} />}
 
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-5 px-5 py-8 sm:px-10">
         {/* Hero + activity */}
@@ -320,3 +292,66 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, onDevLoad, is
     </div>
   );
 };
+
+const SCAN_STEPS = ["Reading install folder", "Matching SPT version layout", "Indexing mod configs"];
+
+function ScanningOverlay({ source }: { source?: "select" | "last" }) {
+  const [step, setStep] = useState(0);
+  const [progress, setProgress] = useState(2);
+
+  useEffect(() => {
+    const stepTimer = window.setInterval(() => setStep((s) => Math.min(s + 1, SCAN_STEPS.length - 1)), 1100);
+    const barTimer = window.setInterval(() => setProgress((p) => Math.min(p + (92 - p) * 0.08, 92)), 120);
+    return () => { window.clearInterval(stepTimer); window.clearInterval(barTimer); };
+  }, []);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200" role="status" aria-live="polite">
+      <div className="absolute inset-0 bg-background/95 backdrop-blur-sm" />
+      <div className="relative w-[min(92vw,448px)] rounded-[2rem] border border-border/60 bg-gradient-to-b from-card to-background/80 px-9 py-9 shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-500">
+        <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+        <h2 className="font-display text-center text-lg font-bold text-foreground">
+          {source === "last" ? "Reopening your mods" : "Opening your mods"}
+        </h2>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          {source === "last" ? "Checking the cache and reading saved configs." : "Scanning for config files across every SPT layout."}
+        </p>
+
+        <div className="mt-7 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+          <div
+            className="h-full rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary)/0.6)] transition-[width] duration-150 ease-out"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+
+        <ul className="mt-6 space-y-3">
+          {SCAN_STEPS.map((label, i) => {
+            const done = i < step;
+            const active = i === step;
+            return (
+              <li key={label} className="flex items-center gap-3 text-sm">
+                <span
+                  className={cn(
+                    "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors duration-300",
+                    done ? "border-primary bg-primary" : active ? "border-primary" : "border-border/70"
+                  )}
+                >
+                  {done ? (
+                    <svg viewBox="0 0 12 12" className="h-3 w-3 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="2"><path d="M2.5 6.5l2.2 2.2 4.8-5" /></svg>
+                  ) : (
+                    <span className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-primary animate-pulse" : "bg-muted-foreground/50")} />
+                  )}
+                </span>
+                <span className={cn("transition-colors duration-300", active ? "text-primary" : done ? "text-foreground/80" : "text-muted-foreground/60")}>
+                  {label}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
