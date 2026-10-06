@@ -117,7 +117,7 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, onDevLoad, is
   return (
     <div className="relative min-h-screen bg-background">
       {/* Scanning overlay — covers full viewport */}
-      {isLoading && <ScanningOverlay source={loadingSource} />}
+      {isLoading && <ScanningOverlay source={loadingSource} versionLabel={detectedVersion} />}
 
       <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center gap-5 px-5 py-8 sm:px-10">
         {/* Hero + activity */}
@@ -295,7 +295,8 @@ export const PathSelector = ({ onFolderSelected, onLoadLastFolder, onDevLoad, is
 
 const SCAN_STEPS = ["Reading install folder", "Matching SPT version layout", "Indexing mod configs"];
 
-function ScanningOverlay({ source }: { source?: "select" | "last" }) {
+function ScanningOverlay({ source, versionLabel }: { source?: "select" | "last"; versionLabel?: string | null }) {
+  const versionTag = versionLabel ? `V. ${versionLabel.replace(/^SPT\s*/i, "").replace(/x$/i, "X")} Detected` : "Layout Matched";
   const [step, setStep] = useState(0);
   const [progress, setProgress] = useState(2);
 
@@ -347,6 +348,11 @@ function ScanningOverlay({ source }: { source?: "select" | "last" }) {
                 <span className={cn("transition-colors duration-300", active ? "text-primary" : done ? "text-foreground/80" : "text-muted-foreground/60")}>
                   {label}
                 </span>
+                {i === 1 && done && (
+                  <span className="ml-auto rounded-md border border-success/40 bg-success/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-success animate-in fade-in zoom-in-95 duration-300">
+                    {versionTag}
+                  </span>
+                )}
               </li>
             );
           })}
