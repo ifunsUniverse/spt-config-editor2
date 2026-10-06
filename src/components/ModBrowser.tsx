@@ -125,7 +125,7 @@ export const ModBrowser = ({ onBack }: ModBrowserProps) => {
               return (
                 <article key={m.id} className="flex flex-col overflow-hidden rounded-xl border border-border/40 bg-card/50 transition-colors hover:border-primary/40">
                   <div className="aspect-[16/7] w-full overflow-hidden bg-muted/30">
-                    {m.thumbnail && <img src={m.thumbnail} alt="" loading="lazy" className="h-full w-full object-cover" />}
+                    {m.thumbnail && <img src={m.thumbnail} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = "none"; }} className="h-full w-full object-cover" />}
                   </div>
                   <div className="flex flex-1 flex-col p-3">
                     <div className="flex items-start gap-2">
