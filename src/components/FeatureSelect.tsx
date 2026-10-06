@@ -39,19 +39,14 @@ export const FeatureSelect = ({ onSelectFeature, onBack, modCount }: FeatureSele
             </CardContent>
           </Card>
 
-          <Card
-            className="cursor-pointer border-border hover:border-primary/50 hover:bg-primary/5 transition-all group"
-            onClick={() => onSelectFeature("modBrowser")}
-          >
+          <Card aria-disabled className="border-border opacity-50 cursor-not-allowed select-none">
             <CardContent className="flex flex-col items-center gap-2 p-4 text-center">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 transition-colors group-hover:bg-primary/20">
-                <Globe className="w-7 h-7 text-primary" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                <Globe className="w-7 h-7 text-muted-foreground" />
               </div>
               <div>
                 <h2 className="text-lg font-semibold text-foreground">Mod Browser</h2>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Browse and discover mods from the community
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Temporarily unavailable</p>
               </div>
             </CardContent>
           </Card>
