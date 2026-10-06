@@ -678,8 +678,7 @@ const Index = () => {
       }
       setView("configEditor");
     } else if (feature === "modBrowser") {
-      // Mod Browser temporarily disabled
-      toast.info("Mod Browser is temporarily unavailable");
+      setView("modBrowser");
     } else {
       // Community Board temporarily disabled
       toast.info("Community Board is temporarily unavailable");

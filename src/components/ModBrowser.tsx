@@ -54,6 +54,7 @@ export const ModBrowser = ({ onBack }: ModBrowserProps) => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     const t = setTimeout(() => { setQuery(search.trim()); setPage(1); }, 400);
@@ -78,7 +79,7 @@ export const ModBrowser = ({ onBack }: ModBrowserProps) => {
       .catch((e) => { if (e.name !== "AbortError") { console.error("[ModBrowser]", e); setError(e.message || "Could not reach Forge"); } })
       .finally(() => { if (!ctrl.signal.aborted) setLoading(false); });
     return () => ctrl.abort();
-  }, [query, sort, page]);
+  }, [query, sort, page, retry]);
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -111,7 +112,7 @@ export const ModBrowser = ({ onBack }: ModBrowserProps) => {
             <AlertCircle className="mx-auto mb-2 h-6 w-6 text-destructive" />
             <p className="font-semibold text-foreground">Couldn't load mods</p>
             <p className="mt-1 text-sm text-muted-foreground">{error}</p>
-            <Button size="sm" className="mt-4" onClick={() => setPage((p) => p)}>Try again</Button>
+            <Button size="sm" className="mt-4" onClick={() => setRetry((n) => n + 1)}>Try again</Button>
           </div>
         ) : loading && mods.length === 0 ? (
           <div className="flex h-full items-center justify-center text-muted-foreground"><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Loading mods...</div>
