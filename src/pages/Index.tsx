@@ -11,7 +11,7 @@ import { ConfigValue } from "@/utils/configHelpers";
 import { CategoryBrowser } from "@/components/CategoryBrowser";
 import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { CategoryDialog } from "@/components/CategoryDialog";
-import { scanSPTFolderElectron, ElectronScannedMod, saveConfigToFileElectron, saveScanCache, loadScanCache } from "@/utils/electronFolderScanner";
+import { scanSPTFolderElectron, scanModFolder, ElectronScannedMod, saveConfigToFileElectron, saveScanCache, loadScanCache } from "@/utils/electronFolderScanner";
 import { generateMockMods } from "@/utils/mockMods";
 import { DirectoryHandleLike, loadLastSelectedFolder, rememberLastSelectedFolder } from "@/utils/electronBridge";
 import { exportModsAsZip } from "@/utils/exportMods";
@@ -461,6 +461,59 @@ const Index = () => {
       throw error;
     }
   }, [scannedMods, selectedModId, activeConfigIndex]);
+
+  const handleCreateModEntry = async (
+    modId: string,
+    req: { kind: "file" | "folder"; parentFolder?: string; name: string; fileName?: string }
+  ): Promise<boolean> => {
+    if (isDevMockMode) {
+      toast.info("Not available in Dev Load", { description: "Mock mods can't have files added." });
+      return false;
+    }
+    const entry = scannedMods.find((m) => m.mod.id === modId);
+    if (!entry) return false;
+    const allowed = /\.(json|jsonc|json5|txt|cfg|conf|log)$/i;
+    const clean = (n: string) => n.trim();
+    const invalid = (n: string) => !n || /[\\/:*?"<>|]/.test(n) || n === "." || n === "..";
+    try {
+      let dir: any = entry.dirHandle;
+      if (req.parentFolder) {
+        for (const part of req.parentFolder.split(/[\\/]/).filter(Boolean)) {
+          dir = await dir.getDirectoryHandle(part);
+        }
+      }
+      let fileName = clean(req.kind === "file" ? req.name : req.fileName || "preset.json");
+      if (req.kind === "folder") {
+        const folderName = clean(req.name);
+        if (invalid(folderName)) throw new Error("Invalid folder name");
+        dir = await dir.getDirectoryHandle(folderName, { create: true });
+      }
+      if (invalid(fileName)) throw new Error("Invalid file name");
+      if (!allowed.test(fileName)) fileName += ".json";
+      let alreadyExists = false;
+      try { await dir.getFileHandle(fileName); alreadyExists = true; } catch { /* new */ }
+      if (alreadyExists) throw new Error(`"${fileName}" already exists`);
+      const fh = await dir.getFileHandle(fileName, { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(/\.json[c5]?$/i.test(fileName) ? "{\n  \n}\n" : "");
+      await writable.close();
+
+      const rescanned = await scanModFolder(entry.dirHandle, entry.folderPath);
+      if (!rescanned) throw new Error("Could not refresh mod");
+      rescanned.mod = { ...entry.mod, configCount: rescanned.configs.length };
+      setScannedMods((prev) => prev.map((m) => (m.mod.id === modId ? rescanned : m)));
+      const relPath = [req.parentFolder, req.kind === "folder" ? clean(req.name) : null, fileName].filter(Boolean).join("/");
+      const newCfg = rescanned.configs.find((c) => c.fileName === relPath);
+      toast.success(`Created ${relPath}`);
+      if (newCfg && !hasUnsavedChanges) {
+        setTimeout(() => handleSelectMod(modId, newCfg.index), 0);
+      }
+      return true;
+    } catch (err: any) {
+      toast.error("Couldn't create", { description: err?.message || String(err) });
+      return false;
+    }
+  };
 
   const configFilesMap = useMemo(() => {
     const map: Record<string, ConfigFile[]> = {};
