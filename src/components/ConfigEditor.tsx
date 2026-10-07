@@ -390,18 +390,6 @@ export const ConfigEditor = ({
       activeEditorRef.current = editor;
     });
 
-    editor.addAction({
-      id: "spt-format-json-primary",
-      label: "Format JSON",
-      keybindings: [
-        monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
-      ],
-      run: async () => {
-        const action = editor.getAction("editor.action.formatDocument");
-        if (!action) return;
-        await action.run();
-      },
-    });
 
     if (cursorPositionDisposableRef.current) {
       cursorPositionDisposableRef.current.dispose();
@@ -586,23 +574,6 @@ export const ConfigEditor = ({
     }
   }, [performPrimarySave, rawText]);
 
-  const handleFormatJson = useCallback(async () => {
-    const targetEditor = activeEditorRef.current || editorRef.current;
-    if (!targetEditor) return;
-
-    try {
-      const action = targetEditor.getAction("editor.action.formatDocument");
-      if (!action) {
-        toast.error("Format action unavailable for this file");
-        return;
-      }
-      await action.run();
-    } catch (formatError: any) {
-      toast.error("Could not format JSON", {
-        description: formatError?.message || "Fix syntax issues and try again",
-      });
-    }
-  }, []);
 
   const handleSecondaryRawTextChange = (text: string | undefined) => {
     if (!secondaryConfig) return;
@@ -1256,18 +1227,6 @@ export const ConfigEditor = ({
                           activeEditorRef.current = editor;
                         });
 
-                        editor.addAction({
-                          id: "spt-format-json-secondary",
-                          label: "Format JSON",
-                          keybindings: [
-                            monaco.KeyMod.Shift | monaco.KeyMod.Alt | monaco.KeyCode.KeyF,
-                          ],
-                          run: async () => {
-                            const action = editor.getAction("editor.action.formatDocument");
-                            if (!action) return;
-                            await action.run();
-                          },
-                        });
                       }}
                       onChange={handleSecondaryRawTextChange}
                       theme="spt-dark"
