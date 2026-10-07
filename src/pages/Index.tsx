@@ -13,7 +13,7 @@ import { ConfigValidationSummary } from "@/components/ConfigValidationSummary";
 import { CategoryDialog } from "@/components/CategoryDialog";
 import { scanSPTFolderElectron, scanModFolder, ElectronScannedMod, saveConfigToFileElectron, saveScanCache, loadScanCache } from "@/utils/electronFolderScanner";
 import { generateMockMods } from "@/utils/mockMods";
-import { DirectoryHandleLike, loadLastSelectedFolder, rememberLastSelectedFolder } from "@/utils/electronBridge";
+import { DirectoryHandleLike, writeFile as bridgeWriteFile, loadLastSelectedFolder, rememberLastSelectedFolder } from "@/utils/electronBridge";
 import { exportModsAsZip } from "@/utils/exportMods";
 import { saveEditHistory, getEditHistory, getModEditTime } from "@/utils/editTracking";
 import { 
@@ -494,9 +494,7 @@ const Index = () => {
       try { await dir.getFileHandle(fileName); alreadyExists = true; } catch { /* new */ }
       if (alreadyExists) throw new Error(`"${fileName}" already exists`);
       const fh = await dir.getFileHandle(fileName, { create: true });
-      const writable = await fh.createWritable();
-      await writable.write(/\.json[c5]?$/i.test(fileName) ? "{\n  \n}\n" : "");
-      await writable.close();
+      await bridgeWriteFile(fh, /\.json[c5]?$/i.test(fileName) ? "{\n  \n}\n" : "");
 
       const rescanned = await scanModFolder(entry.dirHandle, entry.folderPath);
       if (!rescanned) throw new Error("Could not refresh mod");
