@@ -1,7 +1,10 @@
 import { useState, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ChevronRight, Star, Clock, FileJson, Folder, Search, X } from "lucide-react";
+import { ChevronRight, Star, Clock, FileJson, Folder, Search, X, FilePlus, FolderPlus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { splitCamelCase, cn } from "@/lib/utils";
 import { ModEditHistory, getModEditTime } from "@/utils/editTracking";
@@ -46,7 +49,13 @@ interface ModListProps {
   searchInputRef?: React.RefObject<HTMLInputElement>;
   modCategories?: Record<string, string>;
   onCategoryAssign?: (modId: string) => void;
+  onCreateEntry?: (
+    modId: string,
+    req: { kind: "file" | "folder"; parentFolder?: string; name: string; fileName?: string }
+  ) => Promise<boolean>;
 }
+
+type CreateTarget = { modId: string; modName: string; kind: "file" | "folder"; parentFolder?: string };
 
 export const ModList = ({
   mods,
@@ -60,7 +69,36 @@ export const ModList = ({
   searchInputRef,
   modCategories = {},
   onCategoryAssign,
+  onCreateEntry,
 }: ModListProps) => {
+  const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
+  const [newName, setNewName] = useState("");
+  const [newFileName, setNewFileName] = useState("preset.json");
+  const [creating, setCreating] = useState(false);
+
+  const openCreate = (t: CreateTarget) => {
+    setNewName("");
+    setNewFileName("preset.json");
+    setCreateTarget(t);
+  };
+
+  const submitCreate = async () => {
+    if (!createTarget || !onCreateEntry || !newName.trim()) return;
+    setCreating(true);
+    const ok = await onCreateEntry(createTarget.modId, {
+      kind: createTarget.kind,
+      parentFolder: createTarget.parentFolder,
+      name: newName,
+      fileName: newFileName,
+    });
+    setCreating(false);
+    if (ok) {
+      setExpandedMods((p) => ({ ...p, [createTarget.modId]: true }));
+      const folder = createTarget.parentFolder || (createTarget.kind === "folder" ? newName.trim() : null);
+      if (folder) setExpandedFolders((p) => ({ ...p, [`${createTarget.modId}:${folder.split("/")[0]}`]: true }));
+      setCreateTarget(null);
+    }
+  };
   const [expandedMods, setExpandedMods] = useState<Record<string, boolean>>({});
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
@@ -277,6 +315,9 @@ export const ModList = ({
                             
                             return (
                               <div key={folderName} className="space-y-0.5">
+                                <div onContextMenu={(e) => e.stopPropagation()}>
+                                <ContextMenu>
+                                <ContextMenuTrigger asChild>
                                 <button
                                   onClick={() => toggleFolder(mod.id, folderName)}
                                   className="flex w-full items-center gap-2 rounded-md px-2 py-0.5 text-left text-[11px] text-foreground/80 transition-colors hover:bg-blue-500/10 hover:text-foreground"
@@ -289,6 +330,17 @@ export const ModList = ({
                                   <span className="font-medium truncate">{folderName}</span>
                                   <Badge variant="outline" className="ml-auto h-4 px-1 text-[9px] opacity-50">{files.length}</Badge>
                                 </button>
+                                </ContextMenuTrigger>
+                                <ContextMenuContent className="w-56">
+                                  <ContextMenuItem className="gap-2" onClick={() => openCreate({ modId: mod.id, modName: mod.name, kind: "file", parentFolder: folderName })}>
+                                    <FilePlus className="w-4 h-4" /> New File in {folderName}
+                                  </ContextMenuItem>
+                                  <ContextMenuItem className="gap-2" onClick={() => openCreate({ modId: mod.id, modName: mod.name, kind: "folder", parentFolder: folderName })}>
+                                    <FolderPlus className="w-4 h-4" /> New Folder in {folderName}
+                                  </ContextMenuItem>
+                                </ContextMenuContent>
+                                </ContextMenu>
+                                </div>
                                 
                                 {isFolderExpanded && (
                                   <div className="space-y-0.5 pl-3">
@@ -319,6 +371,13 @@ export const ModList = ({
                       <Badge className="w-4 h-4 p-0 rounded-full bg-primary" /> Assign Category
                     </ContextMenuItem>
                     <ContextMenuSeparator />
+                    <ContextMenuItem onClick={() => openCreate({ modId: mod.id, modName: mod.name, kind: "file" })} className="gap-2">
+                      <FilePlus className="w-4 h-4" /> New File
+                    </ContextMenuItem>
+                    <ContextMenuItem onClick={() => openCreate({ modId: mod.id, modName: mod.name, kind: "folder" })} className="gap-2">
+                      <FolderPlus className="w-4 h-4" /> New Folder
+                    </ContextMenuItem>
+                    <ContextMenuSeparator />
                     <ContextMenuItem onClick={() => onToggleFavorite(mod.id)} className="gap-2">
                       <Star className={cn("w-4 h-4", isFavorited && "fill-yellow-400 text-yellow-400")} />
                       {isFavorited ? "Remove from Favorites" : "Add to Favorites"}
@@ -330,6 +389,46 @@ export const ModList = ({
           })}
         </div>
       </div>
+
+      <Dialog open={!!createTarget} onOpenChange={(o) => !o && !creating && setCreateTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{createTarget?.kind === "folder" ? "New Folder" : "New File"}</DialogTitle>
+            <DialogDescription>
+              In {createTarget?.modName}{createTarget?.parentFolder ? ` / ${createTarget.parentFolder}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => { e.preventDefault(); submitCreate(); }}
+          >
+            <div className="space-y-1.5">
+              <Label htmlFor="new-entry-name">{createTarget?.kind === "folder" ? "Folder name" : "File name"}</Label>
+              <Input
+                id="new-entry-name"
+                autoFocus
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder={createTarget?.kind === "folder" ? "presets" : "my-preset.json"}
+              />
+              {createTarget?.kind === "file" && (
+                <p className="text-xs text-muted-foreground">No extension? ".json" is added for you.</p>
+              )}
+            </div>
+            {createTarget?.kind === "folder" && (
+              <div className="space-y-1.5">
+                <Label htmlFor="new-entry-file">First file inside</Label>
+                <Input id="new-entry-file" value={newFileName} onChange={(e) => setNewFileName(e.target.value)} />
+                <p className="text-xs text-muted-foreground">Folders need at least one file to show in the list.</p>
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setCreateTarget(null)} disabled={creating}>Cancel</Button>
+              <Button type="submit" disabled={creating || !newName.trim()}>{creating ? "Creating..." : "Create"}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
