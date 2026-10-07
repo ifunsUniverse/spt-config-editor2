@@ -1031,6 +1031,34 @@ export const ConfigEditor = ({
               </Button>
             )}
             <div className="flex items-center rounded-lg border border-border/50 bg-muted/20 p-0.5">
+              <label
+                title="Upload a config file to replace this one (review, then Save)"
+                className="cursor-pointer rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+              >
+                Upload
+                <input
+                  type="file"
+                  accept=".json,.json5,.jsonc,.cfg,.txt,application/json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("File too large", { description: "Max 5 MB" });
+                      return;
+                    }
+                    const text = await file.text();
+                    try {
+                      JSON5.parse(text);
+                    } catch (err: any) {
+                      toast.warning("Uploaded file has syntax errors", { description: err?.message });
+                    }
+                    handleRawTextChange(text);
+                    toast.success(`Loaded ${file.name}`, { description: "Review it, then press Save to apply." });
+                  }}
+                />
+              </label>
               <button
                 onClick={handleFormatJson}
                 title="Format JSON (Shift+Alt+F)"
