@@ -178,7 +178,7 @@ async function scanModsDirectory(modsDir: DirectoryHandleLike): Promise<Electron
   return scannedMods;
 }
 
-async function scanModFolder(
+export async function scanModFolder(
   dirHandle: DirectoryHandleLike,
   folderName: string
 ): Promise<ElectronScannedMod | null> {
