@@ -1060,13 +1060,6 @@ export const ConfigEditor = ({
                 />
               </label>
               <button
-                onClick={handleFormatJson}
-                title="Format JSON (Shift+Alt+F)"
-                className="rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-              >
-                Format
-              </button>
-              <button
                 onClick={toggleSplitView}
                 disabled={allConfigs.length < 2}
                 title={allConfigs.length < 2 ? "Need at least 2 files" : "Split view (Ctrl+\\)"}
