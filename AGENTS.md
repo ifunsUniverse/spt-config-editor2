@@ -1,0 +1,3 @@
+- Roles live in `public.user_roles` and are checked only by database functions (`has_role`, `is_staff`, `get_my_role`); never trust profile metadata or env lists — those are user-editable or client-visible.
+- Community board data goes through `src/api/community.ts`; permissions (staff-only edits, one vote per user via `upvote_suggestion`) are enforced by RLS/functions, so the client stays thin.
+- Signup side effects (profile row, default role, disposable-email block) run as triggers on `auth.users`, so direct API calls can't skip them.

@@ -27,7 +27,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { supabase } from "@/integrations/supabase/client";
+import * as community from "@/api/community";
 import { useAllUsers } from "@/integrations/supabase/userApi";
 import { updateUserRole, deleteUser } from "@/integrations/supabase/userAdminApi";
 import { useAuth } from "@/integrations/supabase/AuthProvider";
@@ -93,19 +93,6 @@ function getErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
-function getVotedSet(): Set<string> {
-  try {
-    const raw = localStorage.getItem("spt-voted-suggestions");
-    const arr = raw ? JSON.parse(raw) : [];
-    return new Set(Array.isArray(arr) ? arr : []);
-  } catch {
-    return new Set();
-  }
-}
-
-function saveVotedSet(ids: Set<string>) {
-  localStorage.setItem("spt-voted-suggestions", JSON.stringify([...ids]));
-}
 
 function resolveUsername(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null): string {
   if (!user) return "Anonymous";
@@ -209,7 +196,7 @@ const MOCK_SUGGESTIONS = [
 
 export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => {
   const { user } = useAuth();
-  const { users, loading: loadingUsers, error: usersError } = useAllUsers();
+  const { users, loading: loadingUsers, error: usersError } = useAllUsers(isOwner);
   const [userActionLoading, setUserActionLoading] = useState<string | null>(null);
   const [userDeleteConfirm, setUserDeleteConfirm] = useState<string | null>(null);
     // User management actions
@@ -244,7 +231,7 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
   const [bugReports, setBugReports] = useState<BugReport[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(true);
   const [loadingBugs, setLoadingBugs] = useState(true);
-  const [votedIds, setVotedIds] = useState<Set<string>>(getVotedSet);
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
   const [votingId, setVotingId] = useState<string | null>(null);
   const [deletingSuggestionId, setDeletingSuggestionId] = useState<string | null>(null);
   const [deletingBugId, setDeletingBugId] = useState<string | null>(null);
@@ -279,12 +266,9 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
   const fetchSuggestions = useCallback(async () => {
     setLoadingSuggestions(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("suggestions")
-        .select("*")
-        .order("votes", { ascending: false });
-      if (error) throw error;
-      setSuggestions(data ?? []);
+      const [data, mine] = await Promise.all([community.listSuggestions(), community.listMyVotes()]);
+      setSuggestions(data);
+      setVotedIds(mine);
     } catch (error) {
       console.error("Failed to load suggestions:", error);
       toast.error(`Failed to load suggestions: ${getErrorMessage(error)}`);
@@ -296,12 +280,7 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
   const fetchBugReports = useCallback(async () => {
     setLoadingBugs(true);
     try {
-      const { data, error } = await (supabase as any)
-        .from("bug_reports")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setBugReports(data ?? []);
+      setBugReports(await community.listBugReports());
       setCurrentBugPage(1);
     } catch (error) {
       console.error("Failed to load bug reports:", error);
@@ -328,18 +307,11 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     if (votedIds.has(suggestion.id) || votingId) return;
     setVotingId(suggestion.id);
     try {
-      const { error } = await (supabase as any)
-        .from("suggestions")
-        .update({ votes: suggestion.votes + 1 })
-        .eq("id", suggestion.id);
-      if (error) throw error;
-      const next = new Set(votedIds);
-      next.add(suggestion.id);
-      setVotedIds(next);
-      saveVotedSet(next);
+      const votes = await community.upvoteSuggestion(suggestion.id);
+      setVotedIds(prev => new Set(prev).add(suggestion.id));
       setSuggestions(prev =>
         prev
-          .map(s => s.id === suggestion.id ? { ...s, votes: s.votes + 1 } : s)
+          .map(s => s.id === suggestion.id ? { ...s, votes } : s)
           .sort((a, b) => b.votes - a.votes)
       );
     } catch (error) {
@@ -356,18 +328,12 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     author_name?: string;
     votes?: number;
   }) => {
-    const { data, error } = await (supabase as any)
-      .from("suggestions")
-      .insert({
-        title: payload.title,
-        description: payload.description,
-        author_name: payload.author_name ?? "Anonymous",
-        votes: payload.votes ?? 0,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const [data] = await community.insertSuggestions([{
+      title: payload.title,
+      description: payload.description,
+      author_name: payload.author_name ?? "Anonymous",
+      votes: payload.votes ?? 0,
+    }]);
 
     setSuggestions((prev) => [...prev, data].sort((a, b) => b.votes - a.votes));
   };
@@ -404,20 +370,14 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     author_name?: string;
     status?: string;
   }) => {
-    const { data, error } = await (supabase as any)
-      .from("bug_reports")
-      .insert({
-        title: payload.title,
-        description: payload.description,
-        steps_to_reproduce: payload.steps_to_reproduce ?? null,
-        severity: payload.severity,
-        author_name: payload.author_name ?? "Anonymous",
-        status: payload.status ?? "open",
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
+    const [data] = await community.insertBugReports([{
+      title: payload.title,
+      description: payload.description,
+      steps_to_reproduce: payload.steps_to_reproduce ?? null,
+      severity: payload.severity,
+      author_name: payload.author_name ?? "Anonymous",
+      status: payload.status ?? "open",
+    }]);
     setBugReports(prev => [data, ...prev]);
   };
 
@@ -479,20 +439,14 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
 
     setSimulatingActivity(true);
     try {
-      const { error: suggestionsError } = await (supabase as any)
-        .from("suggestions")
-        .insert(MOCK_SUGGESTIONS.map((suggestion) => ({
+      await community.insertSuggestions(MOCK_SUGGESTIONS.map((suggestion) => ({
           title: suggestion.title,
           description: suggestion.description,
           author_name: suggestion.author_name,
           votes: suggestion.votes,
         })));
 
-      if (suggestionsError) throw suggestionsError;
-
-      const { error: bugsError } = await (supabase as any)
-        .from("bug_reports")
-        .insert(MOCK_BUG_REPORTS.map((bug) => ({
+      await community.insertBugReports(MOCK_BUG_REPORTS.map((bug) => ({
           title: bug.title,
           description: bug.description,
           steps_to_reproduce: bug.steps_to_reproduce,
@@ -500,8 +454,6 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
           author_name: bug.author_name,
           status: bug.status,
         })));
-
-      if (bugsError) throw bugsError;
 
       await Promise.all([fetchSuggestions(), fetchBugReports()]);
       toast.success("Demo user activity added!");
@@ -517,16 +469,11 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     if (deletingSuggestionId || deletingAllSuggestions || votingId) return;
     setDeletingSuggestionId(id);
     try {
-      const { error } = await (supabase as any)
-        .from("suggestions")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
+      await community.deleteSuggestions([id]);
 
       const nextVotes = new Set(votedIds);
       nextVotes.delete(id);
       setVotedIds(nextVotes);
-      saveVotedSet(nextVotes);
       setSuggestions((prev) => prev.filter((s) => s.id !== id));
       toast.success("Suggestion deleted");
     } catch (error) {
@@ -543,18 +490,12 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     setDeletingAllSuggestions(true);
     try {
       const suggestionIds = suggestions.map((suggestion) => suggestion.id);
-      const { error } = await (supabase as any)
-        .from("suggestions")
-        .delete()
-        .in("id", suggestionIds);
-
-      if (error) throw error;
+      await community.deleteSuggestions(suggestionIds);
 
       setSuggestions([]);
       const nextVotes = new Set(votedIds);
       suggestionIds.forEach((id) => nextVotes.delete(id));
       setVotedIds(nextVotes);
-      saveVotedSet(nextVotes);
       toast.success("All suggestions deleted");
     } catch (error) {
       console.error("Failed to delete all suggestions:", error);
@@ -568,11 +509,7 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     if (deletingBugId || deletingAllBugs) return;
     setDeletingBugId(id);
     try {
-      const { error } = await (supabase as any)
-        .from("bug_reports")
-        .delete()
-        .eq("id", id);
-      if (error) throw error;
+      await community.deleteBugReports([id]);
 
       setBugReports((prev) => prev.filter((b) => b.id !== id));
       setSelectedBugId((prev) => (prev === id ? null : prev));
@@ -589,15 +526,7 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     if (updatingBugStatusId || !isOwner) return;
     setUpdatingBugStatusId(id);
     try {
-      const updateData: any = { status: newStatus };
-      if (newStatus === "resolved" && note) {
-        updateData.resolution_note = note;
-      }
-      const { error } = await (supabase as any)
-        .from("bug_reports")
-        .update(updateData)
-        .eq("id", id);
-      if (error) throw error;
+      await community.updateBugStatus(id, newStatus, note);
 
       setBugReports((prev) =>
         prev.map((b) => {
@@ -629,12 +558,7 @@ export const CommunityHub = ({ onBack, isOwner = false }: CommunityHubProps) => 
     setDeletingAllBugs(true);
     try {
       const bugIds = bugReports.map((bug) => bug.id);
-      const { error } = await (supabase as any)
-        .from("bug_reports")
-        .delete()
-        .in("id", bugIds);
-
-      if (error) throw error;
+      await community.deleteBugReports(bugIds);
 
       setBugReports([]);
       setSelectedBugId(null);
