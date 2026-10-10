@@ -50,19 +50,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-const OWNER_EMAILS = new Set(
-  String(import.meta.env.VITE_OWNER_EMAILS ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean),
-);
+import { fetchMyRole } from "@/integrations/supabase/userApi";
 
-const OWNER_USERNAMES = new Set(
-  String(import.meta.env.VITE_OWNER_USERNAMES ?? "")
-    .split(",")
-    .map((value) => value.trim().toLowerCase())
-    .filter(Boolean),
-);
+
 
 function resolveUsername(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null): string {
   if (!user) return "Anonymous";
@@ -89,26 +79,6 @@ function resolveUsername(user: { email?: string | null; user_metadata?: Record<s
   return candidate ? candidate : "Anonymous";
 }
 
-function isOwnerAccount(user: { email?: string | null; user_metadata?: Record<string, unknown> } | null, username: string): boolean {
-  if (!user) return false;
-
-  const role = user.user_metadata?.role;
-  if (typeof role === "string" && role.trim().toLowerCase() === "owner") {
-    return true;
-  }
-
-  const usernameKey = username.trim().toLowerCase();
-  if (usernameKey && OWNER_USERNAMES.has(usernameKey)) {
-    return true;
-  }
-
-  const email = typeof user.email === "string" ? user.email.trim().toLowerCase() : "";
-  if (email && OWNER_EMAILS.has(email)) {
-    return true;
-  }
-
-  return false;
-}
 
 function getMetadataString(user: { user_metadata?: Record<string, unknown> } | null, key: string): string {
   if (!user) return "";
@@ -183,7 +153,13 @@ const Index = () => {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const { user, loading: authLoading, signOut, updateProfile } = useAuth();
   const accountUsername = useMemo(() => resolveUsername(user), [user]);
-  const isOwner = useMemo(() => isOwnerAccount(user, accountUsername), [user, accountUsername]);
+  // Role comes from the database, never from user-editable profile data.
+  const [myRole, setMyRole] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) { setMyRole(null); return; }
+    void fetchMyRole().then(setMyRole);
+  }, [user]);
+  const isOwner = myRole === "Owner" || myRole === "Admin";
   
   const searchInputRef = useRef<HTMLInputElement>(null);
   const saveConfigRef = useRef<(() => void) | null>(null);
