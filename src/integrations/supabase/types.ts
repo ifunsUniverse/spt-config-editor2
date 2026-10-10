@@ -20,32 +20,64 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          resolution_note: string | null
           severity: string
           status: string
           steps_to_reproduce: string | null
           title: string
+          user_id: string | null
         }
         Insert: {
           author_name?: string
           created_at?: string
           description: string
           id?: string
+          resolution_note?: string | null
           severity?: string
           status?: string
           steps_to_reproduce?: string | null
           title: string
+          user_id?: string | null
         }
         Update: {
           author_name?: string
           created_at?: string
           description?: string
           id?: string
+          resolution_note?: string | null
           severity?: string
           status?: string
           steps_to_reproduce?: string | null
           title?: string
+          user_id?: string | null
         }
         Relationships: []
+      }
+      suggestion_votes: {
+        Row: {
+          created_at: string
+          suggestion_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          suggestion_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          suggestion_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "suggestion_votes_suggestion_id_fkey"
+            columns: ["suggestion_id"]
+            isOneToOne: false
+            referencedRelation: "suggestions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       suggestions: {
         Row: {
@@ -54,6 +86,7 @@ export type Database = {
           description: string
           id: string
           title: string
+          user_id: string | null
           votes: number
         }
         Insert: {
@@ -62,6 +95,7 @@ export type Database = {
           description: string
           id?: string
           title: string
+          user_id?: string | null
           votes?: number
         }
         Update: {
@@ -70,7 +104,26 @@ export type Database = {
           description?: string
           id?: string
           title?: string
+          user_id?: string | null
           votes?: number
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
         }
         Relationships: []
       }
@@ -103,10 +156,41 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_delete_user: { Args: { _user_id: string }; Returns: undefined }
+      admin_set_user_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
+      get_my_role: {
+        Args: never
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_disposable_email: { Args: { _email: string }; Returns: boolean }
+      is_staff: { Args: { _user_id: string }; Returns: boolean }
+      list_users: {
+        Args: never
+        Returns: {
+          created_at: string
+          email: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          username: string
+        }[]
+      }
+      upvote_suggestion: { Args: { _suggestion_id: string }; Returns: number }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "Owner" | "Admin" | "Mod" | "User"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -233,6 +317,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["Owner", "Admin", "Mod", "User"],
+    },
   },
 } as const
